@@ -6,6 +6,7 @@ import {
   ChevronLeft, ChevronRight, X, Trash2, ShieldCheck, ShieldOff,
   Calendar, Mail, Phone, Target, TrendingUp, Eye,
   Ruler, Weight, Brain, Moon, Pill, Trophy, BarChart3,
+  Award, Plus, Edit3, ToggleLeft, ToggleRight, ExternalLink, Tag, Percent,
 } from 'lucide-react'
 
 function StatCard({ icon: Icon, label, value, color = 'brand' }) {
@@ -319,8 +320,272 @@ const GOAL_LABELS = {
   endurance: 'Resistencia',
 }
 
+const PARTNER_CATEGORIES = [
+  { value: 'suplementos', label: 'Suplementos' },
+  { value: 'ropa', label: 'Ropa' },
+  { value: 'alimentos', label: 'Alimentos' },
+  { value: 'equipo', label: 'Equipo' },
+  { value: 'servicios', label: 'Servicios' },
+  { value: 'otro', label: 'Otro' },
+]
+
+function PartnerModal({ partner, onClose, onSave }) {
+  const isEdit = !!partner?.id
+  const [form, setForm] = useState({
+    name: partner?.name || '',
+    description: partner?.description || '',
+    discount_text: partner?.discount_text || '',
+    promo_code: partner?.promo_code || '',
+    external_url: partner?.external_url || '',
+    category: partner?.category || 'suplementos',
+    active: partner?.active ?? true,
+  })
+  const [saving, setSaving] = useState(false)
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!form.name.trim() || !form.external_url.trim()) return
+    setSaving(true)
+    try {
+      await onSave(form, partner?.id)
+      onClose()
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Error al guardar')
+    }
+    setSaving(false)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800">
+        <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800">
+          <h2 className="text-lg font-bold">{isEdit ? 'Editar Partner' : 'Nuevo Partner'}</h2>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"><X size={20} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-4 space-y-3">
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Nombre *</label>
+            <input className="input w-full" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Nombre del partner" required />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Descripción</label>
+            <input className="input w-full" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Descripción breve" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Texto Descuento</label>
+              <input className="input w-full" value={form.discount_text} onChange={(e) => setForm({ ...form, discount_text: e.target.value })} placeholder="15% de descuento" />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Código Promo</label>
+              <input className="input w-full" value={form.promo_code} onChange={(e) => setForm({ ...form, promo_code: e.target.value })} placeholder="JOSSFIT15" />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">URL Externa *</label>
+            <input className="input w-full" value={form.external_url} onChange={(e) => setForm({ ...form, external_url: e.target.value })} placeholder="https://..." required />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Categoría</label>
+              <select className="input w-full" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
+                {PARTNER_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+              </select>
+            </div>
+            <div className="flex items-end pb-1">
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, active: !form.active })}
+                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
+                  form.active ? 'bg-green-50 dark:bg-green-500/10 text-green-600' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'
+                }`}
+              >
+                {form.active ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
+                {form.active ? 'Activo' : 'Inactivo'}
+              </button>
+            </div>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancelar</button>
+            <button type="submit" className="btn-primary flex-1" disabled={saving}>
+              {saving ? 'Guardando...' : isEdit ? 'Actualizar' : 'Crear'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function PartnersSection() {
+  const [partners, setPartners] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [showModal, setShowModal] = useState(false)
+  const [editPartner, setEditPartner] = useState(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null)
+
+  const fetchPartners = async () => {
+    try {
+      const res = await api.get('/admin/partners')
+      setPartners(res.data)
+    } catch (err) {
+      console.error('Partners error:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { fetchPartners() }, [])
+
+  const handleSave = async (form, id) => {
+    if (id) {
+      await api.put(`/admin/partners/${id}`, form)
+    } else {
+      await api.post('/admin/partners', form)
+    }
+    fetchPartners()
+  }
+
+  const handleDelete = async (id) => {
+    try {
+      await api.delete(`/admin/partners/${id}`)
+      setConfirmDeleteId(null)
+      fetchPartners()
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Error al eliminar')
+    }
+  }
+
+  const toggleActive = async (partner) => {
+    try {
+      await api.put(`/admin/partners/${partner.id}`, {
+        ...partner,
+        active: !partner.active,
+      })
+      fetchPartners()
+    } catch (err) {
+      alert('Error al cambiar estado')
+    }
+  }
+
+  if (loading) return (
+    <div className="flex justify-center py-12">
+      <div className="animate-spin w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full" />
+    </div>
+  )
+
+  const categoryLabel = (cat) => PARTNER_CATEGORIES.find(c => c.value === cat)?.label || cat
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-gray-500">{partners.length} partners registrados</p>
+        <button
+          onClick={() => { setEditPartner(null); setShowModal(true) }}
+          className="btn-primary flex items-center gap-2 text-sm"
+        >
+          <Plus size={16} /> Agregar Partner
+        </button>
+      </div>
+
+      {partners.length === 0 ? (
+        <div className="text-center py-12 text-gray-400">
+          <Award size={40} className="mx-auto mb-3 opacity-40" />
+          <p className="font-medium">Sin partners</p>
+          <p className="text-sm">Agrega tu primer partner para mostrar en Beneficios</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {partners.map((p) => (
+            <div key={p.id} className="card flex items-center gap-4">
+              {/* Partner Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <h4 className="font-semibold text-sm truncate">{p.name}</h4>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                    p.active ? 'bg-green-50 dark:bg-green-500/10 text-green-600' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'
+                  }`}>
+                    {p.active ? 'Activo' : 'Inactivo'}
+                  </span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-brand-50 dark:bg-brand-500/10 text-brand-500 font-medium">
+                    {categoryLabel(p.category)}
+                  </span>
+                </div>
+                {p.description && <p className="text-xs text-gray-500 truncate">{p.description}</p>}
+                <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-400">
+                  {p.promo_code && (
+                    <span className="flex items-center gap-1"><Tag size={12} /> {p.promo_code}</span>
+                  )}
+                  {p.discount_text && (
+                    <span className="flex items-center gap-1"><Percent size={12} /> {p.discount_text}</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => toggleActive(p)}
+                  className={`p-2 rounded-lg transition-colors ${
+                    p.active ? 'text-green-500 hover:bg-green-50 dark:hover:bg-green-500/10' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                  }`}
+                  title={p.active ? 'Desactivar' : 'Activar'}
+                >
+                  {p.active ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
+                </button>
+                <a
+                  href={p.external_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 rounded-lg text-gray-400 hover:text-brand-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  title="Ver sitio"
+                >
+                  <ExternalLink size={16} />
+                </a>
+                <button
+                  onClick={() => { setEditPartner(p); setShowModal(true) }}
+                  className="p-2 rounded-lg text-gray-400 hover:text-brand-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  title="Editar"
+                >
+                  <Edit3 size={16} />
+                </button>
+                {confirmDeleteId === p.id ? (
+                  <button
+                    onClick={() => handleDelete(p.id)}
+                    className="p-2 rounded-lg text-white bg-red-500 hover:bg-red-600 transition-colors text-xs font-medium"
+                    title="Confirmar eliminar"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setConfirmDeleteId(p.id)}
+                    className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                    title="Eliminar"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showModal && (
+        <PartnerModal
+          partner={editPartner}
+          onClose={() => { setShowModal(false); setEditPartner(null) }}
+          onSave={handleSave}
+        />
+      )}
+    </div>
+  )
+}
+
 export default function Admin() {
   const { user } = useAuth()
+  const [mainTab, setMainTab] = useState('users')
   const [stats, setStats] = useState(null)
   const [users, setUsers] = useState([])
   const [pagination, setPagination] = useState({ page: 1, total: 0, total_pages: 1, per_page: 20 })
@@ -405,8 +670,31 @@ export default function Admin() {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      {stats && (
+      {/* Main Tabs */}
+      <div className="flex gap-2 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl p-1">
+        {[
+          { id: 'users', label: 'Usuarios', icon: Users },
+          { id: 'partners', label: 'Partners', icon: Award },
+        ].map(({ id, label, icon: TabIcon }) => (
+          <button
+            key={id}
+            onClick={() => setMainTab(id)}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              mainTab === id
+                ? 'bg-brand-500 text-white'
+                : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800'
+            }`}
+          >
+            <TabIcon size={16} /> {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Partners Tab */}
+      {mainTab === 'partners' && <PartnersSection />}
+
+      {/* Users Tab */}
+      {mainTab === 'users' && stats && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <StatCard icon={Users} label="Total Usuarios" value={stats.total_users} color="brand" />
           <StatCard icon={Activity} label="Activos Hoy" value={stats.active_users_today} color="green" />
@@ -418,7 +706,7 @@ export default function Admin() {
       )}
 
       {/* Distributions */}
-      {stats && (
+      {mainTab === 'users' && stats && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="card p-4">
             <h3 className="text-sm font-semibold mb-2">Nivel de Entrenamiento</h3>
@@ -451,7 +739,7 @@ export default function Admin() {
       )}
 
       {/* Users Section */}
-      <div className="card">
+      {mainTab === 'users' && <div className="card">
         <div className="p-4 border-b border-gray-100 dark:border-gray-800">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
@@ -571,7 +859,7 @@ export default function Admin() {
             </button>
           </div>
         )}
-      </div>
+      </div>}
 
       {/* User Detail Modal */}
       {selectedUserId && (

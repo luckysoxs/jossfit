@@ -6,7 +6,7 @@ import StatCard from '../components/ui/StatCard'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import {
   Dumbbell, Flame, Timer, TrendingUp, Heart, Moon, Scale, Zap,
-  ChevronRight, Target, ShoppingBag, Award,
+  ChevronRight, Target, HeartPulse, Award,
 } from 'lucide-react'
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -30,10 +30,12 @@ export default function Dashboard() {
   const d = data || {}
 
   const quickLinks = [
-    { to: '/workouts', icon: Dumbbell, label: 'Nuevo Entreno', color: 'bg-brand-500' },
-    { to: '/routines/generate', icon: Zap, label: 'Generar Rutina', color: 'bg-purple-500' },
+    d.active_routine_id
+      ? { to: `/routines/${d.active_routine_id}`, icon: Dumbbell, label: 'Mi Rutina', color: 'bg-brand-500' }
+      : { to: '/routines/generate', icon: Dumbbell, label: 'Crear Rutina', color: 'bg-brand-500' },
+    { to: '/cardio', icon: HeartPulse, label: 'Cardio', color: 'bg-red-500' },
     { to: '/goals', icon: Target, label: 'Objetivos', color: 'bg-green-500' },
-    { to: '/store', icon: ShoppingBag, label: 'Tienda', color: 'bg-blue-500' },
+    { to: '/benefits', icon: Award, label: 'Beneficios', color: 'bg-purple-500' },
   ]
 
   return (

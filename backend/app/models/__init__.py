@@ -10,9 +10,11 @@ from app.models.goal import Goal
 from app.models.one_rep_max import OneRepMax
 from app.models.partner_brand import PartnerBrand
 from app.models.progression import ProgressionLog
+from app.models.cardio_session import CardioSession
 
 __all__ = [
     "User", "Exercise", "Routine", "RoutineDay", "RoutineExercise",
     "Workout", "WorkoutSet", "BodyMetric", "NutritionLog", "SleepLog",
     "Supplement", "Goal", "OneRepMax", "PartnerBrand", "ProgressionLog",
+    "CardioSession",
 ]

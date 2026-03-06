@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -33,6 +33,10 @@ def generate_smart_routine(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    existing = db.query(Routine).filter(Routine.user_id == user.id).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="Ya tienes una rutina activa. Elimínala primero.")
+
     routine_data = generate_routine(
         db=db,
         objective=req.objective,

@@ -21,3 +21,5 @@ class DashboardSummary(BaseModel):
     avg_sleep_quality: float | None
     avg_sleep_hours: float | None
     recovery_score: int  # 0-100
+    active_routine_id: int | None = None
+    active_routine_name: str | None = None

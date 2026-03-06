@@ -15,6 +15,7 @@ class UserCreate(BaseModel):
     fitness_goal: str | None = None
     phone: str | None = None
     country_code: str = "+52"
+    accent_color: str = "blue"
 
 
 class UserLogin(BaseModel):
@@ -32,6 +33,7 @@ class UserUpdate(BaseModel):
     theme_preference: str | None = None
     phone: str | None = None
     country_code: str | None = None
+    accent_color: str | None = None
 
 
 class UserResponse(BaseModel):
@@ -48,6 +50,7 @@ class UserResponse(BaseModel):
     country_code: str = "+52"
     is_admin: bool = False
     theme_preference: str
+    accent_color: str = "blue"
     created_at: datetime
 
     model_config = {"from_attributes": True}

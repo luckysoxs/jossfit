@@ -16,6 +16,10 @@ def create_routine(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    existing = db.query(Routine).filter(Routine.user_id == user.id).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="Ya tienes una rutina activa. Elimínala primero.")
+
     routine = Routine(
         user_id=user.id,
         name=data.name,

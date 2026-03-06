@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import api from '../services/api'
+import { applyAccentColor } from '../data/accentColors'
 
 const AuthContext = createContext(null)
 
@@ -10,7 +11,13 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const stored = localStorage.getItem('user')
     if (stored) {
-      setUser(JSON.parse(stored))
+      const storedUser = JSON.parse(stored)
+      setUser(storedUser)
+      const savedColor = storedUser?.accent_color || localStorage.getItem('accent_color') || 'blue'
+      applyAccentColor(savedColor)
+    } else {
+      const savedColor = localStorage.getItem('accent_color') || 'blue'
+      applyAccentColor(savedColor)
     }
     setLoading(false)
   }, [])
@@ -20,6 +27,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem('token', data.access_token)
     localStorage.setItem('user', JSON.stringify(data.user))
     setUser(data.user)
+    applyAccentColor(data.user.accent_color || 'blue')
     return data.user
   }
 
@@ -28,6 +36,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem('token', data.access_token)
     localStorage.setItem('user', JSON.stringify(data.user))
     setUser(data.user)
+    applyAccentColor(data.user.accent_color || 'blue')
     return data.user
   }
 
@@ -52,3 +61,4 @@ export function AuthProvider({ children }) {
 }
 
 export const useAuth = () => useContext(AuthContext)
+export { applyAccentColor }

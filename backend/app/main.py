@@ -25,6 +25,7 @@ from app.routers import (
     store,
     benefits,
     admin,
+    cardio,
 )
 
 
@@ -34,6 +35,7 @@ def run_migrations():
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20)",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS country_code VARCHAR(5) DEFAULT '+52'",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS accent_color VARCHAR(20) DEFAULT 'blue'",
     ]
     with engine.connect() as conn:
         for sql in migrations:
@@ -86,6 +88,7 @@ app.include_router(dashboard.router)
 app.include_router(store.router)
 app.include_router(benefits.router)
 app.include_router(admin.router)
+app.include_router(cardio.router)
 
 
 @app.get("/health")

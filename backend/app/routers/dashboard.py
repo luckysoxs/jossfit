@@ -11,6 +11,7 @@ from app.models.body_metric import BodyMetric
 from app.models.sleep import SleepLog
 from app.models.one_rep_max import OneRepMax
 from app.models.exercise import Exercise
+from app.models.routine import Routine
 from app.schemas.dashboard import DashboardSummary, StrengthProgress
 from app.services.algorithms import calculate_weekly_volume, detect_overtraining
 from app.auth.security import get_current_user
@@ -142,6 +143,8 @@ def get_summary(
         recovery_base += 10
     recovery_score = min(recovery_base, 100)
 
+    active_routine = db.query(Routine).filter(Routine.user_id == user.id).first()
+
     return DashboardSummary(
         total_workouts=total_workouts,
         workouts_this_week=workouts_this_week,
@@ -157,4 +160,6 @@ def get_summary(
         avg_sleep_quality=round(avg_sleep_quality, 1) if avg_sleep_quality else None,
         avg_sleep_hours=round(avg_sleep_hours, 1) if avg_sleep_hours else None,
         recovery_score=recovery_score,
+        active_routine_id=active_routine.id if active_routine else None,
+        active_routine_name=active_routine.name if active_routine else None,
     )

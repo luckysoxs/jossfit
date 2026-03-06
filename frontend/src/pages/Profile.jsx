@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
-import { User, LogOut, Sun, Moon, Save, Mail, Ruler, Weight, Calendar } from 'lucide-react'
+import { User, LogOut, Sun, Moon, Save, Mail, Ruler, Weight, Calendar, CheckCircle, Palette } from 'lucide-react'
+import { ACCENT_COLORS, applyAccentColor } from '../data/accentColors'
 
 export default function Profile() {
   const { user, updateUser, logout } = useAuth()
@@ -15,6 +16,7 @@ export default function Profile() {
     weight_kg: user?.weight_kg || '',
     training_level: user?.training_level || 'beginner',
     fitness_goal: user?.fitness_goal || '',
+    accent_color: user?.accent_color || 'blue',
   })
 
   const save = async () => {
@@ -63,6 +65,34 @@ export default function Profile() {
             theme === 'dark' ? 'translate-x-7' : 'translate-x-0.5'
           }`} />
         </button>
+      </div>
+
+      {/* Accent Color */}
+      <div className="card">
+        <div className="flex items-center gap-3 mb-3">
+          <Palette size={20} />
+          <span className="font-medium">Color de la App</span>
+        </div>
+        <div className="flex gap-3 flex-wrap">
+          {Object.entries(ACCENT_COLORS).map(([name, palette]) => (
+            <button
+              key={name}
+              onClick={async () => {
+                applyAccentColor(name)
+                setForm({ ...form, accent_color: name })
+                try {
+                  await updateUser({ accent_color: name })
+                } catch {}
+              }}
+              className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                (user?.accent_color || 'blue') === name ? 'ring-2 ring-offset-2 ring-offset-gray-950 ring-white scale-110' : 'opacity-60 hover:opacity-100'
+              }`}
+              style={{ backgroundColor: palette[500] }}
+            >
+              {(user?.accent_color || 'blue') === name && <CheckCircle size={16} className="text-white" />}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Stats */}

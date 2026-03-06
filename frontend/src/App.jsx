@@ -19,6 +19,7 @@ import Supplements from './pages/Supplements'
 import Goals from './pages/Goals'
 import Store from './pages/Store'
 import Benefits from './pages/Benefits'
+import Cardio from './pages/Cardio'
 import Profile from './pages/Profile'
 import Admin from './pages/Admin'
 
@@ -57,6 +58,7 @@ export default function App() {
       <Route path="/goals" element={<ProtectedRoute><Goals /></ProtectedRoute>} />
       <Route path="/store" element={<ProtectedRoute><Store /></ProtectedRoute>} />
       <Route path="/benefits" element={<ProtectedRoute><Benefits /></ProtectedRoute>} />
+      <Route path="/cardio" element={<ProtectedRoute><Cardio /></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
 

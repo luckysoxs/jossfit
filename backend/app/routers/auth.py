@@ -26,6 +26,7 @@ def register(data: UserCreate, db: Session = Depends(get_db)):
         fitness_goal=data.fitness_goal,
         phone=data.phone,
         country_code=data.country_code,
+        accent_color=data.accent_color,
     )
     db.add(user)
     db.commit()

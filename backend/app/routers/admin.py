@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func as sqlfunc, or_, desc, asc
 
+from pydantic import BaseModel as PydanticBase
+
 from app.database import get_db
 from app.models.user import User
 from app.models.workout import Workout, WorkoutSet
@@ -23,7 +25,30 @@ from app.schemas.admin import (
     GlobalStats,
 )
 from app.schemas.user import UserResponse
+from app.models.partner_brand import PartnerBrand
 from app.auth.security import get_admin_user
+
+
+class PartnerBrandCreate(PydanticBase):
+    name: str
+    description: str | None = None
+    discount_text: str | None = None
+    promo_code: str | None = None
+    external_url: str
+    category: str
+    active: bool = True
+
+class PartnerBrandResponse(PydanticBase):
+    id: int
+    name: str
+    logo_url: str | None = None
+    description: str | None = None
+    discount_text: str | None = None
+    promo_code: str | None = None
+    external_url: str
+    category: str
+    active: bool
+    model_config = {"from_attributes": True}
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -319,3 +344,36 @@ def delete_user(
     db.delete(user)
     db.commit()
     return {"detail": f"User {user.name} deleted successfully"}
+
+
+# ─── Partner CRUD ──────────────────────────────────────────────────
+@router.get("/partners", response_model=list[PartnerBrandResponse])
+def list_partners(admin: User = Depends(get_admin_user), db: Session = Depends(get_db)):
+    return db.query(PartnerBrand).order_by(PartnerBrand.name).all()
+
+@router.post("/partners", response_model=PartnerBrandResponse, status_code=201)
+def create_partner(data: PartnerBrandCreate, admin: User = Depends(get_admin_user), db: Session = Depends(get_db)):
+    partner = PartnerBrand(**data.model_dump())
+    db.add(partner)
+    db.commit()
+    db.refresh(partner)
+    return partner
+
+@router.put("/partners/{partner_id}", response_model=PartnerBrandResponse)
+def update_partner(partner_id: int, data: PartnerBrandCreate, admin: User = Depends(get_admin_user), db: Session = Depends(get_db)):
+    partner = db.query(PartnerBrand).filter(PartnerBrand.id == partner_id).first()
+    if not partner:
+        raise HTTPException(status_code=404, detail="Partner no encontrado")
+    for key, val in data.model_dump().items():
+        setattr(partner, key, val)
+    db.commit()
+    db.refresh(partner)
+    return partner
+
+@router.delete("/partners/{partner_id}", status_code=204)
+def delete_partner(partner_id: int, admin: User = Depends(get_admin_user), db: Session = Depends(get_db)):
+    partner = db.query(PartnerBrand).filter(PartnerBrand.id == partner_id).first()
+    if not partner:
+        raise HTTPException(status_code=404, detail="Partner no encontrado")
+    db.delete(partner)
+    db.commit()

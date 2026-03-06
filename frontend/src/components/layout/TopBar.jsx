@@ -10,10 +10,10 @@ export default function TopBar() {
   return (
     <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg border-b border-gray-100 dark:border-gray-800 transition-colors duration-300">
       <div className="flex items-center justify-between px-4 h-14 max-w-7xl mx-auto">
-        <div className="flex items-center gap-2">
+        <Link to="/" className="flex items-center gap-2">
           <Flame size={24} className="text-brand-500" />
           <span className="text-lg font-bold tracking-tight">Fitness Jos</span>
-        </div>
+        </Link>
         <div className="flex items-center gap-3">
           {user?.is_admin && (
             <Link

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { Flame, ArrowLeft, ArrowRight, CheckCircle, Eye, EyeOff } from 'lucide-react'
+import { ACCENT_COLORS } from '../data/accentColors'
 
 const COUNTRY_CODES = [
   { code: '+52', label: '🇲🇽 MX +52' },
@@ -20,7 +21,7 @@ export default function Register() {
     email: '', password: '', name: '', age: '',
     sex: 'male', height_cm: '', weight_kg: '',
     training_level: 'beginner', fitness_goal: 'hypertrophy',
-    phone: '', country_code: '+52',
+    phone: '', country_code: '+52', accent_color: 'blue',
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -182,6 +183,24 @@ export default function Register() {
 
           {step === 3 && (
             <>
+              <div>
+                <label className="label">Color de la app</label>
+                <div className="flex gap-3 flex-wrap justify-center py-2">
+                  {Object.entries(ACCENT_COLORS).map(([name, palette]) => (
+                    <button
+                      key={name}
+                      type="button"
+                      onClick={() => setForm({ ...form, accent_color: name })}
+                      className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                        form.accent_color === name ? 'ring-2 ring-offset-2 ring-offset-gray-950 ring-white scale-110' : 'opacity-70 hover:opacity-100'
+                      }`}
+                      style={{ backgroundColor: palette[500] }}
+                    >
+                      {form.accent_color === name && <CheckCircle size={18} className="text-white" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div>
                 <label className="label">Nivel de entrenamiento</label>
                 <select className="input" value={form.training_level} onChange={set('training_level')}>
