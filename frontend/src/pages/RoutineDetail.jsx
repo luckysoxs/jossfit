@@ -32,7 +32,7 @@ export default function RoutineDetail() {
   useEffect(() => {
     Promise.all([
       api.get(`/routines/${id}`),
-      api.get('/workouts/personal-bests'),
+      api.get('/workouts/personal-bests').catch(() => ({ data: [] })),
     ]).then(([r, pb]) => {
       setRoutine(r.data)
       const bests = {}

@@ -115,6 +115,55 @@ def workout_history(
     )
 
 
+@router.get("/personal-bests")
+def get_personal_bests(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Return the heaviest set (max weight_kg) per exercise for the user."""
+    from sqlalchemy import and_
+
+    # Subquery: max weight per exercise
+    max_weight_sub = (
+        db.query(
+            WorkoutSet.exercise_id,
+            sqlfunc.max(WorkoutSet.weight_kg).label("max_weight"),
+        )
+        .join(Workout, Workout.id == WorkoutSet.workout_id)
+        .filter(Workout.user_id == user.id, WorkoutSet.completed == True)
+        .group_by(WorkoutSet.exercise_id)
+        .subquery()
+    )
+
+    # Get the actual set row for each exercise at max weight (pick highest reps if tie)
+    results = (
+        db.query(
+            WorkoutSet.exercise_id,
+            WorkoutSet.weight_kg,
+            WorkoutSet.reps,
+        )
+        .join(Workout, Workout.id == WorkoutSet.workout_id)
+        .join(
+            max_weight_sub,
+            and_(
+                WorkoutSet.exercise_id == max_weight_sub.c.exercise_id,
+                WorkoutSet.weight_kg == max_weight_sub.c.max_weight,
+            ),
+        )
+        .filter(Workout.user_id == user.id, WorkoutSet.completed == True)
+        .order_by(WorkoutSet.exercise_id, WorkoutSet.reps.desc())
+        .all()
+    )
+
+    # Deduplicate: keep first (highest reps) per exercise
+    bests = {}
+    for exercise_id, weight_kg, reps in results:
+        if exercise_id not in bests:
+            bests[exercise_id] = {"exercise_id": exercise_id, "weight_kg": weight_kg, "reps": reps}
+
+    return list(bests.values())
+
+
 @router.get("/{workout_id}", response_model=WorkoutResponse)
 def get_workout(
     workout_id: int,
@@ -198,55 +247,6 @@ def log_quick_set(
 
     db.commit()
     return {"exercise_id": exercise_id, "weight_kg": weight_kg, "reps": reps, "saved": True}
-
-
-@router.get("/personal-bests")
-def get_personal_bests(
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """Return the heaviest set (max weight_kg) per exercise for the user."""
-    from sqlalchemy import and_
-
-    # Subquery: max weight per exercise
-    max_weight_sub = (
-        db.query(
-            WorkoutSet.exercise_id,
-            sqlfunc.max(WorkoutSet.weight_kg).label("max_weight"),
-        )
-        .join(Workout, Workout.id == WorkoutSet.workout_id)
-        .filter(Workout.user_id == user.id, WorkoutSet.completed == True)
-        .group_by(WorkoutSet.exercise_id)
-        .subquery()
-    )
-
-    # Get the actual set row for each exercise at max weight (pick highest reps if tie)
-    results = (
-        db.query(
-            WorkoutSet.exercise_id,
-            WorkoutSet.weight_kg,
-            WorkoutSet.reps,
-        )
-        .join(Workout, Workout.id == WorkoutSet.workout_id)
-        .join(
-            max_weight_sub,
-            and_(
-                WorkoutSet.exercise_id == max_weight_sub.c.exercise_id,
-                WorkoutSet.weight_kg == max_weight_sub.c.max_weight,
-            ),
-        )
-        .filter(Workout.user_id == user.id, WorkoutSet.completed == True)
-        .order_by(WorkoutSet.exercise_id, WorkoutSet.reps.desc())
-        .all()
-    )
-
-    # Deduplicate: keep first (highest reps) per exercise
-    bests = {}
-    for exercise_id, weight_kg, reps in results:
-        if exercise_id not in bests:
-            bests[exercise_id] = {"exercise_id": exercise_id, "weight_kg": weight_kg, "reps": reps}
-
-    return list(bests.values())
 
 
 def _load_workout(db: Session, workout_id: int) -> Workout | None:
