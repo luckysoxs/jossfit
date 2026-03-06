@@ -67,7 +67,7 @@ export default function BodyMetrics() {
               <XAxis dataKey="date" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 11 }} />
               <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '12px', color: '#fff' }} />
-              <Line type="monotone" dataKey="peso" stroke="#f97316" strokeWidth={2} name="Peso" />
+              <Line type="monotone" dataKey="peso" stroke="#3b82f6" strokeWidth={2} name="Peso" />
               {chartData.some(d => d.grasa) && <Line type="monotone" dataKey="grasa" stroke="#ef4444" strokeWidth={2} name="Grasa %" />}
             </LineChart>
           </ResponsiveContainer>

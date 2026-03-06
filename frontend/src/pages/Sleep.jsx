@@ -64,7 +64,7 @@ export default function Sleep() {
               <YAxis tick={{ fontSize: 11 }} />
               <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '12px', color: '#fff' }} />
               <Line type="monotone" dataKey="hours" stroke="#8b5cf6" strokeWidth={2} name="Horas" />
-              <Line type="monotone" dataKey="quality" stroke="#f97316" strokeWidth={2} name="Calidad" />
+              <Line type="monotone" dataKey="quality" stroke="#3b82f6" strokeWidth={2} name="Calidad" />
             </LineChart>
           </ResponsiveContainer>
         </div>
