@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func as sqlfunc, or_, desc, asc
 
 from pydantic import BaseModel as PydanticBase
+from typing import Optional
 
 from app.database import get_db
 from app.models.user import User
@@ -377,3 +378,68 @@ def delete_partner(partner_id: int, admin: User = Depends(get_admin_user), db: S
         raise HTTPException(status_code=404, detail="Partner no encontrado")
     db.delete(partner)
     db.commit()
+
+
+# ─── Push Notifications ──────────────────────────────────────────
+
+class PushNotificationSend(PydanticBase):
+    title: str
+    body: str
+    url: str = "/"
+    user_id: Optional[int] = None  # None = send to all
+
+
+@router.post("/notifications/send")
+def send_push_notification(
+    data: PushNotificationSend,
+    admin: User = Depends(get_admin_user),
+    db: Session = Depends(get_db),
+):
+    """Send a push notification to a specific user or all subscribed users."""
+    from app.services.push_service import send_push_to_user, send_push_to_all
+
+    if data.user_id:
+        sent = send_push_to_user(db, data.user_id, data.title, data.body, data.url)
+    else:
+        sent = send_push_to_all(db, data.title, data.body, data.url)
+
+    return {"sent": sent}
+
+
+@router.post("/notifications/daily-reminder")
+def send_daily_reminder(
+    admin: User = Depends(get_admin_user),
+    db: Session = Depends(get_db),
+):
+    """Send a reminder push to users who haven't trained today."""
+    from app.services.push_service import send_push_to_user
+    from app.models.push_subscription import PushSubscription
+
+    today = date.today()
+
+    # Users who trained today
+    trained_today = (
+        db.query(Workout.user_id)
+        .filter(Workout.date == today)
+        .distinct()
+        .subquery()
+    )
+
+    # Subscribed users who have NOT trained today
+    subs = (
+        db.query(PushSubscription.user_id)
+        .filter(~PushSubscription.user_id.in_(db.query(trained_today.c.user_id)))
+        .distinct()
+        .all()
+    )
+
+    sent = 0
+    for (uid,) in subs:
+        sent += send_push_to_user(
+            db, uid,
+            "No te olvides de entrenar hoy! 💪",
+            "Tu cuerpo te lo va a agradecer. Abre la app y registra tu entreno.",
+            "/workouts/log",
+        )
+
+    return {"reminded": len(subs), "sent": sent}

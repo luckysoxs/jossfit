@@ -7,6 +7,7 @@ import {
   Calendar, Mail, Phone, Target, TrendingUp, Eye,
   Ruler, Weight, Brain, Moon, Pill, Trophy, BarChart3,
   Award, Plus, Edit3, ToggleLeft, ToggleRight, ExternalLink, Tag, Percent,
+  Bell, Send,
 } from 'lucide-react'
 
 function StatCard({ icon: Icon, label, value, color = 'brand' }) {
@@ -583,6 +584,120 @@ function PartnersSection() {
   )
 }
 
+function NotificationsSection() {
+  const [form, setForm] = useState({ title: '', body: '', url: '/' })
+  const [sending, setSending] = useState(false)
+  const [result, setResult] = useState(null)
+  const [sendingReminder, setSendingReminder] = useState(false)
+  const [reminderResult, setReminderResult] = useState(null)
+
+  const handleSend = async (e) => {
+    e.preventDefault()
+    if (!form.title.trim() || !form.body.trim()) return
+    setSending(true)
+    setResult(null)
+    try {
+      const res = await api.post('/admin/notifications/send', form)
+      setResult({ ok: true, sent: res.data.sent })
+      setForm({ title: '', body: '', url: '/' })
+    } catch (err) {
+      setResult({ ok: false, msg: err.response?.data?.detail || 'Error al enviar' })
+    }
+    setSending(false)
+  }
+
+  const handleDailyReminder = async () => {
+    setSendingReminder(true)
+    setReminderResult(null)
+    try {
+      const res = await api.post('/admin/notifications/daily-reminder')
+      setReminderResult({ ok: true, reminded: res.data.reminded, sent: res.data.sent })
+    } catch (err) {
+      setReminderResult({ ok: false, msg: err.response?.data?.detail || 'Error' })
+    }
+    setSendingReminder(false)
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Manual Push Sender */}
+      <div className="card p-5">
+        <h3 className="font-semibold flex items-center gap-2 mb-4">
+          <Send size={18} /> Enviar Notificación Push
+        </h3>
+        <form onSubmit={handleSend} className="space-y-3">
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Título *</label>
+            <input
+              className="input w-full"
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+              placeholder="Ej: Nueva función disponible!"
+              required
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Mensaje *</label>
+            <textarea
+              className="input w-full"
+              rows={3}
+              value={form.body}
+              onChange={(e) => setForm({ ...form, body: e.target.value })}
+              placeholder="Ej: Ya puedes crear rutinas manuales. Pruébalo ahora!"
+              required
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">URL de destino</label>
+            <input
+              className="input w-full"
+              value={form.url}
+              onChange={(e) => setForm({ ...form, url: e.target.value })}
+              placeholder="/"
+            />
+          </div>
+          <button
+            type="submit"
+            className="btn-primary w-full flex items-center justify-center gap-2"
+            disabled={sending}
+          >
+            <Send size={16} /> {sending ? 'Enviando...' : 'Enviar a todos'}
+          </button>
+          {result && (
+            <p className={`text-sm text-center ${result.ok ? 'text-green-500' : 'text-red-500'}`}>
+              {result.ok ? `Enviado a ${result.sent} dispositivos` : result.msg}
+            </p>
+          )}
+        </form>
+      </div>
+
+      {/* Daily Reminder */}
+      <div className="card p-5">
+        <h3 className="font-semibold flex items-center gap-2 mb-2">
+          <Bell size={18} /> Recordatorio Diario
+        </h3>
+        <p className="text-sm text-gray-500 mb-4">
+          Envía un push a usuarios que no han entrenado hoy.
+        </p>
+        <button
+          onClick={handleDailyReminder}
+          className="btn-primary w-full flex items-center justify-center gap-2"
+          disabled={sendingReminder}
+        >
+          <Bell size={16} /> {sendingReminder ? 'Enviando...' : 'Enviar recordatorio'}
+        </button>
+        {reminderResult && (
+          <p className={`text-sm text-center mt-2 ${reminderResult.ok ? 'text-green-500' : 'text-red-500'}`}>
+            {reminderResult.ok
+              ? `${reminderResult.reminded} usuarios recordados (${reminderResult.sent} pushes enviados)`
+              : reminderResult.msg}
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function Admin() {
   const { user } = useAuth()
   const [mainTab, setMainTab] = useState('users')
@@ -675,6 +790,7 @@ export default function Admin() {
         {[
           { id: 'users', label: 'Usuarios', icon: Users },
           { id: 'partners', label: 'Partners', icon: Award },
+          { id: 'notifications', label: 'Push', icon: Bell },
         ].map(({ id, label, icon: TabIcon }) => (
           <button
             key={id}
@@ -692,6 +808,9 @@ export default function Admin() {
 
       {/* Partners Tab */}
       {mainTab === 'partners' && <PartnersSection />}
+
+      {/* Notifications Tab */}
+      {mainTab === 'notifications' && <NotificationsSection />}
 
       {/* Users Tab */}
       {mainTab === 'users' && stats && (

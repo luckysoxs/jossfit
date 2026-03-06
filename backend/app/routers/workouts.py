@@ -1,7 +1,8 @@
-from datetime import date
+from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func as sqlfunc
 
 from app.database import get_db
 from app.models.user import User
@@ -62,6 +63,37 @@ def log_workout(
             db.add(orm)
 
     db.commit()
+
+    # Send push notification after logging workout
+    try:
+        from app.services.push_service import send_push_to_user
+
+        total = db.query(sqlfunc.count(Workout.id)).filter(Workout.user_id == user.id).scalar() or 0
+
+        # Count consecutive days streak
+        streak = 0
+        check_date = data.date
+        while True:
+            has = db.query(Workout.id).filter(
+                Workout.user_id == user.id, Workout.date == check_date
+            ).first()
+            if has:
+                streak += 1
+                check_date -= timedelta(days=1)
+            else:
+                break
+
+        if streak > 1:
+            title = f"Racha de {streak} dias! 🔥"
+            body = f"Llevas {streak} dias seguidos entrenando. No pares!"
+        else:
+            title = "Entreno registrado! 💪"
+            body = f"Llevas {total} entrenamientos en total. Sigue asi!"
+
+        send_push_to_user(db, user.id, title, body, "/")
+    except Exception:
+        pass  # Don't fail the workout if push fails
+
     return _load_workout(db, workout.id)
 
 
