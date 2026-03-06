@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import OneRMCalculator from '../components/routines/OneRMCalculator'
-import { ArrowLeft, Play, Check, ChevronRight, Calculator, RefreshCw, X, Zap, Trash2, Plus, Trophy } from 'lucide-react'
+import { ArrowLeft, Play, Check, ChevronRight, Calculator, RefreshCw, X, Zap, Trash2, Plus, Trophy, Dumbbell } from 'lucide-react'
 
 export default function RoutineDetail() {
   const { id } = useParams()
@@ -19,6 +19,12 @@ export default function RoutineDetail() {
   const [addingToDay, setAddingToDay] = useState(null)
   const [personalBests, setPersonalBests] = useState({})
 
+  // Quick-set popup state
+  const [quickSetExercise, setQuickSetExercise] = useState(null) // { routineExId, exerciseId, name }
+  const [quickSetForm, setQuickSetForm] = useState({ weight_kg: '', reps: '' })
+  const [quickSetSaving, setQuickSetSaving] = useState(false)
+  const [quickSetNewPR, setQuickSetNewPR] = useState(false)
+
   const todayKey = `routine_progress_${id}_${new Date().toISOString().split('T')[0]}`
 
   useEffect(() => {
@@ -27,7 +33,6 @@ export default function RoutineDetail() {
       api.get('/workouts/personal-bests'),
     ]).then(([r, pb]) => {
       setRoutine(r.data)
-      // Index by exercise_id for quick lookup
       const bests = {}
       pb.data.forEach(b => { bests[b.exercise_id] = b })
       setPersonalBests(bests)
@@ -39,6 +44,70 @@ export default function RoutineDetail() {
     const saved = localStorage.getItem(todayKey)
     if (saved) setChecked(JSON.parse(saved))
   }, [todayKey])
+
+  const handleExerciseCheck = (routineExId, exerciseId, exerciseName) => {
+    if (checked[routineExId]) {
+      // Uncheck — just toggle off
+      const next = { ...checked, [routineExId]: false }
+      setChecked(next)
+      localStorage.setItem(todayKey, JSON.stringify(next))
+    } else {
+      // Check — open popup to ask for top set
+      const prev = personalBests[exerciseId]
+      setQuickSetExercise({ routineExId, exerciseId, name: exerciseName })
+      setQuickSetForm({ weight_kg: prev?.weight_kg?.toString() || '', reps: prev?.reps?.toString() || '' })
+      setQuickSetNewPR(false)
+    }
+  }
+
+  const submitQuickSet = async () => {
+    if (!quickSetForm.weight_kg || !quickSetForm.reps) return
+    setQuickSetSaving(true)
+    try {
+      const weight = parseFloat(quickSetForm.weight_kg)
+      const reps = parseInt(quickSetForm.reps)
+      await api.post(`/workouts/quick-set?exercise_id=${quickSetExercise.exerciseId}&weight_kg=${weight}&reps=${reps}`)
+
+      // Check if it's a new PR
+      const prev = personalBests[quickSetExercise.exerciseId]
+      const isNewPR = !prev || weight > prev.weight_kg || (weight === prev.weight_kg && reps > prev.reps)
+
+      // Update personal bests locally
+      setPersonalBests(p => ({
+        ...p,
+        [quickSetExercise.exerciseId]: {
+          exercise_id: quickSetExercise.exerciseId,
+          weight_kg: isNewPR ? weight : prev?.weight_kg || weight,
+          reps: isNewPR ? reps : prev?.reps || reps,
+        },
+      }))
+
+      // Mark as checked
+      const next = { ...checked, [quickSetExercise.routineExId]: true }
+      setChecked(next)
+      localStorage.setItem(todayKey, JSON.stringify(next))
+
+      if (isNewPR) {
+        setQuickSetNewPR(true)
+        // Auto-close after showing PR animation
+        setTimeout(() => { setQuickSetExercise(null); setQuickSetNewPR(false) }, 1500)
+      } else {
+        setQuickSetExercise(null)
+      }
+    } catch {
+      alert('Error al guardar')
+    } finally {
+      setQuickSetSaving(false)
+    }
+  }
+
+  const skipQuickSet = () => {
+    // Mark checked without logging a set
+    const next = { ...checked, [quickSetExercise.routineExId]: true }
+    setChecked(next)
+    localStorage.setItem(todayKey, JSON.stringify(next))
+    setQuickSetExercise(null)
+  }
 
   const toggleExercise = (exId) => {
     const next = { ...checked, [exId]: !checked[exId] }
@@ -100,7 +169,7 @@ export default function RoutineDetail() {
           <div key={ex.id} className={`card bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2.5 transition-opacity ${checked[ex.id] ? 'opacity-40' : ''}`}>
             <div className="flex items-center gap-3">
               <button
-                onClick={() => toggleExercise(ex.id)}
+                onClick={() => handleExerciseCheck(ex.id, ex.exercise_id, ex.exercise?.name)}
                 className={`w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
                   checked[ex.id] ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 dark:border-gray-600'
                 }`}
@@ -153,6 +222,88 @@ export default function RoutineDetail() {
           className="card w-full flex items-center justify-center gap-2 py-3 text-sm font-medium text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-500/10 transition-colors border-2 border-dashed border-brand-500/30">
           <Plus size={16} /> Agregar ejercicio
         </button>
+
+        {/* Quick Set Popup */}
+        {quickSetExercise && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-sm shadow-2xl border border-gray-100 dark:border-gray-800 animate-in overflow-hidden">
+              {quickSetNewPR ? (
+                <div className="p-8 text-center space-y-3">
+                  <div className="w-16 h-16 bg-yellow-50 dark:bg-yellow-500/10 rounded-full flex items-center justify-center mx-auto">
+                    <Trophy size={32} className="text-yellow-500" />
+                  </div>
+                  <h3 className="text-xl font-bold">¡Nuevo PR! 🎉</h3>
+                  <p className="text-brand-500 font-bold text-lg">{quickSetForm.weight_kg} kg × {quickSetForm.reps} reps</p>
+                </div>
+              ) : (
+                <>
+                  <div className="p-4 border-b border-gray-100 dark:border-gray-800">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-brand-50 dark:bg-brand-500/10 flex items-center justify-center">
+                          <Dumbbell size={20} className="text-brand-500" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-sm">{quickSetExercise.name}</h3>
+                          <p className="text-xs text-gray-400">Serie más pesada de hoy</p>
+                        </div>
+                      </div>
+                      <button onClick={() => setQuickSetExercise(null)} className="text-gray-400 hover:text-gray-600">
+                        <X size={20} />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="p-4 space-y-4">
+                    {personalBests[quickSetExercise.exerciseId] && (
+                      <div className="flex items-center gap-2 bg-yellow-50 dark:bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 px-3 py-2 rounded-xl text-sm">
+                        <Trophy size={14} />
+                        <span className="font-medium">PR actual: {personalBests[quickSetExercise.exerciseId].weight_kg} kg × {personalBests[quickSetExercise.exerciseId].reps} reps</span>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="label">Peso (kg)</label>
+                        <input
+                          type="number"
+                          className="input text-center text-lg font-bold"
+                          value={quickSetForm.weight_kg}
+                          onChange={(e) => setQuickSetForm({ ...quickSetForm, weight_kg: e.target.value })}
+                          placeholder="0"
+                          inputMode="decimal"
+                          autoFocus
+                        />
+                      </div>
+                      <div>
+                        <label className="label">Reps</label>
+                        <input
+                          type="number"
+                          className="input text-center text-lg font-bold"
+                          value={quickSetForm.reps}
+                          onChange={(e) => setQuickSetForm({ ...quickSetForm, reps: e.target.value })}
+                          placeholder="0"
+                          inputMode="numeric"
+                        />
+                      </div>
+                    </div>
+                    <button
+                      onClick={submitQuickSet}
+                      className="btn-primary w-full flex items-center justify-center gap-2"
+                      disabled={quickSetSaving || !quickSetForm.weight_kg || !quickSetForm.reps}
+                    >
+                      {quickSetSaving ? 'Guardando...' : <><Check size={18} /> Guardar y completar</>}
+                    </button>
+                    <button
+                      onClick={skipQuickSet}
+                      className="w-full text-center text-sm text-gray-400 hover:text-gray-600 py-1"
+                    >
+                      Saltar sin registrar peso
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
 
         {oneRMExercise && (
           <OneRMCalculator exercise={oneRMExercise} onClose={() => setOneRMExercise(null)} />

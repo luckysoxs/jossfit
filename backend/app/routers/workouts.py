@@ -142,6 +142,64 @@ def delete_workout(
     db.commit()
 
 
+@router.post("/quick-set")
+def log_quick_set(
+    exercise_id: int = Query(...),
+    weight_kg: float = Query(...),
+    reps: int = Query(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Log a single top set from the routine view. Creates/reuses today's workout."""
+    from datetime import date as date_type
+
+    today = date_type.today()
+
+    # Find or create today's workout
+    workout = db.query(Workout).filter(
+        Workout.user_id == user.id, Workout.date == today
+    ).first()
+
+    if not workout:
+        workout = Workout(user_id=user.id, date=today)
+        db.add(workout)
+        db.flush()
+
+    # Count existing sets for set_number
+    existing = db.query(sqlfunc.count(WorkoutSet.id)).filter(
+        WorkoutSet.workout_id == workout.id
+    ).scalar() or 0
+
+    ws = WorkoutSet(
+        workout_id=workout.id,
+        exercise_id=exercise_id,
+        set_number=existing + 1,
+        reps=reps,
+        weight_kg=weight_kg,
+        completed=True,
+    )
+    db.add(ws)
+
+    # Auto-record 1RM
+    if 1 <= reps <= 10 and weight_kg > 0:
+        epley = calculate_1rm_epley(weight_kg, reps)
+        brzycki = calculate_1rm_brzycki(weight_kg, reps)
+        avg = (epley + brzycki) / 2
+        orm = OneRepMax(
+            user_id=user.id,
+            exercise_id=exercise_id,
+            estimated_1rm=round(avg, 1),
+            formula_used="average",
+            date=today,
+            source_weight=weight_kg,
+            source_reps=reps,
+        )
+        db.add(orm)
+
+    db.commit()
+    return {"exercise_id": exercise_id, "weight_kg": weight_kg, "reps": reps, "saved": True}
+
+
 @router.get("/personal-bests")
 def get_personal_bests(
     user: User = Depends(get_current_user),
