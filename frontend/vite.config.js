@@ -12,8 +12,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
       manifest: {
-        name: 'Fitness Jos',
-        short_name: 'FitnessJos',
+        name: 'JOSSFITness',
+        short_name: 'JOSSFITness',
         description: 'Tu plataforma de entrenamiento y rendimiento',
         theme_color: '#030712',
         background_color: '#030712',

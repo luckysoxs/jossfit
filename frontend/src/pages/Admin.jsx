@@ -982,7 +982,7 @@ export default function Admin() {
         </div>
         <div>
           <h1 className="text-xl font-bold">Panel de Administración</h1>
-          <p className="text-xs text-gray-500 dark:text-gray-400">Gestión completa de Fitness Jos</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Gestión completa de JOSSFITness</p>
         </div>
       </div>
 

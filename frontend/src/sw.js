@@ -6,7 +6,7 @@ precacheAndRoute(self.__WB_MANIFEST)
 // Push notification handler
 self.addEventListener('push', (event) => {
   const data = event.data?.json() || {}
-  const title = data.title || 'Fitness Jos'
+  const title = data.title || 'JOSSFITness'
   const options = {
     body: data.body || '',
     icon: '/icon-192x192.png',

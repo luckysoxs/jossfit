@@ -31,7 +31,7 @@ export default function Login() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <Flame size={48} className="text-brand-500 mx-auto mb-3" />
-          <h1 className="text-3xl font-bold">Fitness Jos</h1>
+          <h1 className="text-3xl font-bold">JOSSFITness</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">Tu plataforma de rendimiento</p>
         </div>
 

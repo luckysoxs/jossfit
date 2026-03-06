@@ -28,7 +28,7 @@ export default function TopBar() {
       <div className="flex items-center justify-between px-4 h-14 max-w-7xl mx-auto">
         <Link to="/" className="flex items-center gap-2">
           <img src="/icon-96x96.png" alt="JossFit" className="w-7 h-7 rounded-lg" />
-          <span className="text-lg font-bold tracking-tight">Fitness Jos</span>
+          <span className="text-lg font-bold tracking-tight">JOSSFITness</span>
         </Link>
         <div className="flex items-center gap-3">
           {user && (

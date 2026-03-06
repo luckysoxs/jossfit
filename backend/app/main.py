@@ -63,7 +63,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.APP_NAME,
     version="1.0.0",
-    description="Fitness Jos – Plataforma de entrenamiento, salud y rendimiento",
+    description="JOSSFITness – Plataforma de entrenamiento, salud y rendimiento",
     lifespan=lifespan,
 )
 

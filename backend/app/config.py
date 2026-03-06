@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    APP_NAME: str = "Fitness Jos"
+    APP_NAME: str = "JOSSFITness"
     DATABASE_URL: str = "postgresql://postgres:postgres@db:5432/fitness_jos"
     SECRET_KEY: str = "change-me-in-production-use-a-long-random-string"
     ALGORITHM: str = "HS256"
