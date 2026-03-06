@@ -28,6 +28,9 @@ export default function Routines() {
           <Link to="/routines/generate" className="btn-primary flex items-center gap-2 text-sm py-2 px-4">
             <Zap size={16} /> Generar
           </Link>
+          <Link to="/routines/create" className="btn-secondary flex items-center gap-2 text-sm py-2 px-4">
+            <Plus size={16} /> Manual
+          </Link>
         </div>
       </div>
 

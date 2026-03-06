@@ -31,6 +31,8 @@ export default function useCardioTimer(intervals) {
       speak(`Trabajo. ${interval.range[0]} a ${interval.range[1]}`)
     } else if (interval.type === 'recovery') {
       speak(`Recuperación. ${interval.range[0]} a ${interval.range[1]}`)
+    } else if (interval.type === 'liss') {
+      speak(`Mantén tu ritmo cardíaco entre ${interval.range[0]} y ${interval.range[1]} pulsaciones por minuto`)
     } else {
       speak(`Mantén ritmo. ${interval.range[0]} a ${interval.range[1]}`)
     }

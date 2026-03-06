@@ -2,8 +2,9 @@ import { useEffect } from 'react'
 import { X, Volume2, VolumeX, Pause, Play, Square, Music } from 'lucide-react'
 import useCardioTimer from '../../hooks/useCardioTimer'
 import api from '../../services/api'
+import { LISS_EQUIPMENT_GUIDANCE } from '../../data/cardioProtocols'
 
-export default function CardioSession({ intervals, equipment, cardioType, level, duration, unit, onExit }) {
+export default function CardioSession({ intervals, equipment, cardioType, level, duration, unit, bpmZone, onExit }) {
   const timer = useCardioTimer(intervals)
 
   useEffect(() => { timer.start() }, [])
@@ -52,6 +53,21 @@ export default function CardioSession({ intervals, equipment, cardioType, level,
   const next = timer.nextInterval
   const isWork = current?.type === 'work'
   const isRecovery = current?.type === 'recovery'
+  const isLISS = cardioType === 'liss'
+
+  const getLISSGuidance = () => {
+    if (!isLISS) return null
+    const items = []
+    const treadmill = LISS_EQUIPMENT_GUIDANCE.treadmill?.find(g => g.level === level)
+    if (treadmill) items.push(`🏃 Caminadora: ${treadmill.speed[0]}-${treadmill.speed[1]} km/h, Inclinación: ${treadmill.incline[0]}-${treadmill.incline[1]}%`)
+    const bike = LISS_EQUIPMENT_GUIDANCE.bike?.find(g => g.level === level)
+    if (bike) items.push(`🚴 Bici: ${bike.watts[0]}-${bike.watts[1]} watts`)
+    const elliptical = LISS_EQUIPMENT_GUIDANCE.elliptical?.find(g => g.level === level)
+    if (elliptical) items.push(`🏋️ Elíptica: ${elliptical.rpm[0]}-${elliptical.rpm[1]} RPM`)
+    const stairClimber = LISS_EQUIPMENT_GUIDANCE.stair_climber?.find(g => g.level === level)
+    if (stairClimber) items.push(`🪜 Escaladora: ${stairClimber.speed[0]}-${stairClimber.speed[1]} vel`)
+    return items
+  }
 
   return (
     <div className="min-h-[80vh] flex flex-col">
@@ -69,48 +85,62 @@ export default function CardioSession({ intervals, equipment, cardioType, level,
       {/* Countdown Circle */}
       <div className="flex-1 flex flex-col items-center justify-center gap-4">
         <div className={`w-40 h-40 rounded-full border-4 flex items-center justify-center ${
-          isWork ? 'border-red-500' : isRecovery ? 'border-green-500' : 'border-brand-500'
+          isLISS ? 'border-brand-500' : isWork ? 'border-red-500' : isRecovery ? 'border-green-500' : 'border-brand-500'
         }`}>
           <span className="text-6xl font-bold tabular-nums">{formatTime(timer.secondsLeft)}</span>
         </div>
 
         {/* Type Badge */}
         <span className={`px-4 py-1.5 rounded-full text-sm font-bold uppercase tracking-wider ${
-          isWork ? 'bg-red-500/20 text-red-400' : isRecovery ? 'bg-green-500/20 text-green-400' : 'bg-brand-500/20 text-brand-400'
+          isLISS ? 'bg-brand-500/20 text-brand-400' : isWork ? 'bg-red-500/20 text-red-400' : isRecovery ? 'bg-green-500/20 text-green-400' : 'bg-brand-500/20 text-brand-400'
         }`}>
-          {isWork ? 'Trabajo' : isRecovery ? 'Recuperación' : 'Estable'}
+          {isLISS ? 'LISS' : isWork ? 'Trabajo' : isRecovery ? 'Recuperación' : 'Estable'}
         </span>
 
-        {/* Current Range */}
-        <div className="text-center">
-          <p className="text-xs text-gray-500 uppercase tracking-wide">Velocidad actual</p>
-          <p className="text-3xl font-bold mt-1">{current?.range[0]}-{current?.range[1]} {unit}</p>
-          {next && (
-            <p className="text-sm text-gray-500 mt-2">
-              próxima: {next.range[0]}-{next.range[1]} {unit}
-            </p>
-          )}
-        </div>
+        {/* Current Range / BPM Target */}
+        {isLISS && bpmZone ? (
+          <div className="text-center">
+            <p className="text-3xl font-bold mt-1">🎯 {bpmZone.bpm[0]}-{bpmZone.bpm[1]} BPM</p>
+            <div className="mt-4 card text-left space-y-2">
+              <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Para llegar a tus BPM:</p>
+              {getLISSGuidance()?.map((line, i) => (
+                <p key={i} className="text-sm text-gray-300">{line}</p>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="text-center">
+            <p className="text-xs text-gray-500 uppercase tracking-wide">Velocidad actual</p>
+            <p className="text-3xl font-bold mt-1">{current?.range[0]}-{current?.range[1]} {unit}</p>
+            {next && (
+              <p className="text-sm text-gray-500 mt-2">
+                próxima: {next.range[0]}-{next.range[1]} {unit}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Interval Bars */}
-      <div className="flex items-end gap-0.5 h-16 mb-4 px-2">
-        {intervals.map((interval, i) => {
-          const maxDur = Math.max(...intervals.map(x => x.duration))
-          const height = (interval.duration / maxDur) * 100
-          const isCurrent = i === timer.currentIndex
-          const isPast = i < timer.currentIndex
-          return (
-            <div
-              key={i}
-              className={`flex-1 rounded-t transition-all ${
-                interval.type === 'work' ? 'bg-red-500' : interval.type === 'recovery' ? 'bg-green-500' : 'bg-brand-500'
-              } ${isPast ? 'opacity-30' : isCurrent ? 'opacity-100 scale-y-110' : 'opacity-50'}`}
-              style={{ height: `${height}%` }}
-            />
-          )
-        })}
-      </div>
+      {/* Interval Bars - not shown for LISS */}
+      {!isLISS && (
+        <div className="flex items-end gap-0.5 h-16 mb-4 px-2">
+          {intervals.map((interval, i) => {
+            const maxDur = Math.max(...intervals.map(x => x.duration))
+            const height = (interval.duration / maxDur) * 100
+            const isCurrent = i === timer.currentIndex
+            const isPast = i < timer.currentIndex
+            return (
+              <div
+                key={i}
+                className={`flex-1 rounded-t transition-all ${
+                  interval.type === 'work' ? 'bg-red-500' : interval.type === 'recovery' ? 'bg-green-500' : 'bg-brand-500'
+                } ${isPast ? 'opacity-30' : isCurrent ? 'opacity-100 scale-y-110' : 'opacity-50'}`}
+                style={{ height: `${height}%` }}
+              />
+            )
+          })}
+        </div>
+      )}
 
       {/* Progress Bar */}
       <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden mb-6">

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, HeartPulse } from 'lucide-react'
-import { CARDIO_TYPES, EQUIPMENT, DURATIONS, LEVELS, generateHIITIntervals, generateSteadyIntervals } from '../data/cardioProtocols'
+import { CARDIO_TYPES, EQUIPMENT, DURATIONS, LEVELS, LISS_BPM_ZONES, LISS_EQUIPMENT_GUIDANCE, generateHIITIntervals, generateSteadyIntervals, generateLISSIntervals } from '../data/cardioProtocols'
 import CardioSession from '../components/cardio/CardioSession'
 
 export default function Cardio() {
@@ -17,6 +17,7 @@ export default function Cardio() {
 
   const getIntervals = () => {
     if (cardioType === 'hiit') return generateHIITIntervals(equipment, level, duration)
+    if (cardioType === 'liss') return generateLISSIntervals(level, duration)
     return generateSteadyIntervals(equipment, level, duration)
   }
 
@@ -30,6 +31,7 @@ export default function Cardio() {
         level={level}
         duration={duration}
         unit={unit}
+        bpmZone={cardioType === 'liss' ? LISS_BPM_ZONES.find(z => z.level === level) : null}
         onExit={() => navigate('/')}
       />
     )
@@ -39,7 +41,11 @@ export default function Cardio() {
     <div className="space-y-6">
       {/* Back button */}
       <button
-        onClick={() => step === 1 ? navigate(-1) : setStep(step - 1)}
+        onClick={() => {
+          if (step === 1) navigate(-1)
+          else if (step === 3 && cardioType === 'liss') setStep(1)
+          else setStep(step - 1)
+        }}
         className="flex items-center gap-2 text-gray-500 hover:text-gray-300"
       >
         <ArrowLeft size={20} /> Volver
@@ -57,7 +63,10 @@ export default function Cardio() {
             {CARDIO_TYPES.map(t => (
               <button
                 key={t.id}
-                onClick={() => { setCardioType(t.id); setStep(2) }}
+                onClick={() => {
+                  if (t.id === 'liss') { setCardioType('liss'); setStep(3) }
+                  else { setCardioType(t.id); setStep(2) }
+                }}
                 className="card w-full text-left flex items-center gap-4 hover:bg-gray-800/50 transition-colors"
               >
                 <span className="text-3xl">{t.emoji}</span>
@@ -122,27 +131,47 @@ export default function Cardio() {
       {step === 4 && (
         <>
           <div className="text-center">
-            <h1 className="text-2xl font-bold">Nivel de Intensidad</h1>
+            <h1 className="text-2xl font-bold">{cardioType === 'liss' ? 'Zona de BPM' : 'Nivel de Intensidad'}</h1>
             <p className="text-gray-400 text-sm mt-1">{CARDIO_TYPES.find(t => t.id === cardioType)?.label} · {duration}'</p>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            {LEVELS.map(l => (
-              <button
-                key={l.level}
-                onClick={() => { setLevel(l.level); setStep(5) }}
-                className="card text-left hover:bg-gray-800/50 transition-colors overflow-hidden"
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`w-12 h-12 rounded-xl ${l.color} flex items-center justify-center text-white text-xl font-bold`}>
-                    {l.level}
+            {cardioType === 'liss' ? (
+              LISS_BPM_ZONES.map(z => (
+                <button
+                  key={z.level}
+                  onClick={() => { setLevel(z.level); setStep(5) }}
+                  className="card text-left hover:bg-gray-800/50 transition-colors overflow-hidden"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-12 h-12 rounded-xl ${z.color} flex items-center justify-center text-white text-xl font-bold`}>
+                      {z.level}
+                    </div>
+                    <div>
+                      <p className="font-bold">{z.label}</p>
+                      <p className="text-sm text-gray-400">{z.bpm[0]}-{z.bpm[1]} BPM</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-bold">Nivel {l.level}</p>
-                    <p className="text-sm text-gray-400">{l.label}</p>
+                </button>
+              ))
+            ) : (
+              LEVELS.map(l => (
+                <button
+                  key={l.level}
+                  onClick={() => { setLevel(l.level); setStep(5) }}
+                  className="card text-left hover:bg-gray-800/50 transition-colors overflow-hidden"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-12 h-12 rounded-xl ${l.color} flex items-center justify-center text-white text-xl font-bold`}>
+                      {l.level}
+                    </div>
+                    <div>
+                      <p className="font-bold">Nivel {l.level}</p>
+                      <p className="text-sm text-gray-400">{l.label}</p>
+                    </div>
                   </div>
-                </div>
-              </button>
-            ))}
+                </button>
+              ))
+            )}
           </div>
         </>
       )}
