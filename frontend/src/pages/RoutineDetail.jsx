@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import OneRMCalculator from '../components/routines/OneRMCalculator'
-import { ArrowLeft, Play, Check, ChevronRight, Calculator } from 'lucide-react'
+import { ArrowLeft, Play, Check, ChevronRight, Calculator, RefreshCw, X } from 'lucide-react'
 
 export default function RoutineDetail() {
   const { id } = useParams()
@@ -13,6 +13,9 @@ export default function RoutineDetail() {
   const [checked, setChecked] = useState({})
   const [selectedDay, setSelectedDay] = useState(null)
   const [oneRMExercise, setOneRMExercise] = useState(null)
+  const [swapExercise, setSwapExercise] = useState(null)
+  const [allExercises, setAllExercises] = useState([])
+  const [searchTerm, setSearchTerm] = useState('')
 
   const todayKey = `routine_progress_${id}_${new Date().toISOString().split('T')[0]}`
 
@@ -105,6 +108,10 @@ export default function RoutineDetail() {
                   className="inline-flex items-center gap-1.5 mt-1 ml-3 text-xs font-medium text-brand-500 hover:text-brand-400 transition-colors">
                   <Calculator size={14} /> 1RM
                 </button>
+                <button onClick={() => { setSwapExercise(ex); if (allExercises.length === 0) api.get('/exercises').then(r => setAllExercises(r.data)) }}
+                  className="inline-flex items-center gap-1.5 mt-1 ml-3 text-xs font-medium text-orange-500 hover:text-orange-400 transition-colors">
+                  <RefreshCw size={14} /> Reemplazar
+                </button>
               </div>
             </div>
           </div>
@@ -112,6 +119,37 @@ export default function RoutineDetail() {
 
         {oneRMExercise && (
           <OneRMCalculator exercise={oneRMExercise} onClose={() => setOneRMExercise(null)} />
+        )}
+
+        {swapExercise && (
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4">
+            <div className="bg-gray-900 rounded-2xl w-full max-w-md max-h-[70vh] flex flex-col">
+              <div className="p-4 border-b border-gray-800 flex justify-between items-center">
+                <h3 className="font-bold">Reemplazar {swapExercise.exercise?.name}</h3>
+                <button onClick={() => setSwapExercise(null)}><X size={20} /></button>
+              </div>
+              <div className="p-4">
+                <input type="text" placeholder="Buscar ejercicio..." value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  className="w-full bg-gray-800 rounded-xl px-4 py-2.5 text-sm" />
+              </div>
+              <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
+                {allExercises.filter(e => e.name.toLowerCase().includes(searchTerm.toLowerCase())).map(e => (
+                  <button key={e.id} onClick={async () => {
+                    await api.put(`/routines/exercises/${swapExercise.id}/swap?new_exercise_id=${e.id}`)
+                    const r = await api.get(`/routines/${id}`)
+                    setRoutine(r.data)
+                    setSwapExercise(null)
+                    setSearchTerm('')
+                  }}
+                  className="w-full text-left bg-gray-800 rounded-xl p-3 hover:bg-gray-700 transition-colors">
+                    <p className="font-medium text-sm">{e.name}</p>
+                    <p className="text-xs text-gray-400">{e.muscle_group} · {e.equipment}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         )}
       </div>
     )

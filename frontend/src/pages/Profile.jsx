@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
 import { User, LogOut, Sun, Moon, Save, Mail, Ruler, Weight, Calendar, CheckCircle, Palette } from 'lucide-react'
@@ -7,6 +8,7 @@ import { ACCENT_COLORS, applyAccentColor } from '../data/accentColors'
 export default function Profile() {
   const { user, updateUser, logout } = useAuth()
   const { theme, toggleTheme } = useTheme()
+  const navigate = useNavigate()
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
@@ -156,6 +158,19 @@ export default function Profile() {
           </div>
         </div>
       )}
+
+      {/* App Tour */}
+      <div className="text-center">
+        <button
+          onClick={() => {
+            localStorage.removeItem('tour_completed')
+            navigate('/')
+          }}
+          className="text-sm text-brand-500 hover:underline"
+        >
+          Ver tour de la app
+        </button>
+      </div>
 
       {/* Logout */}
       <button

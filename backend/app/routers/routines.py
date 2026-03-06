@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
@@ -16,10 +16,6 @@ def create_routine(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    existing = db.query(Routine).filter(Routine.user_id == user.id).first()
-    if existing:
-        raise HTTPException(status_code=409, detail="Ya tienes una rutina activa. Elimínala primero.")
-
     routine = Routine(
         user_id=user.id,
         name=data.name,
@@ -99,6 +95,35 @@ def delete_routine(
         raise HTTPException(status_code=404, detail="Routine not found")
     db.delete(routine)
     db.commit()
+
+
+@router.put("/exercises/{routine_exercise_id}/swap", status_code=200)
+def swap_exercise(
+    routine_exercise_id: int,
+    new_exercise_id: int = Query(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    # Find the RoutineExercise and verify ownership
+    routine_ex = (
+        db.query(RoutineExercise)
+        .join(RoutineDay)
+        .join(Routine)
+        .filter(RoutineExercise.id == routine_exercise_id, Routine.user_id == user.id)
+        .first()
+    )
+    if not routine_ex:
+        raise HTTPException(status_code=404, detail="Exercise not found")
+
+    # Verify new exercise exists
+    from app.models.exercise import Exercise
+    new_ex = db.query(Exercise).filter(Exercise.id == new_exercise_id).first()
+    if not new_ex:
+        raise HTTPException(status_code=404, detail="New exercise not found")
+
+    routine_ex.exercise_id = new_exercise_id
+    db.commit()
+    return {"ok": True, "new_exercise_id": new_exercise_id}
 
 
 def _load_full_routine(db: Session, routine_id: int) -> Routine | None:

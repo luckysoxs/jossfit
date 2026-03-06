@@ -82,13 +82,27 @@ export default function CardioSession({ intervals, equipment, cardioType, level,
         </button>
       </div>
 
-      {/* Countdown Circle */}
+      {/* Countdown Circle with SVG progress ring */}
       <div className="flex-1 flex flex-col items-center justify-center gap-4">
-        <div className={`w-40 h-40 rounded-full border-4 flex items-center justify-center ${
-          isLISS ? 'border-brand-500' : isWork ? 'border-red-500' : isRecovery ? 'border-green-500' : 'border-brand-500'
-        }`}>
-          <span className="text-6xl font-bold tabular-nums">{formatTime(timer.secondsLeft)}</span>
-        </div>
+        {(() => {
+          const radius = 72
+          const circumference = 2 * Math.PI * radius
+          const intervalDuration = current?.duration || 1
+          const intervalProgress = timer.secondsLeft / intervalDuration
+          const offset = circumference * (1 - intervalProgress)
+          const strokeColor = isLISS ? 'var(--brand-500)' : isWork ? '#ef4444' : isRecovery ? '#22c55e' : 'var(--brand-500)'
+          return (
+            <div className="relative w-44 h-44 flex items-center justify-center">
+              <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 160 160">
+                <circle cx="80" cy="80" r={radius} fill="none" stroke="#374151" strokeWidth="5" />
+                <circle cx="80" cy="80" r={radius} fill="none" stroke={strokeColor} strokeWidth="5"
+                  strokeDasharray={circumference} strokeDashoffset={offset}
+                  strokeLinecap="round" style={{ transition: 'stroke-dashoffset 1s linear' }} />
+              </svg>
+              <span className="text-5xl font-bold tabular-nums">{formatTime(timer.secondsLeft)}</span>
+            </div>
+          )
+        })()}
 
         {/* Type Badge */}
         <span className={`px-4 py-1.5 rounded-full text-sm font-bold uppercase tracking-wider ${

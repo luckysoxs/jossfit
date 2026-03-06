@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
 import StatCard from '../components/ui/StatCard'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
+import AppTour from '../components/ui/AppTour'
 import {
   Dumbbell, Flame, Timer, TrendingUp, Heart, Moon, Scale, Zap,
   ChevronRight, Target, HeartPulse, Award,
@@ -17,12 +18,17 @@ export default function Dashboard() {
   const { user } = useAuth()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [showTour, setShowTour] = useState(false)
 
   useEffect(() => {
     api.get('/dashboard/summary')
       .then((res) => setData(res.data))
       .catch(() => {})
       .finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => {
+    if (!localStorage.getItem('tour_completed')) setShowTour(true)
   }, [])
 
   if (loading) return <LoadingSpinner />
@@ -195,6 +201,15 @@ export default function Dashboard() {
           </Link>
         ))}
       </div>
+
+      {showTour && (
+        <AppTour
+          onComplete={() => {
+            setShowTour(false)
+            localStorage.setItem('tour_completed', 'true')
+          }}
+        />
+      )}
     </div>
   )
 }
