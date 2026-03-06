@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import OneRMCalculator from '../components/routines/OneRMCalculator'
-import { ArrowLeft, Play, Check, ChevronRight, Calculator, RefreshCw, X, Zap, Trash2, Plus } from 'lucide-react'
+import { ArrowLeft, Play, Check, ChevronRight, Calculator, RefreshCw, X, Zap, Trash2, Plus, Trophy } from 'lucide-react'
 
 export default function RoutineDetail() {
   const { id } = useParams()
@@ -17,13 +17,21 @@ export default function RoutineDetail() {
   const [allExercises, setAllExercises] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
   const [addingToDay, setAddingToDay] = useState(null)
+  const [personalBests, setPersonalBests] = useState({})
 
   const todayKey = `routine_progress_${id}_${new Date().toISOString().split('T')[0]}`
 
   useEffect(() => {
-    api.get(`/routines/${id}`)
-      .then((r) => setRoutine(r.data))
-      .catch(() => navigate('/routines'))
+    Promise.all([
+      api.get(`/routines/${id}`),
+      api.get('/workouts/personal-bests'),
+    ]).then(([r, pb]) => {
+      setRoutine(r.data)
+      // Index by exercise_id for quick lookup
+      const bests = {}
+      pb.data.forEach(b => { bests[b.exercise_id] = b })
+      setPersonalBests(bests)
+    }).catch(() => navigate('/routines'))
       .finally(() => setLoading(false))
   }, [id])
 
@@ -110,6 +118,14 @@ export default function RoutineDetail() {
                     <p className="text-xs text-gray-400">Descanso: {ex.rest_seconds}s</p>
                   </div>
                 </div>
+                {personalBests[ex.exercise_id] && (
+                  <div className="flex items-center gap-1.5 mt-1.5 bg-yellow-50 dark:bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 px-2 py-1 rounded-lg w-fit">
+                    <Trophy size={12} />
+                    <span className="text-xs font-semibold">
+                      PR: {personalBests[ex.exercise_id].weight_kg} kg × {personalBests[ex.exercise_id].reps} reps
+                    </span>
+                  </div>
+                )}
                 {ex.exercise?.name && (
                   <a href={getYoutubeUrl(ex.exercise.name)} target="_blank" rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 mt-2 text-xs font-medium text-red-500 hover:text-red-400 transition-colors">
