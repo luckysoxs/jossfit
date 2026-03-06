@@ -316,7 +316,7 @@ export default function Register() {
                 </select>
               </div>
               {/* Terms & Conditions */}
-              <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-xs text-amber-700 dark:text-amber-300">
+              <div className="p-3 rounded-xl bg-gray-100 dark:bg-gray-800/60 text-xs text-gray-500 dark:text-gray-400">
                 JOSSFITness es una guía de entrenamiento. El uso de la app y las rutinas generadas son responsabilidad del usuario.
               </div>
               <label className="flex items-start gap-2.5 cursor-pointer">
