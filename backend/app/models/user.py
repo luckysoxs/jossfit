@@ -51,3 +51,4 @@ class User(Base):
     supplements = relationship("Supplement", back_populates="user", cascade="all, delete-orphan")
     goals = relationship("Goal", back_populates="user", cascade="all, delete-orphan")
     cardio_sessions = relationship("CardioSession", back_populates="user", cascade="all, delete-orphan")
+    support_messages = relationship("SupportMessage", back_populates="user", cascade="all, delete-orphan")

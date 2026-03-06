@@ -27,6 +27,7 @@ from app.routers import (
     admin,
     cardio,
     notifications,
+    support,
 )
 
 
@@ -91,6 +92,7 @@ app.include_router(benefits.router)
 app.include_router(admin.router)
 app.include_router(cardio.router)
 app.include_router(notifications.router)
+app.include_router(support.router)
 
 
 @app.get("/health")

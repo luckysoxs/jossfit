@@ -23,6 +23,7 @@ import Benefits from './pages/Benefits'
 import Cardio from './pages/Cardio'
 import Profile from './pages/Profile'
 import Admin from './pages/Admin'
+import SupportChat from './pages/SupportChat'
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
@@ -62,6 +63,7 @@ export default function App() {
       <Route path="/benefits" element={<ProtectedRoute><Benefits /></ProtectedRoute>} />
       <Route path="/cardio" element={<ProtectedRoute><Cardio /></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+      <Route path="/support" element={<ProtectedRoute><SupportChat /></ProtectedRoute>} />
       <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
 
       <Route path="*" element={<Navigate to="/" replace />} />

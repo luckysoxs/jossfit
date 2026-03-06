@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
 import {
@@ -7,7 +7,7 @@ import {
   Calendar, Mail, Phone, Target, TrendingUp, Eye,
   Ruler, Weight, Brain, Moon, Pill, Trophy, BarChart3,
   Award, Plus, Edit3, ToggleLeft, ToggleRight, ExternalLink, Tag, Percent,
-  Bell, Send,
+  Bell, Send, MessageCircle,
 } from 'lucide-react'
 
 function StatCard({ icon: Icon, label, value, color = 'brand' }) {
@@ -698,9 +698,210 @@ function NotificationsSection() {
   )
 }
 
+function ChatSection() {
+  const [conversations, setConversations] = useState([])
+  const [loadingConvs, setLoadingConvs] = useState(true)
+  const [selectedChatUser, setSelectedChatUser] = useState(null)
+  const [messages, setMessages] = useState([])
+  const [reply, setReply] = useState('')
+  const [sending, setSending] = useState(false)
+  const [loadingChat, setLoadingChat] = useState(false)
+  const chatBottomRef = useRef(null)
+
+  const fetchConversations = async () => {
+    try {
+      const res = await api.get('/admin/support/conversations')
+      setConversations(res.data)
+    } catch (err) {
+      console.error('Conversations error:', err)
+    } finally {
+      setLoadingConvs(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchConversations()
+    const interval = setInterval(fetchConversations, 15000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const openChat = async (userId) => {
+    setSelectedChatUser(conversations.find(c => c.user_id === userId) || { user_id: userId })
+    setLoadingChat(true)
+    try {
+      const res = await api.get(`/admin/support/conversations/${userId}`)
+      setMessages(res.data)
+      fetchConversations()
+    } catch (err) {
+      console.error(err)
+    }
+    setLoadingChat(false)
+  }
+
+  useEffect(() => {
+    if (!selectedChatUser) return
+    const interval = setInterval(() => {
+      api.get(`/admin/support/conversations/${selectedChatUser.user_id}`)
+        .then(res => setMessages(res.data))
+        .catch(() => {})
+    }, 10000)
+    return () => clearInterval(interval)
+  }, [selectedChatUser])
+
+  useEffect(() => {
+    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  const handleReply = async (e) => {
+    e.preventDefault()
+    if (!reply.trim() || sending) return
+    setSending(true)
+    try {
+      await api.post(`/admin/support/conversations/${selectedChatUser.user_id}`, {
+        content: reply.trim(),
+      })
+      setReply('')
+      const res = await api.get(`/admin/support/conversations/${selectedChatUser.user_id}`)
+      setMessages(res.data)
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Error al enviar')
+    }
+    setSending(false)
+  }
+
+  if (loadingConvs) {
+    return (
+      <div className="flex justify-center py-12">
+        <div className="animate-spin w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full" />
+      </div>
+    )
+  }
+
+  if (selectedChatUser) {
+    return (
+      <div className="space-y-4">
+        <button
+          onClick={() => setSelectedChatUser(null)}
+          className="flex items-center gap-2 text-sm text-gray-500 hover:text-brand-500 transition-colors"
+        >
+          <ChevronLeft size={16} /> Volver a conversaciones
+        </button>
+
+        <div className="card">
+          <div className="flex items-center gap-3 p-4 border-b border-gray-100 dark:border-gray-800">
+            <div className="w-10 h-10 rounded-full bg-brand-500/10 flex items-center justify-center text-brand-500 font-bold">
+              {selectedChatUser.user_name?.[0]?.toUpperCase() || '?'}
+            </div>
+            <div>
+              <p className="font-semibold text-sm">{selectedChatUser.user_name || 'Usuario'}</p>
+              <p className="text-xs text-gray-500">{selectedChatUser.user_email || ''}</p>
+            </div>
+          </div>
+
+          <div className="p-4 max-h-[50vh] overflow-y-auto flex flex-col gap-3">
+            {loadingChat ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full" />
+              </div>
+            ) : messages.length === 0 ? (
+              <p className="text-center text-gray-400 py-8 text-sm">Sin mensajes</p>
+            ) : (
+              messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`max-w-[80%] p-3 rounded-2xl text-sm ${
+                    msg.is_from_admin
+                      ? 'self-end bg-brand-500 text-white rounded-tr-sm'
+                      : 'self-start bg-gray-100 dark:bg-gray-800 rounded-tl-sm'
+                  }`}
+                >
+                  <p>{msg.content}</p>
+                  <p className={`text-[10px] mt-1 ${msg.is_from_admin ? 'text-white/60' : 'text-gray-400'}`}>
+                    {new Date(msg.created_at).toLocaleString('es-MX', {
+                      day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+                    })}
+                  </p>
+                </div>
+              ))
+            )}
+            <div ref={chatBottomRef} />
+          </div>
+
+          <div className="p-4 border-t border-gray-100 dark:border-gray-800">
+            <form onSubmit={handleReply} className="flex gap-2">
+              <input
+                className="input flex-1"
+                placeholder="Escribe tu respuesta..."
+                value={reply}
+                onChange={(e) => setReply(e.target.value)}
+                maxLength={1000}
+              />
+              <button
+                type="submit"
+                className="btn-primary px-4 flex items-center gap-2"
+                disabled={sending || !reply.trim()}
+              >
+                <Send size={18} />
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-gray-500">{conversations.length} conversaciones</p>
+
+      {conversations.length === 0 ? (
+        <div className="text-center py-12 text-gray-400">
+          <MessageCircle size={40} className="mx-auto mb-3 opacity-40" />
+          <p className="font-medium">Sin conversaciones</p>
+          <p className="text-sm">Cuando un usuario envie un mensaje aparecera aqui</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {conversations.map((conv) => (
+            <button
+              key={conv.user_id}
+              onClick={() => openChat(conv.user_id)}
+              className="w-full card p-4 flex items-center gap-3 text-left hover:ring-2 hover:ring-brand-500/30 transition-all"
+            >
+              <div className="w-10 h-10 rounded-full bg-brand-500/10 flex items-center justify-center text-brand-500 font-bold shrink-0">
+                {conv.user_name?.[0]?.toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <p className="font-semibold text-sm truncate">{conv.user_name}</p>
+                  <span className="text-[10px] text-gray-400 shrink-0 ml-2">
+                    {new Date(conv.last_message_at).toLocaleString('es-MX', {
+                      day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+                    })}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 truncate">{conv.last_message}</p>
+              </div>
+              {conv.unread_count > 0 && (
+                <span className="w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shrink-0">
+                  {conv.unread_count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Admin() {
   const { user } = useAuth()
-  const [mainTab, setMainTab] = useState('users')
+  const [mainTab, setMainTab] = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    const tab = params.get('tab')
+    return ['users', 'partners', 'notifications', 'chat'].includes(tab) ? tab : 'users'
+  })
   const [stats, setStats] = useState(null)
   const [users, setUsers] = useState([])
   const [pagination, setPagination] = useState({ page: 1, total: 0, total_pages: 1, per_page: 20 })
@@ -791,6 +992,7 @@ export default function Admin() {
           { id: 'users', label: 'Usuarios', icon: Users },
           { id: 'partners', label: 'Partners', icon: Award },
           { id: 'notifications', label: 'Push', icon: Bell },
+          { id: 'chat', label: 'Chat', icon: MessageCircle },
         ].map(({ id, label, icon: TabIcon }) => (
           <button
             key={id}
@@ -811,6 +1013,9 @@ export default function Admin() {
 
       {/* Notifications Tab */}
       {mainTab === 'notifications' && <NotificationsSection />}
+
+      {/* Chat Tab */}
+      {mainTab === 'chat' && <ChatSection />}
 
       {/* Users Tab */}
       {mainTab === 'users' && stats && (
