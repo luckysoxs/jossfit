@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import api from '../services/api'
-import { MessageCircle, Send } from 'lucide-react'
+import { MessageCircle, Send, HelpCircle, Dumbbell, CreditCard, AlertCircle } from 'lucide-react'
 
 export default function SupportChat() {
   const [messages, setMessages] = useState([])
@@ -74,11 +74,34 @@ export default function SupportChat() {
 
       <div className="card p-4 min-h-[55vh] max-h-[60vh] overflow-y-auto flex flex-col gap-3">
         {messages.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
-            <div className="text-center">
-              <MessageCircle size={40} className="mx-auto mb-3 opacity-40" />
-              <p>No hay mensajes aun.</p>
-              <p className="text-xs mt-1">Escribe tu primera pregunta abajo.</p>
+          <div className="flex-1 flex items-center justify-center text-sm">
+            <div className="text-center space-y-4 px-4 max-w-sm">
+              <div className="w-16 h-16 rounded-full bg-brand-500/10 flex items-center justify-center mx-auto">
+                <MessageCircle size={32} className="text-brand-500" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-base text-gray-700 dark:text-gray-200">¡Bienvenido al Chat de Ayuda!</h3>
+                <p className="text-gray-400 text-xs mt-1">Estamos aquí para ayudarte. Escríbenos y te responderemos lo antes posible.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-left">
+                <div className="p-2.5 rounded-xl bg-gray-50 dark:bg-gray-800/50">
+                  <Dumbbell size={16} className="text-brand-500 mb-1" />
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Dudas sobre rutinas o ejercicios</p>
+                </div>
+                <div className="p-2.5 rounded-xl bg-gray-50 dark:bg-gray-800/50">
+                  <CreditCard size={16} className="text-brand-500 mb-1" />
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Pagos, membresía o beneficios</p>
+                </div>
+                <div className="p-2.5 rounded-xl bg-gray-50 dark:bg-gray-800/50">
+                  <AlertCircle size={16} className="text-brand-500 mb-1" />
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Reportar un problema técnico</p>
+                </div>
+                <div className="p-2.5 rounded-xl bg-gray-50 dark:bg-gray-800/50">
+                  <HelpCircle size={16} className="text-brand-500 mb-1" />
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Cualquier otra pregunta</p>
+                </div>
+              </div>
+              <p className="text-[11px] text-gray-400">⬇️ Escribe tu mensaje abajo para comenzar</p>
             </div>
           </div>
         ) : (
