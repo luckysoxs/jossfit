@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { Flame, ArrowLeft, ArrowRight, CheckCircle, Eye, EyeOff } from 'lucide-react'
-import { ACCENT_COLORS } from '../data/accentColors'
+import { ACCENT_COLORS, applyAccentColor } from '../data/accentColors'
 
 const COUNTRY_CODES = [
   { code: '+52', label: '🇲🇽 MX +52' },
@@ -190,7 +190,7 @@ export default function Register() {
                     <button
                       key={name}
                       type="button"
-                      onClick={() => setForm({ ...form, accent_color: name })}
+                      onClick={() => { setForm({ ...form, accent_color: name }); applyAccentColor(name) }}
                       className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
                         form.accent_color === name ? 'ring-2 ring-offset-2 ring-offset-gray-950 ring-white scale-110' : 'opacity-70 hover:opacity-100'
                       }`}
