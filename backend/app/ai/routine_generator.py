@@ -29,9 +29,9 @@ SPLIT_TEMPLATES = {
     "full_body": {
         "name": "Full Body",
         "days": [
-            {"name": "Full Body A", "focus": "full_body", "day_number": 1},
-            {"name": "Full Body B", "focus": "full_body", "day_number": 2},
-            {"name": "Full Body C", "focus": "full_body", "day_number": 3},
+            {"name": "Full Body A", "focus": "chest,back,quadriceps,shoulders,abs", "day_number": 1},
+            {"name": "Full Body B", "focus": "back,chest,hamstrings,glutes,biceps", "day_number": 2},
+            {"name": "Full Body C", "focus": "quadriceps,back,shoulders,hamstrings,triceps", "day_number": 3},
         ],
     },
     "bro_split": {
@@ -92,6 +92,7 @@ def generate_routine(
     reps = REP_RANGES.get(objective, REP_RANGES["hypertrophy"])
 
     days_template = template["days"][:days_per_week]
+    is_full_body = split_key == "full_body"
 
     routine_days = []
     for day_tmpl in days_template:
@@ -99,6 +100,10 @@ def generate_routine(
 
         exercises_for_day = []
         order = 1
+
+        # Limits: full body = 1 compound + 1 isolation per muscle; others = 2+2
+        max_compounds = 1 if is_full_body else 2
+        max_isolations = 1 if is_full_body else 2
 
         # Add compound exercises first
         for muscle in focus_muscles:
@@ -117,7 +122,7 @@ def generate_routine(
                 .all()
             )
 
-            for ex in compounds[:2]:  # Max 2 compounds per muscle per day
+            for ex in compounds[:max_compounds]:
                 is_priority = muscle in priority_muscles
                 exercises_for_day.append({
                     "exercise_id": ex.id,
@@ -146,7 +151,7 @@ def generate_routine(
                 .all()
             )
 
-            for ex in isolations[:2]:
+            for ex in isolations[:max_isolations]:
                 is_priority = muscle in priority_muscles
                 exercises_for_day.append({
                     "exercise_id": ex.id,
