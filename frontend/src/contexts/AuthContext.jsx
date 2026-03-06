@@ -9,17 +9,29 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    const token = localStorage.getItem('token')
     const stored = localStorage.getItem('user')
-    if (stored) {
+
+    if (token && stored) {
       const storedUser = JSON.parse(stored)
       setUser(storedUser)
-      const savedColor = storedUser?.accent_color || localStorage.getItem('accent_color') || 'blue'
-      applyAccentColor(savedColor)
+      applyAccentColor(storedUser?.accent_color || 'blue')
+
+      // Refresh user data from backend (picks up admin changes, etc.)
+      api.get('/auth/me').then(({ data }) => {
+        localStorage.setItem('user', JSON.stringify(data))
+        setUser(data)
+        applyAccentColor(data.accent_color || 'blue')
+      }).catch(() => {
+        // Token expired or invalid
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        setUser(null)
+      }).finally(() => setLoading(false))
     } else {
-      const savedColor = localStorage.getItem('accent_color') || 'blue'
-      applyAccentColor(savedColor)
+      applyAccentColor(localStorage.getItem('accent_color') || 'blue')
+      setLoading(false)
     }
-    setLoading(false)
   }, [])
 
   const login = async (email, password) => {
