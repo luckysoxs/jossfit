@@ -7,7 +7,7 @@ import {
   Calendar, Mail, Phone, Target, TrendingUp, Eye,
   Ruler, Weight, Brain, Moon, Pill, Trophy, BarChart3,
   Award, Plus, Edit3, ToggleLeft, ToggleRight, ExternalLink, Tag, Percent,
-  Bell, Send, MessageCircle,
+  Bell, Send, MessageCircle, ChevronUp, ChevronDown, GripVertical,
 } from 'lucide-react'
 
 function StatCard({ icon: Icon, label, value, color = 'brand' }) {
@@ -340,6 +340,7 @@ function PartnerModal({ partner, onClose, onSave }) {
     external_url: partner?.external_url || '',
     category: partner?.category || 'suplementos',
     active: partner?.active ?? true,
+    image_url: partner?.image_url || '',
   })
   const [saving, setSaving] = useState(false)
 
@@ -385,6 +386,15 @@ function PartnerModal({ partner, onClose, onSave }) {
           <div>
             <label className="text-xs text-gray-500 mb-1 block">URL Externa *</label>
             <input className="input w-full" value={form.external_url} onChange={(e) => setForm({ ...form, external_url: e.target.value })} placeholder="https://..." required />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">URL Imagen / Foto</label>
+            <input className="input w-full" value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} placeholder="https://ejemplo.com/foto.jpg" />
+            {form.image_url && (
+              <div className="mt-2 w-16 h-16 rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800">
+                <img src={form.image_url} alt="Preview" className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none' }} />
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -457,6 +467,19 @@ function PartnersSection() {
     }
   }
 
+  const movePartner = async (index, direction) => {
+    const newList = [...partners]
+    const swapIndex = index + direction
+    if (swapIndex < 0 || swapIndex >= newList.length) return
+    ;[newList[index], newList[swapIndex]] = [newList[swapIndex], newList[index]]
+    setPartners(newList)
+    try {
+      await api.put('/admin/partners/reorder', newList.map(p => p.id))
+    } catch {
+      fetchPartners() // revert on error
+    }
+  }
+
   const toggleActive = async (partner) => {
     try {
       await api.put(`/admin/partners/${partner.id}`, {
@@ -497,8 +520,37 @@ function PartnersSection() {
         </div>
       ) : (
         <div className="space-y-3">
-          {partners.map((p) => (
-            <div key={p.id} className="card flex items-center gap-4">
+          {partners.map((p, idx) => (
+            <div key={p.id} className="card flex items-center gap-3">
+              {/* Reorder arrows */}
+              <div className="flex flex-col gap-0.5 shrink-0">
+                <button
+                  onClick={() => movePartner(idx, -1)}
+                  disabled={idx === 0}
+                  className="p-1 rounded text-gray-400 hover:text-brand-500 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                  title="Subir"
+                >
+                  <ChevronUp size={14} />
+                </button>
+                <button
+                  onClick={() => movePartner(idx, 1)}
+                  disabled={idx === partners.length - 1}
+                  className="p-1 rounded text-gray-400 hover:text-brand-500 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                  title="Bajar"
+                >
+                  <ChevronDown size={14} />
+                </button>
+              </div>
+
+              {/* Image */}
+              <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 flex items-center justify-center shrink-0">
+                {p.image_url ? (
+                  <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling && (e.target.nextSibling.style.display = 'flex') }} />
+                ) : (
+                  <Award size={20} className="text-gray-400" />
+                )}
+              </div>
+
               {/* Partner Info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
@@ -534,15 +586,6 @@ function PartnersSection() {
                 >
                   {p.active ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
                 </button>
-                <a
-                  href={p.external_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-2 rounded-lg text-gray-400 hover:text-brand-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                  title="Ver sitio"
-                >
-                  <ExternalLink size={16} />
-                </a>
                 <button
                   onClick={() => { setEditPartner(p); setShowModal(true) }}
                   className="p-2 rounded-lg text-gray-400 hover:text-brand-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"

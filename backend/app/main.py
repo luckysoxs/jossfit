@@ -38,6 +38,8 @@ def run_migrations():
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS country_code VARCHAR(5) DEFAULT '+52'",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS accent_color VARCHAR(20) DEFAULT 'blue'",
+        "ALTER TABLE partner_brands ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0",
+        "ALTER TABLE partner_brands ADD COLUMN IF NOT EXISTS image_url VARCHAR(500)",
     ]
     with engine.connect() as conn:
         for sql in migrations:

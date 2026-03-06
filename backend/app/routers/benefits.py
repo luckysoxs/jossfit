@@ -11,6 +11,7 @@ class BrandResponse(BaseModel):
     id: int
     name: str
     logo_url: str | None
+    image_url: str | None = None
     description: str | None
     discount_text: str | None
     promo_code: str | None
@@ -32,4 +33,4 @@ def list_brands(
     q = db.query(PartnerBrand).filter(PartnerBrand.active == True)
     if category:
         q = q.filter(PartnerBrand.category == category)
-    return q.order_by(PartnerBrand.name).all()
+    return q.order_by(PartnerBrand.sort_order, PartnerBrand.name).all()

@@ -38,17 +38,21 @@ class PartnerBrandCreate(PydanticBase):
     external_url: str
     category: str
     active: bool = True
+    image_url: str | None = None
+    sort_order: int = 0
 
 class PartnerBrandResponse(PydanticBase):
     id: int
     name: str
     logo_url: str | None = None
+    image_url: str | None = None
     description: str | None = None
     discount_text: str | None = None
     promo_code: str | None = None
     external_url: str
     category: str
     active: bool
+    sort_order: int = 0
     model_config = {"from_attributes": True}
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -350,15 +354,29 @@ def delete_user(
 # ─── Partner CRUD ──────────────────────────────────────────────────
 @router.get("/partners", response_model=list[PartnerBrandResponse])
 def list_partners(admin: User = Depends(get_admin_user), db: Session = Depends(get_db)):
-    return db.query(PartnerBrand).order_by(PartnerBrand.name).all()
+    return db.query(PartnerBrand).order_by(PartnerBrand.sort_order, PartnerBrand.name).all()
 
 @router.post("/partners", response_model=PartnerBrandResponse, status_code=201)
 def create_partner(data: PartnerBrandCreate, admin: User = Depends(get_admin_user), db: Session = Depends(get_db)):
+    # Auto-assign sort_order to end
+    max_order = db.query(sqlfunc.max(PartnerBrand.sort_order)).scalar() or 0
     partner = PartnerBrand(**data.model_dump())
+    partner.sort_order = max_order + 1
     db.add(partner)
     db.commit()
     db.refresh(partner)
     return partner
+
+@router.put("/partners/reorder")
+def reorder_partners(
+    order: list[int],  # list of partner IDs in desired order
+    admin: User = Depends(get_admin_user),
+    db: Session = Depends(get_db),
+):
+    for idx, partner_id in enumerate(order):
+        db.query(PartnerBrand).filter(PartnerBrand.id == partner_id).update({"sort_order": idx})
+    db.commit()
+    return {"detail": "Order updated"}
 
 @router.put("/partners/{partner_id}", response_model=PartnerBrandResponse)
 def update_partner(partner_id: int, data: PartnerBrandCreate, admin: User = Depends(get_admin_user), db: Session = Depends(get_db)):

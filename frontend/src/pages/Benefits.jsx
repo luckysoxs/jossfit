@@ -30,9 +30,17 @@ export default function Benefits() {
           {brands.map((b) => (
             <div key={b.id} className="card">
               <div className="flex items-start gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-100 to-brand-200 dark:from-brand-500/20 dark:to-brand-600/20 flex items-center justify-center flex-shrink-0">
-                  <Award size={28} className="text-brand-500" />
-                </div>
+                {b.image_url || b.logo_url ? (
+                  <img
+                    src={b.image_url || b.logo_url}
+                    alt={b.name}
+                    className="w-16 h-16 rounded-2xl object-cover flex-shrink-0"
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-100 to-brand-200 dark:from-brand-500/20 dark:to-brand-600/20 flex items-center justify-center flex-shrink-0">
+                    <Award size={28} className="text-brand-500" />
+                  </div>
+                )}
                 <div className="flex-1">
                   <h3 className="font-bold text-lg">{b.name}</h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{b.description}</p>
