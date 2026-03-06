@@ -5,6 +5,7 @@ from app.database import get_db
 from app.models.user import User
 from app.schemas.user import UserCreate, UserLogin, Token, UserResponse
 from app.auth.security import hash_password, verify_password, create_access_token, get_current_user
+from app.services.push_service import send_push_to_admins
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -31,6 +32,16 @@ def register(data: UserCreate, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     db.refresh(user)
+
+    try:
+        send_push_to_admins(
+            db,
+            title="Nuevo usuario registrado",
+            body=f"{user.name} se acaba de registrar en JOSSFITness",
+            url="/admin",
+        )
+    except Exception:
+        pass  # Don't block registration if push fails
 
     token = create_access_token({"sub": str(user.id)})
     return Token(access_token=token, user=UserResponse.model_validate(user))

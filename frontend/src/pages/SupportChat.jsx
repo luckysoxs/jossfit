@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import api from '../services/api'
-import { MessageCircle, Send, HelpCircle, Dumbbell, CreditCard, AlertCircle } from 'lucide-react'
+import { MessageCircle, Send, HelpCircle, Dumbbell, Award, AlertCircle } from 'lucide-react'
 
 export default function SupportChat() {
   const [messages, setMessages] = useState([])
@@ -89,8 +89,8 @@ export default function SupportChat() {
                   <p className="text-xs text-gray-500 dark:text-gray-400">Dudas sobre rutinas o ejercicios</p>
                 </div>
                 <div className="p-2.5 rounded-xl bg-gray-50 dark:bg-gray-800/50">
-                  <CreditCard size={16} className="text-brand-500 mb-1" />
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Pagos, membresía o beneficios</p>
+                  <Award size={16} className="text-brand-500 mb-1" />
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Beneficios exclusivos</p>
                 </div>
                 <div className="p-2.5 rounded-xl bg-gray-50 dark:bg-gray-800/50">
                   <AlertCircle size={16} className="text-brand-500 mb-1" />

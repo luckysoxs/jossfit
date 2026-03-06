@@ -34,10 +34,11 @@ export default function TopBar() {
           {user && (
             <Link
               to="/support"
-              className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400"
+              className="relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400"
               aria-label="Chat de Ayuda"
             >
-              <MessageCircle size={20} />
+              <MessageCircle size={18} />
+              <span className="text-xs font-medium">Ayuda</span>
               {unreadSupport > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
                   {unreadSupport > 9 ? '9+' : unreadSupport}
