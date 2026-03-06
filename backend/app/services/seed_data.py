@@ -1,9 +1,11 @@
-"""Seed exercise library and partner brands."""
+"""Seed exercise library, partner brands, and admin user."""
 
 from sqlalchemy.orm import Session
 
 from app.models.exercise import Exercise, MuscleGroup, ExerciseCategory
 from app.models.partner_brand import PartnerBrand
+from app.models.user import User
+from app.auth.security import hash_password
 
 EXERCISES = [
     # ── Chest ──
@@ -161,6 +163,31 @@ def seed_partner_brands(db: Session):
     db.commit()
 
 
+def seed_admin(db: Session):
+    admin = db.query(User).filter(User.email == "admin@jossfit.pro").first()
+    if not admin:
+        admin = User(
+            email="admin@jossfit.pro",
+            password_hash=hash_password("AdminJossFit2024!"),
+            name="Jos Admin",
+            age=25,
+            sex="male",
+            height_cm=175,
+            weight_kg=80,
+            training_level="advanced",
+            fitness_goal="strength",
+            is_admin=True,
+            phone="5512345678",
+            country_code="+52",
+        )
+        db.add(admin)
+        db.commit()
+    elif not admin.is_admin:
+        admin.is_admin = True
+        db.commit()
+
+
 def seed_all(db: Session):
     seed_exercises(db)
     seed_partner_brands(db)
+    seed_admin(db)

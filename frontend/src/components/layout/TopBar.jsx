@@ -1,6 +1,7 @@
+import { Link } from 'react-router-dom'
 import { useTheme } from '../../contexts/ThemeContext'
 import { useAuth } from '../../contexts/AuthContext'
-import { Sun, Moon, Flame } from 'lucide-react'
+import { Sun, Moon, Flame, Shield } from 'lucide-react'
 
 export default function TopBar() {
   const { theme, toggleTheme } = useTheme()
@@ -14,6 +15,15 @@ export default function TopBar() {
           <span className="text-lg font-bold tracking-tight">Fitness Jos</span>
         </div>
         <div className="flex items-center gap-3">
+          {user?.is_admin && (
+            <Link
+              to="/admin"
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-brand-500"
+              aria-label="Admin Panel"
+            >
+              <Shield size={20} />
+            </Link>
+          )}
           <button
             onClick={toggleTheme}
             className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"

@@ -22,6 +22,7 @@ from app.routers import (
     dashboard,
     store,
     benefits,
+    admin,
 )
 
 
@@ -65,6 +66,7 @@ app.include_router(ai.router)
 app.include_router(dashboard.router)
 app.include_router(store.router)
 app.include_router(benefits.router)
+app.include_router(admin.router)
 
 
 @app.get("/health")

@@ -13,6 +13,8 @@ class UserCreate(BaseModel):
     weight_kg: float
     training_level: str = "beginner"
     fitness_goal: str | None = None
+    phone: str | None = None
+    country_code: str = "+52"
 
 
 class UserLogin(BaseModel):
@@ -28,6 +30,8 @@ class UserUpdate(BaseModel):
     training_level: str | None = None
     fitness_goal: str | None = None
     theme_preference: str | None = None
+    phone: str | None = None
+    country_code: str | None = None
 
 
 class UserResponse(BaseModel):
@@ -40,6 +44,9 @@ class UserResponse(BaseModel):
     weight_kg: float
     training_level: str
     fitness_goal: str | None
+    phone: str | None = None
+    country_code: str = "+52"
+    is_admin: bool = False
     theme_preference: str
     created_at: datetime
 

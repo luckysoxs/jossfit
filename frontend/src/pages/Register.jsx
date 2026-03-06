@@ -1,7 +1,18 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { Flame, ArrowLeft, ArrowRight } from 'lucide-react'
+import { Flame, ArrowLeft, ArrowRight, CheckCircle, Eye, EyeOff } from 'lucide-react'
+
+const COUNTRY_CODES = [
+  { code: '+52', label: '🇲🇽 MX +52' },
+  { code: '+1', label: '🇺🇸 US +1' },
+  { code: '+34', label: '🇪🇸 ES +34' },
+  { code: '+57', label: '🇨🇴 CO +57' },
+  { code: '+54', label: '🇦🇷 AR +54' },
+  { code: '+56', label: '🇨🇱 CL +56' },
+  { code: '+55', label: '🇧🇷 BR +55' },
+  { code: '+51', label: '🇵🇪 PE +51' },
+]
 
 export default function Register() {
   const [step, setStep] = useState(1)
@@ -9,13 +20,33 @@ export default function Register() {
     email: '', password: '', name: '', age: '',
     sex: 'male', height_cm: '', weight_kg: '',
     training_level: 'beginner', fitness_goal: 'hypertrophy',
+    phone: '', country_code: '+52',
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showSuccess, setShowSuccess] = useState(false)
+  const [registeredData, setRegisteredData] = useState(null)
+  const [showPassword, setShowPassword] = useState(false)
   const { register } = useAuth()
   const navigate = useNavigate()
 
   const set = (field) => (e) => setForm({ ...form, [field]: e.target.value })
+
+  const validateStep1 = () => {
+    if (!form.name.trim()) { setError('Ingresa tu nombre'); return false }
+    if (!form.email.trim()) { setError('Ingresa tu email'); return false }
+    if (form.password.length < 6) { setError('La contraseña debe tener al menos 6 caracteres'); return false }
+    setError('')
+    return true
+  }
+
+  const validateStep2 = () => {
+    if (!form.age || parseInt(form.age) < 13 || parseInt(form.age) > 100) { setError('Ingresa una edad válida (13-100)'); return false }
+    if (!form.height_cm || parseFloat(form.height_cm) < 100 || parseFloat(form.height_cm) > 250) { setError('Ingresa una altura válida (100-250 cm)'); return false }
+    if (!form.weight_kg || parseFloat(form.weight_kg) < 30 || parseFloat(form.weight_kg) > 300) { setError('Ingresa un peso válido (30-300 kg)'); return false }
+    setError('')
+    return true
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -27,8 +58,10 @@ export default function Register() {
         age: parseInt(form.age),
         height_cm: parseFloat(form.height_cm),
         weight_kg: parseFloat(form.weight_kg),
+        phone: form.phone || null,
       })
-      navigate('/')
+      setRegisteredData({ email: form.email, password: form.password })
+      setShowSuccess(true)
     } catch (err) {
       setError(err.response?.data?.detail || 'Error al registrarse')
     } finally {
@@ -75,7 +108,33 @@ export default function Register() {
                 <label className="label">Contraseña</label>
                 <input className="input" type="password" value={form.password} onChange={set('password')} placeholder="Mínimo 6 caracteres" required minLength={6} />
               </div>
-              <button type="button" className="btn-primary w-full flex items-center justify-center gap-2" onClick={() => setStep(2)}>
+              <div>
+                <label className="label">Teléfono <span className="text-gray-400 text-xs">(opcional)</span></label>
+                <div className="flex gap-2">
+                  <select
+                    className="input w-32 text-sm"
+                    value={form.country_code}
+                    onChange={set('country_code')}
+                  >
+                    {COUNTRY_CODES.map(({ code, label }) => (
+                      <option key={code} value={code}>{label}</option>
+                    ))}
+                  </select>
+                  <input
+                    className="input flex-1"
+                    type="tel"
+                    value={form.phone}
+                    onChange={set('phone')}
+                    placeholder="55 1234 5678"
+                    inputMode="tel"
+                  />
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn-primary w-full flex items-center justify-center gap-2"
+                onClick={() => validateStep1() && setStep(2)}
+              >
                 Siguiente <ArrowRight size={18} />
               </button>
             </>
@@ -110,7 +169,11 @@ export default function Register() {
                 <button type="button" className="btn-secondary flex-1 flex items-center justify-center gap-2" onClick={() => setStep(1)}>
                   <ArrowLeft size={18} /> Atrás
                 </button>
-                <button type="button" className="btn-primary flex-1 flex items-center justify-center gap-2" onClick={() => setStep(3)}>
+                <button
+                  type="button"
+                  className="btn-primary flex-1 flex items-center justify-center gap-2"
+                  onClick={() => validateStep2() && setStep(3)}
+                >
                   Siguiente <ArrowRight size={18} />
                 </button>
               </div>
@@ -156,6 +219,48 @@ export default function Register() {
           </Link>
         </p>
       </div>
+
+      {/* Success Modal */}
+      {showSuccess && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center space-y-4 border border-gray-100 dark:border-gray-800 animate-in">
+            <div className="w-16 h-16 bg-green-100 dark:bg-green-500/10 rounded-full flex items-center justify-center mx-auto">
+              <CheckCircle size={36} className="text-green-500" />
+            </div>
+            <h2 className="text-xl font-bold">¡Registro Exitoso!</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Tu cuenta ha sido creada correctamente</p>
+
+            <div className="space-y-3 text-left bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl">
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Email</p>
+                <p className="font-medium text-sm">{registeredData?.email}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Contraseña</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-medium text-sm font-mono tracking-wider">
+                    {showPassword ? registeredData?.password : '••••••••'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => navigate('/')}
+              className="btn-primary w-full"
+            >
+              Ir al Dashboard
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

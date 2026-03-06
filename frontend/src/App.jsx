@@ -20,11 +20,20 @@ import Goals from './pages/Goals'
 import Store from './pages/Store'
 import Benefits from './pages/Benefits'
 import Profile from './pages/Profile'
+import Admin from './pages/Admin'
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
   if (loading) return <LoadingSpinner />
   if (!user) return <Navigate to="/login" replace />
+  return <Layout>{children}</Layout>
+}
+
+function AdminRoute({ children }) {
+  const { user, loading } = useAuth()
+  if (loading) return <LoadingSpinner />
+  if (!user) return <Navigate to="/login" replace />
+  if (!user.is_admin) return <Navigate to="/" replace />
   return <Layout>{children}</Layout>
 }
 
@@ -49,6 +58,7 @@ export default function App() {
       <Route path="/store" element={<ProtectedRoute><Store /></ProtectedRoute>} />
       <Route path="/benefits" element={<ProtectedRoute><Benefits /></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+      <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
