@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useTheme } from '../../contexts/ThemeContext'
 import { useAuth } from '../../contexts/AuthContext'
-import { Sun, Moon, Flame, Shield } from 'lucide-react'
+import { Sun, Moon, Shield } from 'lucide-react'
 
 export default function TopBar() {
   const { theme, toggleTheme } = useTheme()
@@ -11,7 +11,7 @@ export default function TopBar() {
     <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg border-b border-gray-100 dark:border-gray-800 transition-colors duration-300">
       <div className="flex items-center justify-between px-4 h-14 max-w-7xl mx-auto">
         <Link to="/" className="flex items-center gap-2">
-          <Flame size={24} className="text-brand-500" />
+          <img src="/icon-96x96.png" alt="JossFit" className="w-7 h-7 rounded-lg" />
           <span className="text-lg font-bold tracking-tight">Fitness Jos</span>
         </Link>
         <div className="flex items-center gap-3">

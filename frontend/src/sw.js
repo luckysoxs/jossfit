@@ -9,8 +9,8 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'Fitness Jos'
   const options = {
     body: data.body || '',
-    icon: '/icon.svg',
-    badge: '/icon.svg',
+    icon: '/icon-192x192.png',
+    badge: '/icon-96x96.png',
     data: { url: data.url || '/' },
   }
   event.waitUntil(self.registration.showNotification(title, options))
