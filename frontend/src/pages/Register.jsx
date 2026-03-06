@@ -318,7 +318,6 @@ export default function Register() {
               {/* Terms & Conditions */}
               <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-xs text-amber-700 dark:text-amber-300">
                 JOSSFITness es una guía de entrenamiento. El uso de la app y las rutinas generadas son responsabilidad del usuario.
-                Consulta a un profesional de salud antes de iniciar cualquier programa de ejercicio.
               </div>
               <label className="flex items-start gap-2.5 cursor-pointer">
                 <input
