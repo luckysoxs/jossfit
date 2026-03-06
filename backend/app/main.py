@@ -91,3 +91,35 @@ app.include_router(admin.router)
 @app.get("/health")
 def health_check():
     return {"status": "healthy", "app": settings.APP_NAME}
+
+
+@app.get("/debug-token")
+def debug_token(authorization: str = ""):
+    """Temporary debug endpoint - REMOVE after fixing."""
+    from jose import jwt as jose_jwt, JWTError
+    from app.database import get_db
+    from app.models.user import User
+
+    token = authorization.replace("Bearer ", "") if authorization else ""
+    result = {"token_received": bool(token), "token_length": len(token)}
+
+    try:
+        payload = jose_jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        result["decode_success"] = True
+        result["payload"] = payload
+        user_id = payload.get("sub")
+        result["user_id"] = user_id
+
+        db = next(get_db())
+        user = db.query(User).filter(User.id == user_id).first()
+        result["user_found"] = user is not None
+        if user:
+            result["user_email"] = user.email
+    except JWTError as e:
+        result["decode_success"] = False
+        result["error"] = str(e)
+    except Exception as e:
+        result["other_error"] = str(e)
+
+    result["secret_key_prefix"] = settings.SECRET_KEY[:10] + "..."
+    return result
