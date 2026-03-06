@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { Flame, ArrowLeft, ArrowRight, CheckCircle, Eye, EyeOff } from 'lucide-react'
+import { Flame, ArrowLeft, ArrowRight, CheckCircle, Eye, EyeOff, X, HeartPulse } from 'lucide-react'
 import { ACCENT_COLORS, applyAccentColor } from '../data/accentColors'
 
 const COUNTRY_CODES = [
@@ -22,7 +22,10 @@ export default function Register() {
     sex: 'male', height_cm: '', weight_kg: '',
     training_level: 'beginner', fitness_goal: 'hypertrophy',
     phone: '', country_code: '+52', accent_color: 'blue',
+    has_condition: false, pathologies: [], medications: [], mobility_limitations: [],
+    accepted_terms: false,
   })
+  const [tagInputs, setTagInputs] = useState({ pathologies: '', medications: '', mobility_limitations: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
@@ -77,7 +80,7 @@ export default function Register() {
           <Flame size={40} className="text-brand-500 mx-auto mb-2" />
           <h1 className="text-2xl font-bold">Crear Cuenta</h1>
           <div className="flex gap-2 justify-center mt-3">
-            {[1, 2, 3].map((s) => (
+            {[1, 2, 3, 4].map((s) => (
               <div
                 key={s}
                 className={`h-1.5 w-10 rounded-full transition-colors ${
@@ -183,6 +186,99 @@ export default function Register() {
 
           {step === 3 && (
             <>
+              <div className="text-center mb-2">
+                <HeartPulse size={28} className="text-brand-500 mx-auto mb-1" />
+                <p className="text-sm text-gray-500">Información de salud (opcional)</p>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50">
+                <span className="text-sm font-medium">¿Tienes alguna condición médica?</span>
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, has_condition: !form.has_condition })}
+                  className={`w-12 h-7 rounded-full transition-colors relative ${form.has_condition ? 'bg-brand-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                >
+                  <span className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-transform ${form.has_condition ? 'left-6' : 'left-1'}`} />
+                </button>
+              </div>
+
+              {form.has_condition && (
+                <div className="space-y-4">
+                  {[
+                    { field: 'pathologies', label: 'Patologías / Condiciones', suggestions: ['Diabetes T2', 'Hipertensión', 'Sarcopenia', 'Artritis', 'Osteoporosis', 'Fibromialgia', 'EPOC', 'Depresión/Ansiedad'] },
+                    { field: 'medications', label: 'Medicamentos', suggestions: ['Metformina', 'Insulina', 'Estatinas', 'Beta-bloqueadores', 'Anticoagulantes', 'Corticosteroides', 'Antidepresivos'] },
+                    { field: 'mobility_limitations', label: 'Limitaciones de movilidad', suggestions: ['Hombro', 'Rodilla', 'Espalda baja', 'Cadera', 'Tobillo', 'Muñeca', 'Cuello'] },
+                  ].map(({ field, label, suggestions }) => (
+                    <div key={field}>
+                      <label className="label">{label}</label>
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {form[field].map((item, i) => (
+                          <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 bg-brand-500/10 text-brand-500 rounded-lg text-xs font-medium">
+                            {item}
+                            <button type="button" onClick={() => setForm({ ...form, [field]: form[field].filter((_, idx) => idx !== i) })}>
+                              <X size={12} />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          className="input flex-1 text-sm"
+                          placeholder={`Agregar ${label.toLowerCase()}...`}
+                          value={tagInputs[field]}
+                          onChange={(e) => setTagInputs({ ...tagInputs, [field]: e.target.value })}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault()
+                              if (tagInputs[field].trim()) {
+                                setForm({ ...form, [field]: [...form[field], tagInputs[field].trim()] })
+                                setTagInputs({ ...tagInputs, [field]: '' })
+                              }
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="btn-primary px-3 text-xs"
+                          onClick={() => {
+                            if (tagInputs[field].trim()) {
+                              setForm({ ...form, [field]: [...form[field], tagInputs[field].trim()] })
+                              setTagInputs({ ...tagInputs, [field]: '' })
+                            }
+                          }}
+                        >+</button>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {suggestions.filter((s) => !form[field].includes(s)).slice(0, 4).map((s) => (
+                          <button
+                            key={s}
+                            type="button"
+                            className="px-2 py-1 text-[11px] rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-brand-500/10 hover:text-brand-500 transition-colors"
+                            onClick={() => setForm({ ...form, [field]: [...form[field], s] })}
+                          >{s}</button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button type="button" className="btn-secondary flex-1 flex items-center justify-center gap-2" onClick={() => setStep(2)}>
+                  <ArrowLeft size={18} /> Atrás
+                </button>
+                <button
+                  type="button"
+                  className="btn-primary flex-1 flex items-center justify-center gap-2"
+                  onClick={() => { setError(''); setStep(4) }}
+                >
+                  Siguiente <ArrowRight size={18} />
+                </button>
+              </div>
+            </>
+          )}
+
+          {step === 4 && (
+            <>
               <div>
                 <label className="label">Color de la app</label>
                 <div className="flex gap-3 flex-wrap justify-center py-2">
@@ -219,11 +315,31 @@ export default function Register() {
                   <option value="endurance">Mejorar Resistencia</option>
                 </select>
               </div>
+              {/* Terms & Conditions */}
+              <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-xs text-amber-700 dark:text-amber-300">
+                JOSSFITness es una guía de entrenamiento. El uso de la app y las rutinas generadas son responsabilidad del usuario.
+                Consulta a un profesional de salud antes de iniciar cualquier programa de ejercicio.
+              </div>
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.accepted_terms}
+                  onChange={(e) => setForm({ ...form, accepted_terms: e.target.checked })}
+                  className="mt-0.5 accent-brand-500 w-4 h-4"
+                />
+                <span className="text-sm text-gray-600 dark:text-gray-300">
+                  Acepto los{' '}
+                  <Link to="/terms" target="_blank" className="text-brand-500 font-medium hover:underline">
+                    Términos y Condiciones
+                  </Link>
+                </span>
+              </label>
+
               <div className="flex gap-3">
-                <button type="button" className="btn-secondary flex-1 flex items-center justify-center gap-2" onClick={() => setStep(2)}>
+                <button type="button" className="btn-secondary flex-1 flex items-center justify-center gap-2" onClick={() => setStep(3)}>
                   <ArrowLeft size={18} /> Atrás
                 </button>
-                <button type="submit" className="btn-primary flex-1" disabled={loading}>
+                <button type="submit" className="btn-primary flex-1" disabled={loading || !form.accepted_terms}>
                   {loading ? 'Creando...' : 'Crear Cuenta'}
                 </button>
               </div>

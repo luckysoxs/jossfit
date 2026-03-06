@@ -4,6 +4,18 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func as sqlfunc
 
 from app.models.exercise import Exercise, MuscleGroup, ExerciseCategory
+from app.ai.medical_rules import (
+    calculate_risk_level,
+    get_safety_alerts,
+    get_combined_multipliers,
+    get_safety_notes_for_exercise,
+    get_disclaimer,
+    get_limitation_info,
+    get_warmup,
+    get_cooldown,
+    get_cardio_recommendation,
+    get_nutrition_recommendation,
+)
 
 # ── Split Templates ──────────────────────────────────────────────
 SPLIT_TEMPLATES = {
@@ -128,11 +140,32 @@ def generate_routine(
     training_level: str,
     priority_muscles: list[str],
     split_preference: str | None = None,
+    user_data: dict | None = None,
 ) -> dict:
-    """Generate a complete training routine with optimal volume."""
+    """Generate a complete training routine with optimal volume.
+
+    If user_data contains has_condition=True, applies medical
+    adjustments from the rules engine.
+    """
+    is_adaptive = bool(user_data and user_data.get("has_condition"))
+    pathologies = (user_data or {}).get("pathologies") or []
+    medications = (user_data or {}).get("medications") or []
+    limitations = (user_data or {}).get("mobility_limitations") or []
+    age = (user_data or {}).get("age", 30)
+    weight_kg = (user_data or {}).get("weight_kg", 70)
+
+    # Medical multipliers (defaults to neutral if no conditions)
+    mults = get_combined_multipliers(pathologies, medications) if is_adaptive else {
+        "max_rpe": 10, "volume_multiplier": 1.0, "rest_multiplier": 1.0, "warmup_duration": 10,
+    }
+    lim_info = get_limitation_info(limitations) if is_adaptive else {"avoid_patterns": [], "alternatives": [], "prehab": []}
+
     split_key = select_split(days_per_week, split_preference)
     template = SPLIT_TEMPLATES[split_key]
     max_ex = MAX_EXERCISES_PER_DAY.get(training_level, 7)
+    # Apply volume multiplier to max exercises
+    if is_adaptive:
+        max_ex = max(3, int(max_ex * mults["volume_multiplier"]))
     sets_cfg = SETS_CONFIG.get(training_level, SETS_CONFIG["intermediate"])
     reps = REP_RANGES.get(objective, REP_RANGES["hypertrophy"])
 
@@ -187,13 +220,17 @@ def generate_routine(
             for ex in compounds:
                 if added >= count:
                     break
+                base_rest = 120 if objective == "strength" else 90
                 exercises_for_day.append({
                     "exercise_id": ex.id,
                     "order": order,
                     "sets": sets_cfg["compound"] + (1 if is_priority else 0),
                     "reps_min": reps["compound"][0],
                     "reps_max": reps["compound"][1],
-                    "rest_seconds": 120 if objective == "strength" else 90,
+                    "rest_seconds": int(base_rest * mults["rest_multiplier"]),
+                    "name": ex.name,
+                    "muscle_group": muscle,
+                    "category": "compound",
                 })
                 order += 1
                 added += 1
@@ -207,7 +244,10 @@ def generate_routine(
                     "sets": sets_cfg["isolation"] + (1 if is_priority else 0),
                     "reps_min": reps["isolation"][0],
                     "reps_max": reps["isolation"][1],
-                    "rest_seconds": 60,
+                    "rest_seconds": int(60 * mults["rest_multiplier"]),
+                    "name": ex.name,
+                    "muscle_group": muscle,
+                    "category": "isolation",
                 })
                 order += 1
                 added += 1
@@ -235,7 +275,10 @@ def generate_routine(
                 "sets": sets_cfg["isolation"] + (1 if is_priority else 0),
                 "reps_min": reps["isolation"][0],
                 "reps_max": reps["isolation"][1],
-                "rest_seconds": 60,
+                "rest_seconds": int(60 * mults["rest_multiplier"]),
+                "name": ex.name,
+                "muscle_group": muscle,
+                "category": "isolation",
             })
             order += 1
 
@@ -246,10 +289,72 @@ def generate_routine(
             "exercises": exercises_for_day,
         })
 
+    # ── Build enriched ai_data for adaptive routines ──
+    ai_data = None
+    generation_type = "normal"
+
+    if is_adaptive:
+        generation_type = "adaptativo"
+        risk_level = calculate_risk_level(pathologies, medications, age)
+        safety_alerts = get_safety_alerts(pathologies, medications)
+        disclaimer = get_disclaimer(risk_level)
+
+        ai_days = []
+        for day in routine_days:
+            ai_exercises = []
+            for ex in day["exercises"]:
+                safety_note = get_safety_notes_for_exercise(
+                    ex.get("muscle_group", ""), pathologies,
+                )
+                ai_exercises.append({
+                    "nombre": ex.get("name", "Ejercicio"),
+                    "grupo_muscular": ex.get("muscle_group", ""),
+                    "series": ex["sets"],
+                    "repeticiones": f"{ex['reps_min']}-{ex['reps_max']}",
+                    "descanso_seg": ex["rest_seconds"],
+                    "rpe": f"{mults['max_rpe']}/10",
+                    "tempo": "2-1-2",
+                    "notas_seguridad": safety_note,
+                    "alternativa_facil": None,
+                })
+
+            ai_days.append({
+                "dia": day["day_number"],
+                "nombre": day["name"],
+                "enfoque": day["focus"],
+                "calentamiento": get_warmup(mults["warmup_duration"], pathologies),
+                "ejercicios": ai_exercises,
+                "cardio": get_cardio_recommendation(pathologies, objective),
+                "vuelta_calma": get_cooldown(pathologies),
+            })
+
+        ai_data = {
+            "perfil": {
+                "modo": "adaptativo",
+                "riesgo_global": risk_level,
+                "requiere_supervision": risk_level in ("alto", "critico"),
+            },
+            "disclaimer": disclaimer,
+            "alertas_seguridad": safety_alerts,
+            "rutina": {
+                "fase_actual": "adaptacion",
+                "dias": ai_days,
+            },
+            "nutricion_basica": get_nutrition_recommendation(
+                objective, weight_kg, pathologies,
+            ),
+            "progresion": {
+                "criterio": "Completar 2 semanas sin molestias, cumplir RPE indicado",
+                "semanas_estimadas": 2,
+            },
+        }
+
     return {
         "name": f"{template['name']} - {objective.replace('_', ' ').title()}",
         "split_type": split_key,
         "objective": objective,
         "days_per_week": days_per_week,
         "days": routine_days,
+        "generation_type": generation_type,
+        "ai_data": ai_data,
     }

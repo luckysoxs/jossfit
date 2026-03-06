@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import OneRMCalculator from '../components/routines/OneRMCalculator'
+import AIRoutineView from '../components/routines/AIRoutineView'
 import { ArrowLeft, Play, Check, ChevronRight, Calculator, RefreshCw, X, Zap, Trash2, Plus, Trophy, Dumbbell } from 'lucide-react'
 
 export default function RoutineDetail() {
@@ -18,6 +19,7 @@ export default function RoutineDetail() {
   const [searchTerm, setSearchTerm] = useState('')
   const [addingToDay, setAddingToDay] = useState(null)
   const [personalBests, setPersonalBests] = useState({})
+  const [showAIView, setShowAIView] = useState(false)
 
   // Quick-set popup state
   const [quickSetExercise, setQuickSetExercise] = useState(null) // { routineExId, exerciseId, name }
@@ -450,6 +452,9 @@ export default function RoutineDetail() {
             <div className="flex gap-3 text-sm text-gray-400 mt-1">
               <span className="bg-brand-50 dark:bg-brand-500/10 text-brand-500 px-2 py-0.5 rounded-full">{routine.split_type}</span>
               <span>{routine.days_per_week} dias/semana</span>
+              {routine.generation_type === 'adaptativo' && (
+                <span className="bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full">Adaptativo</span>
+              )}
             </div>
           </div>
           <button onClick={() => navigate('/routines/generate')}
@@ -459,42 +464,61 @@ export default function RoutineDetail() {
         </div>
       </div>
 
-      {allIds.length > 0 && (
-        <div className="card flex items-center justify-between">
-          <span className="text-sm font-medium">Progreso de hoy</span>
-          <div className="flex items-center gap-2">
-            <div className="w-32 h-2.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-              <div className="h-full bg-green-500 rounded-full transition-all duration-300"
-                style={{ width: `${(allDone / allIds.length) * 100}%` }} />
-            </div>
-            <span className="text-xs text-gray-400 tabular-nums">{allDone}/{allIds.length}</span>
-          </div>
+      {routine.ai_data && (
+        <div className="flex gap-2">
+          <button onClick={() => setShowAIView(false)}
+            className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${!showAIView ? 'bg-brand-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'}`}>
+            Entrenamiento
+          </button>
+          <button onClick={() => setShowAIView(true)}
+            className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${showAIView ? 'bg-amber-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'}`}>
+            Plan Adaptativo
+          </button>
         </div>
       )}
 
-      {routine.days?.map((day) => {
-        const dayExIds = day.exercises?.map(e => e.id) || []
-        const dayDone = dayExIds.filter(eId => checked[eId]).length
-        const dayAllDone = dayExIds.length > 0 && dayDone === dayExIds.length
-        return (
-          <button key={day.id} onClick={() => setSelectedDay(day.day_number)}
-            className={`card w-full text-left hover:bg-gray-800/50 transition-colors ${dayAllDone ? 'border border-green-500/30' : ''}`}>
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold">Dia {day.day_number}: {day.name}</h3>
-                {day.focus && <p className="text-xs text-gray-400 mt-0.5">{day.focus}</p>}
-              </div>
+      {showAIView && routine.ai_data ? (
+        <AIRoutineView aiData={routine.ai_data} />
+      ) : (
+        <>
+          {allIds.length > 0 && (
+            <div className="card flex items-center justify-between">
+              <span className="text-sm font-medium">Progreso de hoy</span>
               <div className="flex items-center gap-2">
-                <span className={`text-sm font-medium ${dayAllDone ? 'text-green-500' : 'text-gray-400'}`}>
-                  {dayDone}/{dayExIds.length}
-                </span>
-                <ChevronRight size={18} className="text-gray-400" />
+                <div className="w-32 h-2.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <div className="h-full bg-green-500 rounded-full transition-all duration-300"
+                    style={{ width: `${(allDone / allIds.length) * 100}%` }} />
+                </div>
+                <span className="text-xs text-gray-400 tabular-nums">{allDone}/{allIds.length}</span>
               </div>
             </div>
-            <p className="text-xs text-gray-400 mt-1">{dayExIds.length} ejercicios</p>
-          </button>
-        )
-      })}
+          )}
+
+          {routine.days?.map((day) => {
+            const dayExIds = day.exercises?.map(e => e.id) || []
+            const dayDone = dayExIds.filter(eId => checked[eId]).length
+            const dayAllDone = dayExIds.length > 0 && dayDone === dayExIds.length
+            return (
+              <button key={day.id} onClick={() => setSelectedDay(day.day_number)}
+                className={`card w-full text-left hover:bg-gray-800/50 transition-colors ${dayAllDone ? 'border border-green-500/30' : ''}`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold">Dia {day.day_number}: {day.name}</h3>
+                    {day.focus && <p className="text-xs text-gray-400 mt-0.5">{day.focus}</p>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm font-medium ${dayAllDone ? 'text-green-500' : 'text-gray-400'}`}>
+                      {dayDone}/{dayExIds.length}
+                    </span>
+                    <ChevronRight size={18} className="text-gray-400" />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">{dayExIds.length} ejercicios</p>
+              </button>
+            )
+          })}
+        </>
+      )}
     </div>
   )
 }

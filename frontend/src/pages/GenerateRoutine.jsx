@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
-import { Zap, Loader2 } from 'lucide-react'
+import { Zap, Loader2, ShieldAlert } from 'lucide-react'
 
 const MUSCLES = ['chest', 'back', 'shoulders', 'quadriceps', 'hamstrings', 'glutes', 'biceps', 'triceps', 'abs', 'calves']
 
@@ -46,6 +46,25 @@ export default function GenerateRoutine() {
         <h1 className="text-2xl font-bold">Generar Rutina</h1>
         <p className="text-gray-500 text-sm">Crea tu rutina inteligente personalizada</p>
       </div>
+
+      {user?.has_condition && (
+        <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-xl p-4">
+          <div className="flex items-start gap-3">
+            <ShieldAlert size={20} className="text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="font-semibold text-amber-700 dark:text-amber-300 text-sm">Modo Adaptativo Activo</p>
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">Tu rutina sera adaptada a tus condiciones medicas. Se ajustara el volumen, intensidad y descanso automaticamente.</p>
+              {user.pathologies?.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {user.pathologies.map((p, i) => (
+                    <span key={i} className="bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full text-xs">{p}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="card space-y-5">
         <div>

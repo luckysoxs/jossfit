@@ -24,6 +24,7 @@ import Cardio from './pages/Cardio'
 import Profile from './pages/Profile'
 import Admin from './pages/Admin'
 import SupportChat from './pages/SupportChat'
+import TermsAndConditions from './pages/TermsAndConditions'
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
@@ -45,6 +46,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/terms" element={<TermsAndConditions />} />
 
       <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/workouts" element={<ProtectedRoute><Workouts /></ProtectedRoute>} />

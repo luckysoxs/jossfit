@@ -33,6 +33,16 @@ def generate_smart_routine(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # Build user_data dict for medical-aware generation
+    user_data = {
+        "has_condition": user.has_condition if hasattr(user, "has_condition") else False,
+        "pathologies": user.pathologies if hasattr(user, "pathologies") else None,
+        "medications": user.medications if hasattr(user, "medications") else None,
+        "mobility_limitations": user.mobility_limitations if hasattr(user, "mobility_limitations") else None,
+        "age": user.age,
+        "weight_kg": user.weight_kg,
+    }
+
     routine_data = generate_routine(
         db=db,
         objective=req.objective,
@@ -40,6 +50,7 @@ def generate_smart_routine(
         training_level=req.training_level or user.training_level.value,
         priority_muscles=req.priority_muscles,
         split_preference=req.split_preference,
+        user_data=user_data,
     )
 
     # Save to database
@@ -49,6 +60,8 @@ def generate_smart_routine(
         split_type=routine_data["split_type"],
         objective=routine_data["objective"],
         days_per_week=routine_data["days_per_week"],
+        generation_type=routine_data.get("generation_type", "normal"),
+        ai_data=routine_data.get("ai_data"),
     )
     db.add(routine)
     db.flush()

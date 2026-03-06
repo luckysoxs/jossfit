@@ -28,6 +28,11 @@ def register(data: UserCreate, db: Session = Depends(get_db)):
         phone=data.phone,
         country_code=data.country_code,
         accent_color=data.accent_color,
+        has_condition=data.has_condition,
+        pathologies=data.pathologies,
+        medications=data.medications,
+        mobility_limitations=data.mobility_limitations,
+        accepted_terms=data.accepted_terms,
     )
     db.add(user)
     db.commit()

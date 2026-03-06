@@ -40,6 +40,13 @@ def run_migrations():
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS accent_color VARCHAR(20) DEFAULT 'blue'",
         "ALTER TABLE partner_brands ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0",
         "ALTER TABLE partner_brands ADD COLUMN IF NOT EXISTS image_url VARCHAR(500)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS has_condition BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS pathologies JSONB",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS medications JSONB",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS mobility_limitations JSONB",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS accepted_terms BOOLEAN DEFAULT TRUE",
+        "ALTER TABLE routines ADD COLUMN IF NOT EXISTS ai_data JSONB",
+        "ALTER TABLE routines ADD COLUMN IF NOT EXISTS generation_type VARCHAR(20) DEFAULT 'normal'",
     ]
     with engine.connect() as conn:
         for sql in migrations:

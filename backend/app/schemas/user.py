@@ -16,6 +16,11 @@ class UserCreate(BaseModel):
     phone: str | None = None
     country_code: str = "+52"
     accent_color: str = "blue"
+    has_condition: bool = False
+    pathologies: list[str] | None = None
+    medications: list[str] | None = None
+    mobility_limitations: list[str] | None = None
+    accepted_terms: bool = False
 
 
 class UserLogin(BaseModel):
@@ -34,6 +39,10 @@ class UserUpdate(BaseModel):
     phone: str | None = None
     country_code: str | None = None
     accent_color: str | None = None
+    has_condition: bool | None = None
+    pathologies: list[str] | None = None
+    medications: list[str] | None = None
+    mobility_limitations: list[str] | None = None
 
 
 class UserResponse(BaseModel):
@@ -51,6 +60,11 @@ class UserResponse(BaseModel):
     is_admin: bool = False
     theme_preference: str
     accent_color: str = "blue"
+    has_condition: bool = False
+    pathologies: list[str] | None = None
+    medications: list[str] | None = None
+    mobility_limitations: list[str] | None = None
+    accepted_terms: bool = False
     created_at: datetime
 
     model_config = {"from_attributes": True}

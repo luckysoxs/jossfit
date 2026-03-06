@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
-import { User, LogOut, Sun, Moon, Save, Mail, Ruler, Weight, Calendar, CheckCircle, Palette, Bell, BellOff } from 'lucide-react'
+import { User, LogOut, Sun, Moon, Save, Mail, Ruler, Weight, Calendar, CheckCircle, Palette, Bell, BellOff, HeartPulse, X, Plus } from 'lucide-react'
 import { ACCENT_COLORS, applyAccentColor } from '../data/accentColors'
 import { requestNotificationPermission, subscribeToPush, unsubscribeFromPush, isPushSubscribed } from '../services/pushNotifications'
 
@@ -59,6 +59,41 @@ export default function Profile() {
     } catch {}
     setPushLoading(false)
   }
+
+  // Medical conditions state
+  const [medicalForm, setMedicalForm] = useState({
+    has_condition: user?.has_condition || false,
+    pathologies: user?.pathologies || [],
+    medications: user?.medications || [],
+    mobility_limitations: user?.mobility_limitations || [],
+  })
+  const [medicalEditing, setMedicalEditing] = useState(false)
+  const [medicalSaving, setMedicalSaving] = useState(false)
+  const [medicalTagInputs, setMedicalTagInputs] = useState({ pathologies: '', medications: '', mobility_limitations: '' })
+
+  const addMedicalTag = (field) => {
+    const val = medicalTagInputs[field].trim()
+    if (!val || medicalForm[field].includes(val)) return
+    setMedicalForm({ ...medicalForm, [field]: [...medicalForm[field], val] })
+    setMedicalTagInputs({ ...medicalTagInputs, [field]: '' })
+  }
+
+  const removeMedicalTag = (field, idx) => {
+    setMedicalForm({ ...medicalForm, [field]: medicalForm[field].filter((_, i) => i !== idx) })
+  }
+
+  const saveMedical = async () => {
+    setMedicalSaving(true)
+    try {
+      await updateUser(medicalForm)
+      setMedicalEditing(false)
+    } catch { alert('Error al actualizar') }
+    setMedicalSaving(false)
+  }
+
+  const PATHOLOGY_SUGGESTIONS = ['Diabetes T2', 'Hipertension', 'Artritis reumatoide', 'Fibromialgia', 'Osteoporosis', 'Hernia discal']
+  const MEDICATION_SUGGESTIONS = ['Metformina', 'Estatinas', 'Insulina', 'Beta bloqueadores', 'Corticosteroides', 'Antidepresivos']
+  const LIMITATION_SUGGESTIONS = ['Rodilla', 'Espalda baja', 'Hombro', 'Cadera', 'Tobillo', 'Cuello']
 
   const levelLabels = { beginner: 'Principiante', intermediate: 'Intermedio', advanced: 'Avanzado' }
 
@@ -139,6 +174,122 @@ export default function Profile() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Medical Conditions */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <HeartPulse size={20} className="text-red-500" />
+            <span className="font-medium">Condiciones Medicas</span>
+          </div>
+          {!medicalEditing && (
+            <button onClick={() => setMedicalEditing(true)} className="text-brand-500 text-sm font-medium">Editar</button>
+          )}
+        </div>
+
+        {!medicalEditing ? (
+          <div>
+            {medicalForm.has_condition ? (
+              <div className="space-y-2">
+                {medicalForm.pathologies?.length > 0 && (
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1">Patologias</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {medicalForm.pathologies.map((p, i) => (
+                        <span key={i} className="bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 px-2 py-0.5 rounded-full text-xs">{p}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {medicalForm.medications?.length > 0 && (
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1">Medicamentos</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {medicalForm.medications.map((m, i) => (
+                        <span key={i} className="bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full text-xs">{m}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {medicalForm.mobility_limitations?.length > 0 && (
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1">Limitaciones de movilidad</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {medicalForm.mobility_limitations.map((l, i) => (
+                        <span key={i} className="bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400 px-2 py-0.5 rounded-full text-xs">{l}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400">Sin condiciones medicas registradas</p>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Tengo condicion medica</span>
+              <button
+                onClick={() => setMedicalForm({ ...medicalForm, has_condition: !medicalForm.has_condition })}
+                className={`relative w-14 h-7 rounded-full transition-colors ${medicalForm.has_condition ? 'bg-red-500' : 'bg-gray-300'}`}
+              >
+                <div className={`absolute top-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${medicalForm.has_condition ? 'translate-x-7' : 'translate-x-0.5'}`} />
+              </button>
+            </div>
+
+            {medicalForm.has_condition && (
+              <div className="space-y-4">
+                {[
+                  { field: 'pathologies', label: 'Patologias', suggestions: PATHOLOGY_SUGGESTIONS, tagClass: 'bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400' },
+                  { field: 'medications', label: 'Medicamentos', suggestions: MEDICATION_SUGGESTIONS, tagClass: 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400' },
+                  { field: 'mobility_limitations', label: 'Limitaciones de movilidad', suggestions: LIMITATION_SUGGESTIONS, tagClass: 'bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400' },
+                ].map(({ field, label, suggestions, tagClass }) => (
+                  <div key={field}>
+                    <label className="text-xs text-gray-500 mb-1 block">{label}</label>
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {medicalForm[field].map((tag, i) => (
+                        <span key={i} className={`${tagClass} px-2 py-0.5 rounded-full text-xs flex items-center gap-1`}>
+                          {tag}
+                          <button onClick={() => removeMedicalTag(field, i)} className="hover:opacity-70"><X size={12} /></button>
+                        </span>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        className="input flex-1 text-sm"
+                        value={medicalTagInputs[field]}
+                        onChange={(e) => setMedicalTagInputs({ ...medicalTagInputs, [field]: e.target.value })}
+                        onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addMedicalTag(field))}
+                        placeholder={`Agregar ${label.toLowerCase()}...`}
+                      />
+                      <button onClick={() => addMedicalTag(field)} className="btn-secondary px-3"><Plus size={16} /></button>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {suggestions.filter(s => !medicalForm[field].includes(s)).map(s => (
+                        <button key={s} onClick={() => setMedicalForm({ ...medicalForm, [field]: [...medicalForm[field], s] })}
+                          className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-500 px-2 py-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                          + {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <button onClick={() => {
+                setMedicalEditing(false)
+                setMedicalForm({ has_condition: user?.has_condition || false, pathologies: user?.pathologies || [], medications: user?.medications || [], mobility_limitations: user?.mobility_limitations || [] })
+              }} className="btn-secondary flex-1">Cancelar</button>
+              <button onClick={saveMedical} className="btn-primary flex-1 flex items-center justify-center gap-2" disabled={medicalSaving}>
+                <Save size={16} /> {medicalSaving ? 'Guardando...' : 'Guardar'}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Stats */}
