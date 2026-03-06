@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import OneRMCalculator from '../components/routines/OneRMCalculator'
-import { ArrowLeft, Play, Check, ChevronRight, Calculator, RefreshCw, X } from 'lucide-react'
+import { ArrowLeft, Play, Check, ChevronRight, Calculator, RefreshCw, X, Zap } from 'lucide-react'
 
 export default function RoutineDetail() {
   const { id } = useParams()
@@ -192,10 +192,18 @@ export default function RoutineDetail() {
       </button>
 
       <div className="card">
-        <h1 className="text-xl font-bold">{routine.name}</h1>
-        <div className="flex gap-3 text-sm text-gray-400 mt-1">
-          <span className="bg-brand-50 dark:bg-brand-500/10 text-brand-500 px-2 py-0.5 rounded-full">{routine.split_type}</span>
-          <span>{routine.days_per_week} dias/semana</span>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-xl font-bold">{routine.name}</h1>
+            <div className="flex gap-3 text-sm text-gray-400 mt-1">
+              <span className="bg-brand-50 dark:bg-brand-500/10 text-brand-500 px-2 py-0.5 rounded-full">{routine.split_type}</span>
+              <span>{routine.days_per_week} dias/semana</span>
+            </div>
+          </div>
+          <button onClick={() => navigate('/routines/generate')}
+            className="flex items-center gap-1.5 text-xs font-medium text-brand-500 hover:text-brand-400 bg-brand-50 dark:bg-brand-500/10 px-3 py-2 rounded-xl transition-colors">
+            <Zap size={14} /> Nueva rutina
+          </button>
         </div>
       </div>
 

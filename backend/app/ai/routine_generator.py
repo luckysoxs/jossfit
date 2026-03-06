@@ -47,12 +47,16 @@ SPLIT_TEMPLATES = {
     },
 }
 
-# Total exercises per day by training level (optimal volume)
+# Total MAIN exercises per day by training level (optimal volume)
+# Accessory muscles (calves, abs, forearms, traps) are added as extras on top
 MAX_EXERCISES_PER_DAY = {
     "beginner": 5,
     "intermediate": 7,
     "advanced": 8,
 }
+
+# Muscles treated as accessories — 1 exercise each, outside the main budget
+ACCESSORY_MUSCLES = {"calves", "abs", "forearms", "traps"}
 
 # Sets config by level
 SETS_CONFIG = {
@@ -138,13 +142,18 @@ def generate_routine(
     for day_tmpl in days_template:
         focus_muscles = [m.strip() for m in day_tmpl["focus"].split(",")]
 
-        # Allocate exercises per muscle for this day
-        allocation = _allocate_exercises(focus_muscles, max_ex)
+        # Separate main muscles from accessories
+        main_muscles = [m for m in focus_muscles if m not in ACCESSORY_MUSCLES]
+        accessory_muscles = [m for m in focus_muscles if m in ACCESSORY_MUSCLES]
+
+        # Budget allocation only for main muscles
+        allocation = _allocate_exercises(main_muscles, max_ex) if main_muscles else {}
 
         exercises_for_day = []
         order = 1
 
-        for muscle in focus_muscles:
+        # ── Main muscles (within budget) ──
+        for muscle in main_muscles:
             try:
                 mg = MuscleGroup(muscle)
             except ValueError:
@@ -152,7 +161,6 @@ def generate_routine(
 
             count = allocation.get(muscle, 1)
 
-            # Query available exercises (randomized via order_by for variety)
             compounds = (
                 db.query(Exercise)
                 .filter(
@@ -176,7 +184,6 @@ def generate_routine(
             added = 0
             is_priority = muscle in priority_muscles
 
-            # Add compounds first (at least 1 if available)
             for ex in compounds:
                 if added >= count:
                     break
@@ -191,7 +198,6 @@ def generate_routine(
                 order += 1
                 added += 1
 
-            # Fill remaining with isolations
             for ex in isolations:
                 if added >= count:
                     break
@@ -205,6 +211,33 @@ def generate_routine(
                 })
                 order += 1
                 added += 1
+
+        # ── Accessory muscles (extras, 1 exercise each, outside budget) ──
+        for muscle in accessory_muscles:
+            try:
+                mg = MuscleGroup(muscle)
+            except ValueError:
+                continue
+
+            ex = (
+                db.query(Exercise)
+                .filter(Exercise.muscle_group == mg)
+                .order_by(sqlfunc.random())
+                .first()
+            )
+            if not ex:
+                continue
+
+            is_priority = muscle in priority_muscles
+            exercises_for_day.append({
+                "exercise_id": ex.id,
+                "order": order,
+                "sets": sets_cfg["isolation"] + (1 if is_priority else 0),
+                "reps_min": reps["isolation"][0],
+                "reps_max": reps["isolation"][1],
+                "rest_seconds": 60,
+            })
+            order += 1
 
         routine_days.append({
             "day_number": day_tmpl["day_number"],
