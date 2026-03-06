@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import OneRMCalculator from '../components/routines/OneRMCalculator'
-import { ArrowLeft, Play, Check, ChevronRight, Calculator, RefreshCw, X, Zap } from 'lucide-react'
+import { ArrowLeft, Play, Check, ChevronRight, Calculator, RefreshCw, X, Zap, Trash2, Plus } from 'lucide-react'
 
 export default function RoutineDetail() {
   const { id } = useParams()
@@ -16,6 +16,7 @@ export default function RoutineDetail() {
   const [swapExercise, setSwapExercise] = useState(null)
   const [allExercises, setAllExercises] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
+  const [addingToDay, setAddingToDay] = useState(null)
 
   const todayKey = `routine_progress_${id}_${new Date().toISOString().split('T')[0]}`
 
@@ -40,6 +41,17 @@ export default function RoutineDetail() {
   const getYoutubeUrl = (name) => {
     const query = encodeURIComponent(`${name} ejercicio como hacerlo`)
     return `https://www.youtube.com/results?search_query=${query}`
+  }
+
+  const reloadRoutine = () => api.get(`/routines/${id}`).then(r => setRoutine(r.data))
+
+  const deleteExercise = async (exId) => {
+    await api.delete(`/routines/exercises/${exId}`)
+    await reloadRoutine()
+  }
+
+  const loadExercises = () => {
+    if (allExercises.length === 0) api.get('/exercises').then(r => setAllExercises(r.data))
   }
 
   if (loading) return <LoadingSpinner />
@@ -108,14 +120,23 @@ export default function RoutineDetail() {
                   className="inline-flex items-center gap-1.5 mt-1 ml-3 text-xs font-medium text-brand-500 hover:text-brand-400 transition-colors">
                   <Calculator size={14} /> 1RM
                 </button>
-                <button onClick={() => { setSwapExercise(ex); if (allExercises.length === 0) api.get('/exercises').then(r => setAllExercises(r.data)) }}
+                <button onClick={() => { setSwapExercise(ex); loadExercises() }}
                   className="inline-flex items-center gap-1.5 mt-1 ml-3 text-xs font-medium text-orange-500 hover:text-orange-400 transition-colors">
                   <RefreshCw size={14} /> Reemplazar
+                </button>
+                <button onClick={() => { if (confirm('¿Eliminar este ejercicio?')) deleteExercise(ex.id) }}
+                  className="inline-flex items-center gap-1.5 mt-1 ml-3 text-xs font-medium text-red-500 hover:text-red-400 transition-colors">
+                  <Trash2 size={14} /> Eliminar
                 </button>
               </div>
             </div>
           </div>
         ))}
+
+        <button onClick={() => { setAddingToDay(day); loadExercises(); setSearchTerm('') }}
+          className="card w-full flex items-center justify-center gap-2 py-3 text-sm font-medium text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-500/10 transition-colors border-2 border-dashed border-brand-500/30">
+          <Plus size={16} /> Agregar ejercicio
+        </button>
 
         {oneRMExercise && (
           <OneRMCalculator exercise={oneRMExercise} onClose={() => setOneRMExercise(null)} />
@@ -166,6 +187,70 @@ export default function RoutineDetail() {
                           const r = await api.get(`/routines/${id}`)
                           setRoutine(r.data)
                           setSwapExercise(null)
+                          setSearchTerm('')
+                        }}
+                        className="w-full text-left bg-gray-800 rounded-xl p-3 hover:bg-gray-700 transition-colors mb-1.5">
+                          <p className="font-medium text-sm">{e.name}</p>
+                          <p className="text-xs text-gray-400">{e.category} · {e.equipment}</p>
+                        </button>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )
+        })()}
+
+        {addingToDay && (() => {
+          const MUSCLE_LABELS = {
+            chest: 'Pecho', back: 'Espalda', shoulders: 'Hombros', biceps: 'Bíceps',
+            triceps: 'Tríceps', quadriceps: 'Cuádriceps', hamstrings: 'Isquiotibiales',
+            glutes: 'Glúteos', calves: 'Pantorrillas', abs: 'Abdominales',
+            traps: 'Trapecios', forearms: 'Antebrazos', cardio: 'Cardio',
+          }
+          const filtered = allExercises.filter(e => e.name.toLowerCase().includes(searchTerm.toLowerCase()))
+          const grouped = {}
+          filtered.forEach(e => {
+            const g = e.muscle_group || 'other'
+            if (!grouped[g]) grouped[g] = []
+            grouped[g].push(e)
+          })
+          const sortedGroups = Object.keys(grouped).sort((a, b) =>
+            (MUSCLE_LABELS[a] || a).localeCompare(MUSCLE_LABELS[b] || b)
+          )
+
+          return (
+            <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4">
+              <div className="bg-gray-900 rounded-2xl w-full max-w-md max-h-[70vh] flex flex-col">
+                <div className="p-4 border-b border-gray-800 flex justify-between items-center">
+                  <h3 className="font-bold">Agregar ejercicio</h3>
+                  <button onClick={() => setAddingToDay(null)}><X size={20} /></button>
+                </div>
+                <div className="p-4">
+                  <input type="text" placeholder="Buscar ejercicio..." value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    className="w-full bg-gray-800 rounded-xl px-4 py-2.5 text-sm" />
+                </div>
+                <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-1">
+                  {sortedGroups.map(group => (
+                    <div key={group}>
+                      <p className="text-xs font-semibold text-brand-500 uppercase tracking-wide py-2 sticky top-0 bg-gray-900 z-10">
+                        {MUSCLE_LABELS[group] || group}
+                      </p>
+                      {grouped[group].map(e => (
+                        <button key={e.id} onClick={async () => {
+                          const nextOrder = (addingToDay.exercises?.length || 0) + 1
+                          await api.post(`/routines/days/${addingToDay.id}/exercises`, {
+                            exercise_id: e.id,
+                            order: nextOrder,
+                            sets: 3,
+                            reps_min: 8,
+                            reps_max: 12,
+                            rest_seconds: 90,
+                          })
+                          await reloadRoutine()
+                          setAddingToDay(null)
                           setSearchTerm('')
                         }}
                         className="w-full text-left bg-gray-800 rounded-xl p-3 hover:bg-gray-700 transition-colors mb-1.5">

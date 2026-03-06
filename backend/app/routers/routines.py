@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app.models.user import User
 from app.models.routine import Routine, RoutineDay, RoutineExercise
-from app.schemas.routine import RoutineCreate, RoutineResponse
+from app.schemas.routine import RoutineCreate, RoutineExerciseCreate, RoutineResponse
 from app.auth.security import get_current_user
 
 router = APIRouter(prefix="/routines", tags=["Routines"])
@@ -124,6 +124,56 @@ def swap_exercise(
     routine_ex.exercise_id = new_exercise_id
     db.commit()
     return {"ok": True, "new_exercise_id": new_exercise_id}
+
+
+@router.delete("/exercises/{routine_exercise_id}", status_code=204)
+def delete_exercise(
+    routine_exercise_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    routine_ex = (
+        db.query(RoutineExercise)
+        .join(RoutineDay)
+        .join(Routine)
+        .filter(RoutineExercise.id == routine_exercise_id, Routine.user_id == user.id)
+        .first()
+    )
+    if not routine_ex:
+        raise HTTPException(status_code=404, detail="Exercise not found")
+    db.delete(routine_ex)
+    db.commit()
+
+
+@router.post("/days/{routine_day_id}/exercises", status_code=201)
+def add_exercise(
+    routine_day_id: int,
+    data: RoutineExerciseCreate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    day = (
+        db.query(RoutineDay)
+        .join(Routine)
+        .filter(RoutineDay.id == routine_day_id, Routine.user_id == user.id)
+        .first()
+    )
+    if not day:
+        raise HTTPException(status_code=404, detail="Day not found")
+
+    ex = RoutineExercise(
+        routine_day_id=day.id,
+        exercise_id=data.exercise_id,
+        order=data.order,
+        sets=data.sets,
+        reps_min=data.reps_min,
+        reps_max=data.reps_max,
+        rest_seconds=data.rest_seconds,
+        notes=data.notes,
+    )
+    db.add(ex)
+    db.commit()
+    return {"ok": True}
 
 
 def _load_full_routine(db: Session, routine_id: int) -> Routine | None:
