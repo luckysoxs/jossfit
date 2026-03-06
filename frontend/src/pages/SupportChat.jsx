@@ -84,22 +84,22 @@ export default function SupportChat() {
                 <p className="text-gray-400 text-xs mt-1">Estamos aquí para ayudarte. Escríbenos y te responderemos lo antes posible.</p>
               </div>
               <div className="grid grid-cols-2 gap-2 text-left">
-                <div className="p-2.5 rounded-xl bg-gray-50 dark:bg-gray-800/50">
-                  <Dumbbell size={16} className="text-brand-500 mb-1" />
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Dudas sobre rutinas o ejercicios</p>
-                </div>
-                <div className="p-2.5 rounded-xl bg-gray-50 dark:bg-gray-800/50">
-                  <Award size={16} className="text-brand-500 mb-1" />
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Beneficios exclusivos</p>
-                </div>
-                <div className="p-2.5 rounded-xl bg-gray-50 dark:bg-gray-800/50">
-                  <AlertCircle size={16} className="text-brand-500 mb-1" />
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Reportar un problema técnico</p>
-                </div>
-                <div className="p-2.5 rounded-xl bg-gray-50 dark:bg-gray-800/50">
-                  <HelpCircle size={16} className="text-brand-500 mb-1" />
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Cualquier otra pregunta</p>
-                </div>
+                {[
+                  { icon: Dumbbell, label: 'Dudas sobre rutinas o ejercicios', msg: 'Hola, tengo una duda sobre mi rutina de ejercicios' },
+                  { icon: Award, label: 'Beneficios exclusivos', msg: 'Hola, quiero saber más sobre los beneficios exclusivos' },
+                  { icon: AlertCircle, label: 'Reportar un problema técnico', msg: 'Hola, quiero reportar un problema técnico en la app' },
+                  { icon: HelpCircle, label: 'Cualquier otra pregunta', msg: 'Hola, tengo una pregunta' },
+                ].map(({ icon: Icon, label, msg }) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => setInput(msg)}
+                    className="p-2.5 rounded-xl bg-gray-50 dark:bg-gray-800/50 hover:bg-brand-50 dark:hover:bg-brand-500/10 transition-colors text-left"
+                  >
+                    <Icon size={16} className="text-brand-500 mb-1" />
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
+                  </button>
+                ))}
               </div>
               <p className="text-[11px] text-gray-400">⬇️ Escribe tu mensaje abajo para comenzar</p>
             </div>
