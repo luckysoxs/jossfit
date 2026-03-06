@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
-import { User, LogOut, Sun, Moon, Save, Mail, Ruler, Weight, Calendar, CheckCircle, Palette } from 'lucide-react'
+import { User, LogOut, Sun, Moon, Save, Mail, Ruler, Weight, Calendar, CheckCircle, Palette, Bell, BellOff } from 'lucide-react'
 import { ACCENT_COLORS, applyAccentColor } from '../data/accentColors'
+import { requestNotificationPermission, subscribeToPush, unsubscribeFromPush, isPushSubscribed } from '../services/pushNotifications'
 
 export default function Profile() {
   const { user, updateUser, logout } = useAuth()
@@ -33,6 +34,30 @@ export default function Profile() {
       setEditing(false)
     } catch { alert('Error al actualizar') }
     setSaving(false)
+  }
+
+  const [pushEnabled, setPushEnabled] = useState(false)
+  const [pushLoading, setPushLoading] = useState(false)
+
+  useEffect(() => {
+    isPushSubscribed().then(setPushEnabled)
+  }, [])
+
+  const togglePush = async () => {
+    setPushLoading(true)
+    try {
+      if (pushEnabled) {
+        await unsubscribeFromPush()
+        setPushEnabled(false)
+      } else {
+        const permitted = await requestNotificationPermission()
+        if (permitted) {
+          const ok = await subscribeToPush()
+          setPushEnabled(ok)
+        }
+      }
+    } catch {}
+    setPushLoading(false)
   }
 
   const levelLabels = { beginner: 'Principiante', intermediate: 'Intermedio', advanced: 'Avanzado' }
@@ -65,6 +90,25 @@ export default function Profile() {
         >
           <div className={`absolute top-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${
             theme === 'dark' ? 'translate-x-7' : 'translate-x-0.5'
+          }`} />
+        </button>
+      </div>
+
+      {/* Push Notifications */}
+      <div className="card flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          {pushEnabled ? <Bell size={20} /> : <BellOff size={20} />}
+          <span className="font-medium">Notificaciones</span>
+        </div>
+        <button
+          onClick={togglePush}
+          disabled={pushLoading}
+          className={`relative w-14 h-7 rounded-full transition-colors ${
+            pushEnabled ? 'bg-brand-500' : 'bg-gray-300'
+          }`}
+        >
+          <div className={`absolute top-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${
+            pushEnabled ? 'translate-x-7' : 'translate-x-0.5'
           }`} />
         </button>
       </div>

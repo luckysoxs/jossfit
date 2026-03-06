@@ -37,9 +37,9 @@ export default function Dashboard() {
 
   const quickLinks = [
     d.active_routine_id
-      ? { to: `/routines/${d.active_routine_id}`, icon: Dumbbell, label: 'Mi Rutina', color: 'bg-brand-500' }
-      : { to: '/routines/generate', icon: Dumbbell, label: 'Crear Rutina', color: 'bg-brand-500' },
-    { to: '/cardio', icon: HeartPulse, label: 'Cardio', color: 'bg-red-500' },
+      ? { to: `/routines/${d.active_routine_id}`, icon: Dumbbell, label: 'Mi Rutina', color: 'bg-brand-500', tour: 'link-rutina' }
+      : { to: '/routines/generate', icon: Dumbbell, label: 'Crear Rutina', color: 'bg-brand-500', tour: 'link-rutina' },
+    { to: '/cardio', icon: HeartPulse, label: 'Cardio', color: 'bg-red-500', tour: 'link-cardio' },
     { to: '/goals', icon: Target, label: 'Objetivos', color: 'bg-green-500' },
     { to: '/benefits', icon: Award, label: 'Beneficios', color: 'bg-purple-500' },
   ]
@@ -57,11 +57,12 @@ export default function Dashboard() {
       </div>
 
       {/* Quick Links */}
-      <div className="grid grid-cols-4 gap-2">
-        {quickLinks.map(({ to, icon: Icon, label, color }) => (
+      <div data-tour="quick-links" className="grid grid-cols-4 gap-2">
+        {quickLinks.map(({ to, icon: Icon, label, color, tour }) => (
           <Link
             key={to}
             to={to}
+            data-tour={tour}
             className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 hover:scale-[1.02] transition-transform"
           >
             <div className={`p-2 rounded-xl ${color} text-white`}>
@@ -73,7 +74,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 gap-3">
+      <div data-tour="stats" className="grid grid-cols-2 gap-3">
         <StatCard icon={Dumbbell} label="Entrenamientos" value={d.total_workouts || 0} color="brand" />
         <StatCard icon={Flame} label="Esta semana" value={d.workouts_this_week || 0} color="red" />
         <StatCard icon={Timer} label="Duración prom." value={`${d.avg_workout_duration || 0}m`} color="blue" />
