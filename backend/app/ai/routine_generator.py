@@ -1,6 +1,7 @@
 """Smart routine generator based on user goals, level, and preferences."""
 
 from sqlalchemy.orm import Session
+from sqlalchemy import func as sqlfunc
 
 from app.models.exercise import Exercise, MuscleGroup, ExerciseCategory
 
@@ -46,11 +47,18 @@ SPLIT_TEMPLATES = {
     },
 }
 
-# Volume per muscle group per session based on level
-VOLUME_MAP = {
-    "beginner": {"compound": 3, "isolation": 2, "sets": 3},
-    "intermediate": {"compound": 3, "isolation": 3, "sets": 4},
-    "advanced": {"compound": 4, "isolation": 3, "sets": 4},
+# Total exercises per day by training level (optimal volume)
+MAX_EXERCISES_PER_DAY = {
+    "beginner": 5,
+    "intermediate": 7,
+    "advanced": 8,
+}
+
+# Sets config by level
+SETS_CONFIG = {
+    "beginner": {"compound": 3, "isolation": 2},
+    "intermediate": {"compound": 3, "isolation": 3},
+    "advanced": {"compound": 4, "isolation": 3},
 }
 
 # Rep ranges by objective
@@ -77,6 +85,38 @@ def select_split(days_per_week: int, preference: str | None = None) -> str:
         return "ppl"
 
 
+def _allocate_exercises(focus_muscles: list[str], max_total: int) -> dict[str, int]:
+    """Distribute exercise budget across muscles.
+
+    First gives 1 exercise per muscle, then distributes remaining
+    one-by-one in order (primary muscles first), capped at 3 per muscle.
+    """
+    allocation = {}
+    budget = max_total
+
+    # Phase 1: 1 exercise per muscle
+    for m in focus_muscles:
+        allocation[m] = 1
+        budget -= 1
+        if budget <= 0:
+            break
+
+    # Phase 2: distribute remaining 1 at a time, cap at 3
+    while budget > 0:
+        distributed = False
+        for m in focus_muscles:
+            if budget <= 0:
+                break
+            if allocation.get(m, 0) < 3:
+                allocation[m] = allocation.get(m, 0) + 1
+                budget -= 1
+                distributed = True
+        if not distributed:
+            break
+
+    return allocation
+
+
 def generate_routine(
     db: Session,
     objective: str,
@@ -85,61 +125,43 @@ def generate_routine(
     priority_muscles: list[str],
     split_preference: str | None = None,
 ) -> dict:
-    """Generate a complete training routine."""
+    """Generate a complete training routine with optimal volume."""
     split_key = select_split(days_per_week, split_preference)
     template = SPLIT_TEMPLATES[split_key]
-    vol = VOLUME_MAP.get(training_level, VOLUME_MAP["intermediate"])
+    max_ex = MAX_EXERCISES_PER_DAY.get(training_level, 7)
+    sets_cfg = SETS_CONFIG.get(training_level, SETS_CONFIG["intermediate"])
     reps = REP_RANGES.get(objective, REP_RANGES["hypertrophy"])
 
     days_template = template["days"][:days_per_week]
-    is_full_body = split_key == "full_body"
 
     routine_days = []
     for day_tmpl in days_template:
         focus_muscles = [m.strip() for m in day_tmpl["focus"].split(",")]
 
+        # Allocate exercises per muscle for this day
+        allocation = _allocate_exercises(focus_muscles, max_ex)
+
         exercises_for_day = []
         order = 1
 
-        # Limits: full body = 1 compound + 1 isolation per muscle; others = 2+2
-        max_compounds = 1 if is_full_body else 2
-        max_isolations = 1 if is_full_body else 2
-
-        # Add compound exercises first
         for muscle in focus_muscles:
             try:
                 mg = MuscleGroup(muscle)
             except ValueError:
                 continue
 
+            count = allocation.get(muscle, 1)
+
+            # Query available exercises (randomized via order_by for variety)
             compounds = (
                 db.query(Exercise)
                 .filter(
                     Exercise.muscle_group == mg,
                     Exercise.category == ExerciseCategory.COMPOUND,
                 )
-                .limit(vol["compound"])
+                .order_by(sqlfunc.random())
                 .all()
             )
-
-            for ex in compounds[:max_compounds]:
-                is_priority = muscle in priority_muscles
-                exercises_for_day.append({
-                    "exercise_id": ex.id,
-                    "order": order,
-                    "sets": vol["sets"] + (1 if is_priority else 0),
-                    "reps_min": reps["compound"][0],
-                    "reps_max": reps["compound"][1],
-                    "rest_seconds": 120 if objective == "strength" else 90,
-                })
-                order += 1
-
-        # Add isolation exercises
-        for muscle in focus_muscles:
-            try:
-                mg = MuscleGroup(muscle)
-            except ValueError:
-                continue
 
             isolations = (
                 db.query(Exercise)
@@ -147,21 +169,42 @@ def generate_routine(
                     Exercise.muscle_group == mg,
                     Exercise.category == ExerciseCategory.ISOLATION,
                 )
-                .limit(vol["isolation"])
+                .order_by(sqlfunc.random())
                 .all()
             )
 
-            for ex in isolations[:max_isolations]:
-                is_priority = muscle in priority_muscles
+            added = 0
+            is_priority = muscle in priority_muscles
+
+            # Add compounds first (at least 1 if available)
+            for ex in compounds:
+                if added >= count:
+                    break
                 exercises_for_day.append({
                     "exercise_id": ex.id,
                     "order": order,
-                    "sets": vol["sets"] - 1 + (1 if is_priority else 0),
+                    "sets": sets_cfg["compound"] + (1 if is_priority else 0),
+                    "reps_min": reps["compound"][0],
+                    "reps_max": reps["compound"][1],
+                    "rest_seconds": 120 if objective == "strength" else 90,
+                })
+                order += 1
+                added += 1
+
+            # Fill remaining with isolations
+            for ex in isolations:
+                if added >= count:
+                    break
+                exercises_for_day.append({
+                    "exercise_id": ex.id,
+                    "order": order,
+                    "sets": sets_cfg["isolation"] + (1 if is_priority else 0),
                     "reps_min": reps["isolation"][0],
                     "reps_max": reps["isolation"][1],
                     "rest_seconds": 60,
                 })
                 order += 1
+                added += 1
 
         routine_days.append({
             "day_number": day_tmpl["day_number"],

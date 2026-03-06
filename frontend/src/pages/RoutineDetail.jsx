@@ -121,36 +121,65 @@ export default function RoutineDetail() {
           <OneRMCalculator exercise={oneRMExercise} onClose={() => setOneRMExercise(null)} />
         )}
 
-        {swapExercise && (
-          <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4">
-            <div className="bg-gray-900 rounded-2xl w-full max-w-md max-h-[70vh] flex flex-col">
-              <div className="p-4 border-b border-gray-800 flex justify-between items-center">
-                <h3 className="font-bold">Reemplazar {swapExercise.exercise?.name}</h3>
-                <button onClick={() => setSwapExercise(null)}><X size={20} /></button>
-              </div>
-              <div className="p-4">
-                <input type="text" placeholder="Buscar ejercicio..." value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                  className="w-full bg-gray-800 rounded-xl px-4 py-2.5 text-sm" />
-              </div>
-              <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
-                {allExercises.filter(e => e.name.toLowerCase().includes(searchTerm.toLowerCase())).map(e => (
-                  <button key={e.id} onClick={async () => {
-                    await api.put(`/routines/exercises/${swapExercise.id}/swap?new_exercise_id=${e.id}`)
-                    const r = await api.get(`/routines/${id}`)
-                    setRoutine(r.data)
-                    setSwapExercise(null)
-                    setSearchTerm('')
-                  }}
-                  className="w-full text-left bg-gray-800 rounded-xl p-3 hover:bg-gray-700 transition-colors">
-                    <p className="font-medium text-sm">{e.name}</p>
-                    <p className="text-xs text-gray-400">{e.muscle_group} · {e.equipment}</p>
-                  </button>
-                ))}
+        {swapExercise && (() => {
+          const MUSCLE_LABELS = {
+            chest: 'Pecho', back: 'Espalda', shoulders: 'Hombros', biceps: 'Bíceps',
+            triceps: 'Tríceps', quadriceps: 'Cuádriceps', hamstrings: 'Isquiotibiales',
+            glutes: 'Glúteos', calves: 'Pantorrillas', abs: 'Abdominales',
+            traps: 'Trapecios', forearms: 'Antebrazos', cardio: 'Cardio',
+          }
+          const filtered = allExercises.filter(e => e.name.toLowerCase().includes(searchTerm.toLowerCase()))
+          const grouped = {}
+          filtered.forEach(e => {
+            const g = e.muscle_group || 'other'
+            if (!grouped[g]) grouped[g] = []
+            grouped[g].push(e)
+          })
+          const currentMuscle = swapExercise.exercise?.muscle_group
+          const sortedGroups = Object.keys(grouped).sort((a, b) => {
+            if (a === currentMuscle) return -1
+            if (b === currentMuscle) return 1
+            return (MUSCLE_LABELS[a] || a).localeCompare(MUSCLE_LABELS[b] || b)
+          })
+
+          return (
+            <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4">
+              <div className="bg-gray-900 rounded-2xl w-full max-w-md max-h-[70vh] flex flex-col">
+                <div className="p-4 border-b border-gray-800 flex justify-between items-center">
+                  <h3 className="font-bold">Reemplazar {swapExercise.exercise?.name}</h3>
+                  <button onClick={() => setSwapExercise(null)}><X size={20} /></button>
+                </div>
+                <div className="p-4">
+                  <input type="text" placeholder="Buscar ejercicio..." value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    className="w-full bg-gray-800 rounded-xl px-4 py-2.5 text-sm" />
+                </div>
+                <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-1">
+                  {sortedGroups.map(group => (
+                    <div key={group}>
+                      <p className="text-xs font-semibold text-brand-500 uppercase tracking-wide py-2 sticky top-0 bg-gray-900 z-10">
+                        {MUSCLE_LABELS[group] || group}
+                      </p>
+                      {grouped[group].map(e => (
+                        <button key={e.id} onClick={async () => {
+                          await api.put(`/routines/exercises/${swapExercise.id}/swap?new_exercise_id=${e.id}`)
+                          const r = await api.get(`/routines/${id}`)
+                          setRoutine(r.data)
+                          setSwapExercise(null)
+                          setSearchTerm('')
+                        }}
+                        className="w-full text-left bg-gray-800 rounded-xl p-3 hover:bg-gray-700 transition-colors mb-1.5">
+                          <p className="font-medium text-sm">{e.name}</p>
+                          <p className="text-xs text-gray-400">{e.category} · {e.equipment}</p>
+                        </button>
+                      ))}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
       </div>
     )
   }
