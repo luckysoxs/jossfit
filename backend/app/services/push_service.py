@@ -24,6 +24,8 @@ def _send_push(sub: PushSubscription, payload: str, db: Session) -> bool:
             db.delete(sub)
             db.commit()
         return False
+    except Exception:
+        return False
 
 
 def send_push_to_user(db: Session, user_id: int, title: str, body: str, url: str = "/"):

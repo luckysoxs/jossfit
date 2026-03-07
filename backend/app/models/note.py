@@ -16,6 +16,7 @@ class Note(Base):
     category: Mapped[str] = mapped_column(String(50), default="general")
     scheduled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     published: Mapped[bool] = mapped_column(Boolean, default=False)
+    send_push: Mapped[bool] = mapped_column(Boolean, default=True)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 

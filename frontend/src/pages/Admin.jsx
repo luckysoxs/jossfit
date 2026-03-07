@@ -1014,7 +1014,7 @@ function NotesSection() {
   const [notes, setNotes] = useState([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(null)
-  const [form, setForm] = useState({ title: '', content: '', category: 'general', scheduled_at: '' })
+  const [form, setForm] = useState({ title: '', content: '', category: 'general', scheduled_at: '', send_push: true })
   const [saving, setSaving] = useState(false)
   const [allStats, setAllStats] = useState({})
   const [expandedStats, setExpandedStats] = useState(null)
@@ -1061,14 +1061,15 @@ function NotesSection() {
         title: form.title,
         content: form.content,
         category: form.category,
-        scheduled_at: form.scheduled_at || null,
+        scheduled_at: form.scheduled_at ? new Date(form.scheduled_at).toISOString() : null,
+        send_push: form.send_push,
       }
       if (editing) {
         await api.put(`/notes/${editing}`, payload)
       } else {
         await api.post('/notes', payload)
       }
-      setForm({ title: '', content: '', category: 'general', scheduled_at: '' })
+      setForm({ title: '', content: '', category: 'general', scheduled_at: '', send_push: true })
       setEditing(null)
       fetchNotes()
     } catch (err) {
@@ -1084,13 +1085,26 @@ function NotesSection() {
     fetchNotes()
   }
 
+  const toLocalDatetime = (utcStr) => {
+    if (!utcStr) return ''
+    const d = new Date(utcStr)
+    if (isNaN(d.getTime())) return ''
+    const y = d.getFullYear()
+    const mo = String(d.getMonth() + 1).padStart(2, '0')
+    const da = String(d.getDate()).padStart(2, '0')
+    const h = String(d.getHours()).padStart(2, '0')
+    const mi = String(d.getMinutes()).padStart(2, '0')
+    return `${y}-${mo}-${da}T${h}:${mi}`
+  }
+
   const startEdit = (note) => {
     setEditing(note.id)
     setForm({
       title: note.title,
       content: note.content,
       category: note.category,
-      scheduled_at: note.scheduled_at ? note.scheduled_at.slice(0, 16) : '',
+      scheduled_at: toLocalDatetime(note.scheduled_at),
+      send_push: note.send_push !== false,
     })
   }
 
@@ -1123,18 +1137,28 @@ function NotesSection() {
             </button>
           )}
         </div>
+        <label className="flex items-center gap-2 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={form.send_push}
+            onChange={e => setForm({ ...form, send_push: e.target.checked })}
+            className="w-4 h-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500"
+          />
+          <span className="text-xs font-medium text-gray-600 dark:text-gray-300">Enviar push notification</span>
+        </label>
         <div className="flex gap-2">
           <button onClick={saveNote} disabled={saving || !form.title.trim() || !form.content.trim()}
             className="btn-primary flex items-center gap-2">
-            <Send size={14} /> {saving ? 'Guardando...' : (editing ? 'Actualizar' : (form.scheduled_at ? 'Programar nota' : 'Publicar y notificar'))}
+            <Send size={14} /> {saving ? 'Guardando...' : (editing ? 'Actualizar' : (form.scheduled_at ? 'Programar nota' : (form.send_push ? 'Publicar y notificar' : 'Publicar (solo in-app)')))}
           </button>
           {editing && (
-            <button onClick={() => { setEditing(null); setForm({ title: '', content: '', category: 'general', scheduled_at: '' }) }}
+            <button onClick={() => { setEditing(null); setForm({ title: '', content: '', category: 'general', scheduled_at: '', send_push: true }) }}
               className="px-4 py-2 text-sm text-gray-400 hover:text-gray-600">Cancelar</button>
           )}
         </div>
-        {!editing && !form.scheduled_at && <p className="text-[11px] text-gray-400">Al publicar se enviará push notification y notificación in-app a todos los usuarios.</p>}
-        {!editing && form.scheduled_at && <p className="text-[11px] text-amber-500">La nota se publicará automáticamente en la fecha indicada. No se notificará hasta entonces.</p>}
+        {!editing && !form.scheduled_at && form.send_push && <p className="text-[11px] text-gray-400">Se enviará push notification + notificación in-app a todos los usuarios.</p>}
+        {!editing && !form.scheduled_at && !form.send_push && <p className="text-[11px] text-gray-400">Solo se creará notificación in-app (sin push notification).</p>}
+        {!editing && form.scheduled_at && <p className="text-[11px] text-amber-500">La nota se publicará automáticamente en la fecha indicada. {form.send_push ? 'Se enviará push al publicarse.' : 'Solo notificación in-app al publicarse.'}</p>}
       </div>
 
       {/* Notes list */}

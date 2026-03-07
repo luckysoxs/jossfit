@@ -112,6 +112,8 @@ def run_migrations():
         )""",
         "CREATE INDEX IF NOT EXISTS idx_partner_clicks_brand ON partner_clicks(partner_brand_id)",
         "CREATE INDEX IF NOT EXISTS idx_partner_clicks_user ON partner_clicks(user_id)",
+        # Note push preference
+        "ALTER TABLE notes ADD COLUMN IF NOT EXISTS send_push BOOLEAN DEFAULT TRUE",
     ]
     with engine.connect() as conn:
         for sql in migrations:
@@ -155,8 +157,12 @@ async def publish_scheduled_notes():
                     ))
                 note.published = True
                 db.commit()
-                # Send push notification
-                send_push_to_all(db, f"Nueva nota: {note.title}", note.content[:100], f"/notes/{note.id}")
+                # Send push notification (only if enabled)
+                if note.send_push:
+                    try:
+                        send_push_to_all(db, f"Nueva nota: {note.title}", note.content[:100], f"/notes/{note.id}")
+                    except Exception as push_err:
+                        logger.warning(f"Push failed for note #{note.id}: {push_err}")
                 logger.info(f"Published scheduled note #{note.id}: {note.title}")
             db.close()
         except Exception as e:

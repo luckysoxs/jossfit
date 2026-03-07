@@ -1,4 +1,5 @@
-from datetime import datetime
+import logging
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -13,6 +14,8 @@ from app.models.notification import Notification
 from app.auth.security import get_current_user
 from app.services.push_service import send_push_to_all
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/notes", tags=["Notes"])
 
 
@@ -21,6 +24,7 @@ class NoteCreate(BaseModel):
     content: str
     category: str = "general"
     scheduled_at: str | None = None  # ISO datetime string or null
+    send_push: bool = True  # Whether to send push notification
 
 
 class NoteResponse(BaseModel):
@@ -31,6 +35,7 @@ class NoteResponse(BaseModel):
     category: str
     scheduled_at: str | None = None
     published: bool = False
+    send_push: bool = True
     updated_at: str | None = None
     created_at: str
 
@@ -220,7 +225,12 @@ def create_note(
     scheduled = None
     if data.scheduled_at:
         try:
-            scheduled = datetime.fromisoformat(data.scheduled_at.replace("Z", "+00:00"))
+            parsed = datetime.fromisoformat(data.scheduled_at.replace("Z", "+00:00"))
+            # Convert to naive UTC for consistent storage & comparison
+            if parsed.tzinfo is not None:
+                scheduled = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+            else:
+                scheduled = parsed
         except ValueError:
             raise HTTPException(status_code=400, detail="Formato de fecha inválido")
 
@@ -233,6 +243,7 @@ def create_note(
         category=data.category,
         scheduled_at=scheduled,
         published=is_immediate,
+        send_push=data.send_push,
     )
     db.add(note)
     db.flush()
@@ -249,7 +260,13 @@ def create_note(
             ))
         db.commit()
         db.refresh(note)
-        send_push_to_all(db, f"Nueva nota: {data.title}", data.content[:100], f"/notes/{note.id}")
+
+        # Send push only if enabled — wrapped in try-catch to prevent 500 errors
+        if data.send_push:
+            try:
+                send_push_to_all(db, f"Nueva nota: {data.title}", data.content[:100], f"/notes/{note.id}")
+            except Exception as e:
+                logger.warning(f"Push notification failed for note #{note.id}: {e}")
     else:
         # Scheduled for the future — the background task will publish it
         db.commit()
@@ -271,10 +288,15 @@ def update_note(
     note.title = data.title
     note.content = data.content
     note.category = data.category
+    note.send_push = data.send_push
     note.updated_at = datetime.utcnow()
     if data.scheduled_at:
         try:
-            note.scheduled_at = datetime.fromisoformat(data.scheduled_at.replace("Z", "+00:00"))
+            parsed = datetime.fromisoformat(data.scheduled_at.replace("Z", "+00:00"))
+            if parsed.tzinfo is not None:
+                note.scheduled_at = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+            else:
+                note.scheduled_at = parsed
         except ValueError:
             raise HTTPException(status_code=400, detail="Formato de fecha inválido")
     else:
