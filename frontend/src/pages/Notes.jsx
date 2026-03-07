@@ -23,7 +23,9 @@ const CATEGORY_COLORS = {
 
 function formatDate(dateStr, includeTime = false) {
   if (!dateStr) return ''
-  const d = new Date(dateStr)
+  // API returns naive UTC strings — append 'Z' so JS converts to local time
+  const utcStr = dateStr.endsWith('Z') || dateStr.includes('+') ? dateStr : dateStr + 'Z'
+  const d = new Date(utcStr)
   const opts = { day: '2-digit', month: 'short', year: 'numeric' }
   if (includeTime) {
     opts.hour = '2-digit'

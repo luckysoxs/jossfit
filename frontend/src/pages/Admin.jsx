@@ -1085,9 +1085,15 @@ function NotesSection() {
     fetchNotes()
   }
 
+  // API returns naive UTC strings (no 'Z') — append 'Z' so JS interprets as UTC
+  const asUTC = (str) => {
+    if (!str) return null
+    return str.endsWith('Z') || str.includes('+') ? str : str + 'Z'
+  }
+
   const toLocalDatetime = (utcStr) => {
     if (!utcStr) return ''
-    const d = new Date(utcStr)
+    const d = new Date(asUTC(utcStr))
     if (isNaN(d.getTime())) return ''
     const y = d.getFullYear()
     const mo = String(d.getMonth() + 1).padStart(2, '0')
@@ -1095,6 +1101,11 @@ function NotesSection() {
     const h = String(d.getHours()).padStart(2, '0')
     const mi = String(d.getMinutes()).padStart(2, '0')
     return `${y}-${mo}-${da}T${h}:${mi}`
+  }
+
+  const fmtDate = (utcStr, opts) => {
+    if (!utcStr) return ''
+    return new Date(asUTC(utcStr)).toLocaleDateString('es-MX', opts)
   }
 
   const startEdit = (note) => {
@@ -1187,21 +1198,21 @@ function NotesSection() {
                   <p className="text-xs text-gray-400 line-clamp-2">{note.content}</p>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <p className="text-[10px] text-gray-400">
-                      Creada: {new Date(note.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      Creada: {fmtDate(note.created_at, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     </p>
                     {note.updated_at && (
                       <p className="text-[10px] text-blue-400">
-                        · Editada: {new Date(note.updated_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        · Editada: {fmtDate(note.updated_at, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                       </p>
                     )}
                     {isPending && (
                       <p className="text-[10px] text-amber-500 font-medium">
-                        · Publica: {new Date(note.scheduled_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        · Publica: {fmtDate(note.scheduled_at, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                       </p>
                     )}
                     {note.published && note.scheduled_at && (
                       <p className="text-[10px] text-green-500">
-                        · Publicada: {new Date(note.scheduled_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        · Publicada: {fmtDate(note.scheduled_at, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                       </p>
                     )}
                   </div>
@@ -1242,7 +1253,7 @@ function NotesSection() {
                             <div className="flex items-center gap-3 text-gray-400">
                               <span>{r.opens} {r.opens === 1 ? 'vez' : 'veces'}</span>
                               <span>{formatReadTime(r.total_seconds)}</span>
-                              <span>{new Date(r.last_opened).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}</span>
+                              <span>{fmtDate(r.last_opened, { day: '2-digit', month: 'short' })}</span>
                             </div>
                           </div>
                         ))
