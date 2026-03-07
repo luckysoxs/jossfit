@@ -729,7 +729,7 @@ export default function RoutineDetail() {
           <div className="flex gap-1.5">
             <button onClick={() => setShowSchedule(true)}
               className="flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-brand-500 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-xl transition-colors">
-              <Calendar size={14} />
+              <Calendar size={14} /> Descansos
             </button>
             <button onClick={() => navigate('/routines/generate')}
               className="flex items-center gap-1.5 text-xs font-medium text-brand-500 hover:text-brand-400 bg-brand-50 dark:bg-brand-500/10 px-3 py-2 rounded-xl transition-colors">
