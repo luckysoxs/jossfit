@@ -94,7 +94,7 @@ export default function Notes() {
       </div>
 
       {/* Category filter */}
-      <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+      <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar overscroll-x-contain">
         {categories.map(cat => (
           <button key={cat} onClick={() => setFilter(cat)}
             className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
