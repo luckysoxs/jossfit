@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import OneRMCalculator from '../components/routines/OneRMCalculator'
 import AIRoutineView from '../components/routines/AIRoutineView'
-import { ArrowLeft, Play, Check, ChevronRight, Calculator, RefreshCw, X, Zap, Trash2, Plus, Trophy, Dumbbell, GripVertical } from 'lucide-react'
+import { ArrowLeft, Play, Check, ChevronRight, Calculator, RefreshCw, X, Zap, Trash2, Plus, Trophy, Dumbbell, GripVertical, ChevronUp, ChevronDown } from 'lucide-react'
 
 export default function RoutineDetail() {
   const { id } = useParams()
@@ -21,10 +21,8 @@ export default function RoutineDetail() {
   const [personalBests, setPersonalBests] = useState({})
   const [showAIView, setShowAIView] = useState(false)
 
-  // Drag state
-  const dragItem = useRef(null)
-  const dragOverItem = useRef(null)
-  const [draggingId, setDraggingId] = useState(null)
+  // Reorder loading state
+  const [reordering, setReordering] = useState(false)
 
   // Quick-set popup state
   const [quickSetExercise, setQuickSetExercise] = useState(null)
@@ -125,58 +123,46 @@ export default function RoutineDetail() {
     if (allExercises.length === 0) api.get('/exercises').then(r => setAllExercises(r.data))
   }
 
-  // --- Drag handlers for days ---
-  const handleDayDragStart = (idx) => {
-    dragItem.current = idx
-    setDraggingId(`day-${idx}`)
-  }
-
-  const handleDayDragOver = (e, idx) => {
-    e.preventDefault()
-    dragOverItem.current = idx
-  }
-
-  const handleDayDrop = async (sortedDays) => {
-    if (dragItem.current === null || dragOverItem.current === null || dragItem.current === dragOverItem.current) {
-      setDraggingId(null)
-      return
-    }
+  // --- Move day up/down ---
+  const moveDayUp = async (idx, sortedDays) => {
+    if (idx === 0 || reordering) return
+    setReordering(true)
     const items = [...sortedDays]
-    const [dragged] = items.splice(dragItem.current, 1)
-    items.splice(dragOverItem.current, 0, dragged)
-    const newOrder = items.map(d => d.id)
-    dragItem.current = null
-    dragOverItem.current = null
-    setDraggingId(null)
-    await api.put('/routines/reorder-days', { routine_id: routine.id, day_order: newOrder })
+    ;[items[idx - 1], items[idx]] = [items[idx], items[idx - 1]]
+    await api.put('/routines/reorder-days', { routine_id: routine.id, day_order: items.map(d => d.id) })
     await reloadRoutine()
+    setReordering(false)
   }
 
-  // --- Drag handlers for exercises ---
-  const handleExDragStart = (idx) => {
-    dragItem.current = idx
-    setDraggingId(`ex-${idx}`)
+  const moveDayDown = async (idx, sortedDays) => {
+    if (idx >= sortedDays.length - 1 || reordering) return
+    setReordering(true)
+    const items = [...sortedDays]
+    ;[items[idx], items[idx + 1]] = [items[idx + 1], items[idx]]
+    await api.put('/routines/reorder-days', { routine_id: routine.id, day_order: items.map(d => d.id) })
+    await reloadRoutine()
+    setReordering(false)
   }
 
-  const handleExDragOver = (e, idx) => {
-    e.preventDefault()
-    dragOverItem.current = idx
-  }
-
-  const handleExDrop = async (dayId, sortedExercises) => {
-    if (dragItem.current === null || dragOverItem.current === null || dragItem.current === dragOverItem.current) {
-      setDraggingId(null)
-      return
-    }
+  // --- Move exercise up/down ---
+  const moveExUp = async (exIdx, dayId, sortedExercises) => {
+    if (exIdx === 0 || reordering) return
+    setReordering(true)
     const items = [...sortedExercises]
-    const [dragged] = items.splice(dragItem.current, 1)
-    items.splice(dragOverItem.current, 0, dragged)
-    const newOrder = items.map(e => e.id)
-    dragItem.current = null
-    dragOverItem.current = null
-    setDraggingId(null)
-    await api.put('/routines/reorder-exercises', { day_id: dayId, exercise_order: newOrder })
+    ;[items[exIdx - 1], items[exIdx]] = [items[exIdx], items[exIdx - 1]]
+    await api.put('/routines/reorder-exercises', { day_id: dayId, exercise_order: items.map(e => e.id) })
     await reloadRoutine()
+    setReordering(false)
+  }
+
+  const moveExDown = async (exIdx, dayId, sortedExercises) => {
+    if (exIdx >= sortedExercises.length - 1 || reordering) return
+    setReordering(true)
+    const items = [...sortedExercises]
+    ;[items[exIdx], items[exIdx + 1]] = [items[exIdx + 1], items[exIdx]]
+    await api.put('/routines/reorder-exercises', { day_id: dayId, exercise_order: items.map(e => e.id) })
+    await reloadRoutine()
+    setReordering(false)
   }
 
   if (loading) return <LoadingSpinner />
@@ -216,18 +202,28 @@ export default function RoutineDetail() {
         {sortedExercises.map((ex, exIdx) => (
           <div
             key={ex.id}
-            draggable
-            onDragStart={() => handleExDragStart(exIdx)}
-            onDragOver={(e) => handleExDragOver(e, exIdx)}
-            onDragEnd={() => handleExDrop(day.id, sortedExercises)}
             className={`card bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2.5 transition-all ${
               checked[ex.id] ? 'opacity-40' : ''
-            } ${draggingId === `ex-${exIdx}` ? 'opacity-50 scale-[0.98] ring-2 ring-brand-500' : ''}`}
+            }`}
           >
             <div className="flex items-center gap-2">
-              {/* Drag handle */}
-              <div className="cursor-grab active:cursor-grabbing flex-shrink-0 text-gray-400 hover:text-gray-300 touch-none">
-                <GripVertical size={16} />
+              {/* Move buttons */}
+              <div className="flex flex-col items-center flex-shrink-0 -my-1">
+                <button
+                  onClick={() => moveExUp(exIdx, day.id, sortedExercises)}
+                  disabled={exIdx === 0 || reordering}
+                  className={`p-0.5 rounded transition-colors ${exIdx === 0 ? 'text-gray-300 dark:text-gray-700' : 'text-gray-400 hover:text-brand-500 active:text-brand-600'}`}
+                >
+                  <ChevronUp size={14} />
+                </button>
+                <GripVertical size={12} className="text-gray-300 dark:text-gray-600" />
+                <button
+                  onClick={() => moveExDown(exIdx, day.id, sortedExercises)}
+                  disabled={exIdx >= sortedExercises.length - 1 || reordering}
+                  className={`p-0.5 rounded transition-colors ${exIdx >= sortedExercises.length - 1 ? 'text-gray-300 dark:text-gray-700' : 'text-gray-400 hover:text-brand-500 active:text-brand-600'}`}
+                >
+                  <ChevronDown size={14} />
+                </button>
               </div>
               {/* Check button */}
               <button
@@ -570,18 +566,28 @@ export default function RoutineDetail() {
             return (
               <div
                 key={day.id}
-                draggable
-                onDragStart={() => handleDayDragStart(idx)}
-                onDragOver={(e) => handleDayDragOver(e, idx)}
-                onDragEnd={() => handleDayDrop(sortedDays)}
-                className={`card hover:bg-gray-800/50 transition-all ${
+                className={`card hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all ${
                   dayAllDone ? 'border border-green-500/30' : ''
-                } ${draggingId === `day-${idx}` ? 'opacity-50 scale-[0.98] ring-2 ring-brand-500' : ''}`}
+                }`}
               >
                 <div className="flex items-center gap-2">
-                  {/* Drag handle */}
-                  <div className="cursor-grab active:cursor-grabbing flex-shrink-0 text-gray-400 hover:text-gray-300 touch-none py-2">
-                    <GripVertical size={18} />
+                  {/* Move buttons */}
+                  <div className="flex flex-col items-center flex-shrink-0 -my-1">
+                    <button
+                      onClick={() => moveDayUp(idx, sortedDays)}
+                      disabled={idx === 0 || reordering}
+                      className={`p-0.5 rounded transition-colors ${idx === 0 ? 'text-gray-300 dark:text-gray-700' : 'text-gray-400 hover:text-brand-500 active:text-brand-600'}`}
+                    >
+                      <ChevronUp size={16} />
+                    </button>
+                    <GripVertical size={14} className="text-gray-300 dark:text-gray-600" />
+                    <button
+                      onClick={() => moveDayDown(idx, sortedDays)}
+                      disabled={idx >= sortedDays.length - 1 || reordering}
+                      className={`p-0.5 rounded transition-colors ${idx >= sortedDays.length - 1 ? 'text-gray-300 dark:text-gray-700' : 'text-gray-400 hover:text-brand-500 active:text-brand-600'}`}
+                    >
+                      <ChevronDown size={16} />
+                    </button>
                   </div>
                   <button onClick={() => setSelectedDay(day.day_number)} className="flex-1 text-left">
                     <div className="flex items-center justify-between">
