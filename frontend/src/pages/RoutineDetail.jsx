@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import OneRMCalculator from '../components/routines/OneRMCalculator'
 import AIRoutineView from '../components/routines/AIRoutineView'
-import { ArrowLeft, Play, Check, ChevronRight, Calculator, RefreshCw, X, Zap, Trash2, Plus, Trophy, Dumbbell, ArrowUp, ArrowDown } from 'lucide-react'
+import { ArrowLeft, Play, Check, ChevronRight, Calculator, RefreshCw, X, Zap, Trash2, Plus, Trophy, Dumbbell, GripVertical } from 'lucide-react'
 
 export default function RoutineDetail() {
   const { id } = useParams()
@@ -21,8 +21,13 @@ export default function RoutineDetail() {
   const [personalBests, setPersonalBests] = useState({})
   const [showAIView, setShowAIView] = useState(false)
 
+  // Drag state
+  const dragItem = useRef(null)
+  const dragOverItem = useRef(null)
+  const [draggingId, setDraggingId] = useState(null)
+
   // Quick-set popup state
-  const [quickSetExercise, setQuickSetExercise] = useState(null) // { routineExId, exerciseId, name }
+  const [quickSetExercise, setQuickSetExercise] = useState(null)
   const [quickSetForm, setQuickSetForm] = useState({ weight_kg: '', reps: '' })
   const [quickSetSaving, setQuickSetSaving] = useState(false)
   const [quickSetNewPR, setQuickSetNewPR] = useState(false)
@@ -49,12 +54,10 @@ export default function RoutineDetail() {
 
   const handleExerciseCheck = (routineExId, exerciseId, exerciseName) => {
     if (checked[routineExId]) {
-      // Uncheck — just toggle off
       const next = { ...checked, [routineExId]: false }
       setChecked(next)
       localStorage.setItem(todayKey, JSON.stringify(next))
     } else {
-      // Check — open popup to ask for top set
       const prev = personalBests[exerciseId]
       setQuickSetExercise({ routineExId, exerciseId, name: exerciseName })
       setQuickSetForm({ weight_kg: prev?.weight_kg?.toString() || '', reps: prev?.reps?.toString() || '' })
@@ -70,11 +73,9 @@ export default function RoutineDetail() {
       const reps = parseInt(quickSetForm.reps)
       await api.post(`/workouts/quick-set?exercise_id=${quickSetExercise.exerciseId}&weight_kg=${weight}&reps=${reps}`)
 
-      // Check if it's a new PR
       const prev = personalBests[quickSetExercise.exerciseId]
       const isNewPR = !prev || weight > prev.weight_kg || (weight === prev.weight_kg && reps > prev.reps)
 
-      // Update personal bests locally
       setPersonalBests(p => ({
         ...p,
         [quickSetExercise.exerciseId]: {
@@ -84,14 +85,12 @@ export default function RoutineDetail() {
         },
       }))
 
-      // Mark as checked
       const next = { ...checked, [quickSetExercise.routineExId]: true }
       setChecked(next)
       localStorage.setItem(todayKey, JSON.stringify(next))
 
       if (isNewPR) {
         setQuickSetNewPR(true)
-        // Auto-close after showing PR animation
         setTimeout(() => { setQuickSetExercise(null); setQuickSetNewPR(false) }, 1500)
       } else {
         setQuickSetExercise(null)
@@ -104,17 +103,10 @@ export default function RoutineDetail() {
   }
 
   const skipQuickSet = () => {
-    // Mark checked without logging a set
     const next = { ...checked, [quickSetExercise.routineExId]: true }
     setChecked(next)
     localStorage.setItem(todayKey, JSON.stringify(next))
     setQuickSetExercise(null)
-  }
-
-  const toggleExercise = (exId) => {
-    const next = { ...checked, [exId]: !checked[exId] }
-    setChecked(next)
-    localStorage.setItem(todayKey, JSON.stringify(next))
   }
 
   const getYoutubeUrl = (name) => {
@@ -133,19 +125,73 @@ export default function RoutineDetail() {
     if (allExercises.length === 0) api.get('/exercises').then(r => setAllExercises(r.data))
   }
 
+  // --- Drag handlers for days ---
+  const handleDayDragStart = (idx) => {
+    dragItem.current = idx
+    setDraggingId(`day-${idx}`)
+  }
+
+  const handleDayDragOver = (e, idx) => {
+    e.preventDefault()
+    dragOverItem.current = idx
+  }
+
+  const handleDayDrop = async (sortedDays) => {
+    if (dragItem.current === null || dragOverItem.current === null || dragItem.current === dragOverItem.current) {
+      setDraggingId(null)
+      return
+    }
+    const items = [...sortedDays]
+    const [dragged] = items.splice(dragItem.current, 1)
+    items.splice(dragOverItem.current, 0, dragged)
+    const newOrder = items.map(d => d.id)
+    dragItem.current = null
+    dragOverItem.current = null
+    setDraggingId(null)
+    await api.put('/routines/reorder-days', { routine_id: routine.id, day_order: newOrder })
+    await reloadRoutine()
+  }
+
+  // --- Drag handlers for exercises ---
+  const handleExDragStart = (idx) => {
+    dragItem.current = idx
+    setDraggingId(`ex-${idx}`)
+  }
+
+  const handleExDragOver = (e, idx) => {
+    e.preventDefault()
+    dragOverItem.current = idx
+  }
+
+  const handleExDrop = async (dayId, sortedExercises) => {
+    if (dragItem.current === null || dragOverItem.current === null || dragItem.current === dragOverItem.current) {
+      setDraggingId(null)
+      return
+    }
+    const items = [...sortedExercises]
+    const [dragged] = items.splice(dragItem.current, 1)
+    items.splice(dragOverItem.current, 0, dragged)
+    const newOrder = items.map(e => e.id)
+    dragItem.current = null
+    dragOverItem.current = null
+    setDraggingId(null)
+    await api.put('/routines/reorder-exercises', { day_id: dayId, exercise_order: newOrder })
+    await reloadRoutine()
+  }
+
   if (loading) return <LoadingSpinner />
   if (!routine) return null
 
-  // Overall progress across all days
   const allIds = routine.days?.flatMap(d => d.exercises?.map(e => e.id) || []) || []
   const allDone = allIds.filter(eId => checked[eId]).length
 
-  // Day detail view
+  // ─── Day detail view ───
   if (selectedDay !== null) {
     const day = routine.days?.find(d => d.day_number === selectedDay)
     if (!day) { setSelectedDay(null); return null }
 
-    const dayExIds = day.exercises?.map(e => e.id) || []
+    const sortedExercises = [...(day.exercises || [])].sort((a, b) => a.order - b.order)
+    const dayExIds = sortedExercises.map(e => e.id)
     const done = dayExIds.filter(eId => checked[eId]).length
     const total = dayExIds.length
     const progress = total > 0 ? (done / total) * 100 : 0
@@ -167,31 +213,21 @@ export default function RoutineDetail() {
           </div>
         </div>
 
-        {day.exercises?.sort((a, b) => a.order - b.order).map((ex, exIdx, exArr) => {
-          const swapExerciseOrder = async (dir) => {
-            const sorted = [...exArr]
-            const ids = sorted.map(e => e.id)
-            const i = ids.indexOf(ex.id)
-            if (dir === 'up' && i > 0) [ids[i], ids[i - 1]] = [ids[i - 1], ids[i]]
-            else if (dir === 'down' && i < ids.length - 1) [ids[i], ids[i + 1]] = [ids[i + 1], ids[i]]
-            else return
-            await api.put('/routines/reorder-exercises', { day_id: day.id, exercise_order: ids })
-            await reloadRoutine()
-          }
-
-          return (
-          <div key={ex.id} className={`card bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2.5 transition-opacity ${checked[ex.id] ? 'opacity-40' : ''}`}>
+        {sortedExercises.map((ex, exIdx) => (
+          <div
+            key={ex.id}
+            draggable
+            onDragStart={() => handleExDragStart(exIdx)}
+            onDragOver={(e) => handleExDragOver(e, exIdx)}
+            onDragEnd={() => handleExDrop(day.id, sortedExercises)}
+            className={`card bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2.5 transition-all ${
+              checked[ex.id] ? 'opacity-40' : ''
+            } ${draggingId === `ex-${exIdx}` ? 'opacity-50 scale-[0.98] ring-2 ring-brand-500' : ''}`}
+          >
             <div className="flex items-center gap-2">
-              {/* Reorder arrows */}
-              <div className="flex flex-col gap-0.5 flex-shrink-0">
-                <button onClick={() => swapExerciseOrder('up')} disabled={exIdx === 0}
-                  className="text-gray-400 hover:text-brand-500 disabled:opacity-20 disabled:cursor-default p-0.5">
-                  <ArrowUp size={12} />
-                </button>
-                <button onClick={() => swapExerciseOrder('down')} disabled={exIdx === exArr.length - 1}
-                  className="text-gray-400 hover:text-brand-500 disabled:opacity-20 disabled:cursor-default p-0.5">
-                  <ArrowDown size={12} />
-                </button>
+              {/* Drag handle */}
+              <div className="cursor-grab active:cursor-grabbing flex-shrink-0 text-gray-400 hover:text-gray-300 touch-none">
+                <GripVertical size={16} />
               </div>
               {/* Check button */}
               <button
@@ -242,8 +278,7 @@ export default function RoutineDetail() {
               </div>
             </div>
           </div>
-          )
-        })}
+        ))}
 
         <button onClick={() => { setAddingToDay(day); loadExercises(); setSearchTerm('') }}
           className="card w-full flex items-center justify-center gap-2 py-3 text-sm font-medium text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-500/10 transition-colors border-2 border-dashed border-brand-500/30">
@@ -463,7 +498,9 @@ export default function RoutineDetail() {
     )
   }
 
-  // Day cards view (selectedDay === null)
+  // ─── Day cards view ───
+  const sortedDays = [...(routine.days || [])].sort((a, b) => a.day_number - b.day_number)
+
   return (
     <div className="space-y-4">
       <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
@@ -519,36 +556,26 @@ export default function RoutineDetail() {
             </div>
           )}
 
-          {routine.days?.sort((a, b) => a.day_number - b.day_number).map((day, idx, arr) => {
+          {sortedDays.map((day, idx) => {
             const dayExIds = day.exercises?.map(e => e.id) || []
             const dayDone = dayExIds.filter(eId => checked[eId]).length
             const dayAllDone = dayExIds.length > 0 && dayDone === dayExIds.length
 
-            const swapDays = async (dir) => {
-              const sorted = [...arr]
-              const newOrder = sorted.map(d => d.id)
-              const i = newOrder.indexOf(day.id)
-              if (dir === 'up' && i > 0) [newOrder[i], newOrder[i - 1]] = [newOrder[i - 1], newOrder[i]]
-              else if (dir === 'down' && i < newOrder.length - 1) [newOrder[i], newOrder[i + 1]] = [newOrder[i + 1], newOrder[i]]
-              else return
-              await api.put('/routines/reorder-days', { routine_id: routine.id, day_order: newOrder })
-              await reloadRoutine()
-            }
-
             return (
-              <div key={day.id} className={`card hover:bg-gray-800/50 transition-colors ${dayAllDone ? 'border border-green-500/30' : ''}`}>
+              <div
+                key={day.id}
+                draggable
+                onDragStart={() => handleDayDragStart(idx)}
+                onDragOver={(e) => handleDayDragOver(e, idx)}
+                onDragEnd={() => handleDayDrop(sortedDays)}
+                className={`card hover:bg-gray-800/50 transition-all ${
+                  dayAllDone ? 'border border-green-500/30' : ''
+                } ${draggingId === `day-${idx}` ? 'opacity-50 scale-[0.98] ring-2 ring-brand-500' : ''}`}
+              >
                 <div className="flex items-center gap-2">
-                  <div className="flex flex-col gap-0.5">
-                    <button onClick={(e) => { e.stopPropagation(); swapDays('up') }}
-                      disabled={idx === 0}
-                      className="text-gray-400 hover:text-brand-500 disabled:opacity-20 disabled:cursor-default p-0.5">
-                      <ArrowUp size={14} />
-                    </button>
-                    <button onClick={(e) => { e.stopPropagation(); swapDays('down') }}
-                      disabled={idx === arr.length - 1}
-                      className="text-gray-400 hover:text-brand-500 disabled:opacity-20 disabled:cursor-default p-0.5">
-                      <ArrowDown size={14} />
-                    </button>
+                  {/* Drag handle */}
+                  <div className="cursor-grab active:cursor-grabbing flex-shrink-0 text-gray-400 hover:text-gray-300 touch-none py-2">
+                    <GripVertical size={18} />
                   </div>
                   <button onClick={() => setSelectedDay(day.day_number)} className="flex-1 text-left">
                     <div className="flex items-center justify-between">
