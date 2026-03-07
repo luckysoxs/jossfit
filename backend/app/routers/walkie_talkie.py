@@ -1,8 +1,10 @@
-"""Admin walkie-talkie: messaging between admins (DM and group)."""
+"""Admin walkie-talkie: messaging between admins (DM and group) with voice."""
 
+import base64
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from sqlalchemy import func as sqlfunc, desc
 
@@ -12,6 +14,7 @@ from app.models.admin_chat import AdminChat, AdminChatMember, AdminChatMessage
 from app.schemas.walkie_talkie import (
     CreateChatRequest,
     SendMessageRequest,
+    SendVoiceRequest,
     UpdateChatRequest,
     ChatListItem,
     ChatMemberResponse,
@@ -21,6 +24,8 @@ from app.schemas.walkie_talkie import (
 from app.auth.security import get_admin_user
 
 router = APIRouter(prefix="/admin/walkie-talkie", tags=["Walkie-Talkie"])
+
+MAX_AUDIO_BYTES = 1_500_000  # ~1.5 MB max (~90s of opus audio)
 
 
 # ─── helpers ────────────────────────────────────────────────
@@ -33,6 +38,46 @@ def _unread_count(db: Session, chat_id: int, user_id: int, last_read_at) -> int:
     if last_read_at:
         q = q.filter(AdminChatMessage.created_at > last_read_at)
     return q.scalar() or 0
+
+
+def _push_to_members(db: Session, chat_id: int, admin: User, body: str):
+    """Send push notification to other chat members."""
+    try:
+        from app.services.push_service import send_push_to_user
+
+        other_members = (
+            db.query(AdminChatMember.user_id)
+            .filter(
+                AdminChatMember.chat_id == chat_id,
+                AdminChatMember.user_id != admin.id,
+            )
+            .all()
+        )
+        chat = db.query(AdminChat).filter(AdminChat.id == chat_id).first()
+        title = f"📻 {admin.name}"
+        if chat and chat.is_group and chat.name:
+            title = f"📻 {chat.name}: {admin.name}"
+
+        for (uid,) in other_members:
+            send_push_to_user(
+                db, uid, title, body, "/admin/walkie-talkie",
+            )
+    except Exception:
+        pass
+
+
+def _build_message_response(msg: AdminChatMessage, sender_name: str) -> ChatMessageResponse:
+    return ChatMessageResponse(
+        id=msg.id,
+        chat_id=msg.chat_id,
+        sender_id=msg.sender_id,
+        sender_name=sender_name,
+        content=msg.content,
+        message_type=msg.message_type or "text",
+        audio_duration=msg.audio_duration,
+        audio_url=f"/admin/walkie-talkie/audio/{msg.id}" if msg.message_type == "voice" else None,
+        created_at=msg.created_at,
+    )
 
 
 # ─── GET /chats ─────────────────────────────────────────────
@@ -76,13 +121,20 @@ def list_chats(
 
         unread = _unread_count(db, chat.id, admin.id, membership.last_read_at)
 
+        last_content = None
+        if last_msg:
+            if last_msg.message_type == "voice":
+                last_content = "🎙️ Mensaje de voz"
+            else:
+                last_content = last_msg.content[:80] if last_msg.content else None
+
         result.append(
             ChatListItem(
                 id=chat.id,
                 name=chat.name,
                 is_group=chat.is_group,
                 members=members,
-                last_message=last_msg.content[:80] if last_msg else None,
+                last_message=last_content,
                 last_message_at=last_msg.created_at if last_msg else None,
                 unread_count=unread,
             )
@@ -202,14 +254,7 @@ def get_messages(
     rows = query.order_by(desc(AdminChatMessage.created_at)).limit(limit).all()
 
     return [
-        ChatMessageResponse(
-            id=msg.id,
-            chat_id=msg.chat_id,
-            sender_id=msg.sender_id,
-            sender_name=name,
-            content=msg.content,
-            created_at=msg.created_at,
-        )
+        _build_message_response(msg, name)
         for msg, name in reversed(rows)
     ]
 
@@ -242,45 +287,106 @@ def send_message(
         chat_id=chat_id,
         sender_id=admin.id,
         content=data.content.strip(),
+        message_type="text",
     )
     db.add(msg)
     membership.last_read_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(msg)
 
-    # Push notification to other members
-    try:
-        from app.services.push_service import send_push_to_user
+    _push_to_members(db, chat_id, admin, data.content[:100])
 
-        other_members = (
-            db.query(AdminChatMember.user_id)
-            .filter(
-                AdminChatMember.chat_id == chat_id,
-                AdminChatMember.user_id != admin.id,
-            )
-            .all()
+    return _build_message_response(msg, admin.name)
+
+
+# ─── POST /chats/{chat_id}/voice ────────────────────────────
+
+@router.post(
+    "/chats/{chat_id}/voice",
+    response_model=ChatMessageResponse,
+    status_code=201,
+)
+def send_voice_message(
+    chat_id: int,
+    data: SendVoiceRequest,
+    admin: User = Depends(get_admin_user),
+    db: Session = Depends(get_db),
+):
+    membership = (
+        db.query(AdminChatMember)
+        .filter(
+            AdminChatMember.chat_id == chat_id,
+            AdminChatMember.user_id == admin.id,
         )
-        chat = db.query(AdminChat).filter(AdminChat.id == chat_id).first()
-        title = f"📻 {admin.name}"
-        if chat and chat.is_group and chat.name:
-            title = f"📻 {chat.name}: {admin.name}"
+        .first()
+    )
+    if not membership:
+        raise HTTPException(403, "Not a member of this chat")
 
-        for (uid,) in other_members:
-            send_push_to_user(
-                db, uid, title,
-                data.content[:100],
-                "/admin/walkie-talkie",
-            )
+    # Decode base64 audio
+    try:
+        audio_bytes = base64.b64decode(data.audio_base64)
     except Exception:
-        pass
+        raise HTTPException(400, "Invalid audio data")
 
-    return ChatMessageResponse(
-        id=msg.id,
-        chat_id=msg.chat_id,
-        sender_id=msg.sender_id,
-        sender_name=admin.name,
-        content=msg.content,
-        created_at=msg.created_at,
+    if len(audio_bytes) > MAX_AUDIO_BYTES:
+        raise HTTPException(400, "Audio too large (max 90s)")
+
+    duration = min(data.duration, 90.0)
+
+    msg = AdminChatMessage(
+        chat_id=chat_id,
+        sender_id=admin.id,
+        content="🎙️ Mensaje de voz",
+        message_type="voice",
+        audio_data=audio_bytes,
+        audio_duration=round(duration, 1),
+    )
+    db.add(msg)
+    membership.last_read_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(msg)
+
+    _push_to_members(db, chat_id, admin, "🎙️ Mensaje de voz")
+
+    return _build_message_response(msg, admin.name)
+
+
+# ─── GET /audio/{message_id} ───────────────────────────────
+
+@router.get("/audio/{message_id}")
+def get_audio(
+    message_id: int,
+    admin: User = Depends(get_admin_user),
+    db: Session = Depends(get_db),
+):
+    msg = (
+        db.query(AdminChatMessage)
+        .filter(AdminChatMessage.id == message_id)
+        .first()
+    )
+    if not msg or msg.message_type != "voice" or not msg.audio_data:
+        raise HTTPException(404, "Audio not found")
+
+    # Verify admin is member of the chat
+    membership = (
+        db.query(AdminChatMember)
+        .filter(
+            AdminChatMember.chat_id == msg.chat_id,
+            AdminChatMember.user_id == admin.id,
+        )
+        .first()
+    )
+    if not membership:
+        raise HTTPException(403, "Not a member of this chat")
+
+    return Response(
+        content=msg.audio_data,
+        media_type="audio/webm",
+        headers={
+            "Content-Disposition": f"inline; filename=voice_{message_id}.webm",
+            "Cache-Control": "private, max-age=3600",
+        },
     )
 
 

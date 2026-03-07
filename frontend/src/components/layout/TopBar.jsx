@@ -1,42 +1,13 @@
-import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useTheme } from '../../contexts/ThemeContext'
 import { useAuth } from '../../contexts/AuthContext'
-import { Sun, Moon, Shield, MessageCircle, Bell, Radio } from 'lucide-react'
-import api from '../../services/api'
+import { useUnread } from '../../contexts/UnreadContext'
+import { Sun, Moon, Shield, Radio } from 'lucide-react'
 
 export default function TopBar() {
   const { theme, toggleTheme } = useTheme()
   const { user } = useAuth()
-  const [unreadSupport, setUnreadSupport] = useState(0)
-  const [unreadNotifs, setUnreadNotifs] = useState(0)
-  const [unreadWalkie, setUnreadWalkie] = useState(0)
-
-  useEffect(() => {
-    if (!user) return
-    const fetchUnread = async () => {
-      try {
-        const promises = [
-          api.get('/support/unread-count').catch(() => ({ data: { unread: 0 } })),
-          api.get('/notification-center/unread-count').catch(() => ({ data: { count: 0 } })),
-        ]
-        if (user.is_admin) {
-          promises.push(
-            api.get('/admin/walkie-talkie/unread').catch(() => ({ data: { unread: 0 } }))
-          )
-        }
-        const results = await Promise.all(promises)
-        setUnreadSupport(results[0].data.unread)
-        setUnreadNotifs(results[1].data.count)
-        if (user.is_admin && results[2]) {
-          setUnreadWalkie(results[2].data.unread)
-        }
-      } catch {}
-    }
-    fetchUnread()
-    const interval = setInterval(fetchUnread, 15000)
-    return () => clearInterval(interval)
-  }, [user])
+  const { walkie } = useUnread()
 
   return (
     <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg border-b border-gray-100 dark:border-gray-800 transition-colors duration-300">
@@ -46,34 +17,6 @@ export default function TopBar() {
           <span className="text-lg font-bold tracking-tight">JOSSFITness</span>
         </Link>
         <div className="flex items-center gap-3">
-          {user && (
-            <>
-              <Link
-                to="/notifications"
-                className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400"
-                aria-label="Notificaciones"
-              >
-                <Bell size={18} />
-                {unreadNotifs > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                    {unreadNotifs > 9 ? '9+' : unreadNotifs}
-                  </span>
-                )}
-              </Link>
-              <Link
-                to="/support"
-                className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400"
-                aria-label="Chat de Ayuda"
-              >
-                <MessageCircle size={18} />
-                {unreadSupport > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                    {unreadSupport > 9 ? '9+' : unreadSupport}
-                  </span>
-                )}
-              </Link>
-            </>
-          )}
           {user?.is_admin && (
             <>
               <Link
@@ -82,9 +25,9 @@ export default function TopBar() {
                 aria-label="Walkie-Talkie"
               >
                 <Radio size={18} />
-                {unreadWalkie > 0 && (
+                {walkie > 0 && (
                   <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                    {unreadWalkie > 9 ? '9+' : unreadWalkie}
+                    {walkie > 9 ? '9+' : walkie}
                   </span>
                 )}
               </Link>

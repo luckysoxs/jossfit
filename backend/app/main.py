@@ -74,6 +74,12 @@ def run_migrations():
             created_at TIMESTAMP DEFAULT NOW()
         )""",
         "CREATE INDEX IF NOT EXISTS idx_acmsg_chat_id ON admin_chat_messages(chat_id)",
+        # Voice message columns
+        "ALTER TABLE admin_chat_messages ADD COLUMN IF NOT EXISTS message_type VARCHAR(10) DEFAULT 'text'",
+        "ALTER TABLE admin_chat_messages ADD COLUMN IF NOT EXISTS audio_data BYTEA",
+        "ALTER TABLE admin_chat_messages ADD COLUMN IF NOT EXISTS audio_duration FLOAT",
+        # Exercise Spanish names
+        "ALTER TABLE exercises ADD COLUMN IF NOT EXISTS name_es VARCHAR(100)",
     ]
     with engine.connect() as conn:
         for sql in migrations:

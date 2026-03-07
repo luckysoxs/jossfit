@@ -12,6 +12,8 @@ from app.models.sleep import SleepLog
 from app.models.one_rep_max import OneRepMax
 from app.models.exercise import Exercise
 from app.models.routine import Routine
+from app.models.notification import Notification
+from app.models.support_message import SupportMessage
 from app.schemas.dashboard import DashboardSummary, StrengthProgress
 from app.services.algorithms import calculate_weekly_volume, detect_overtraining
 from app.auth.security import get_current_user
@@ -163,3 +165,48 @@ def get_summary(
         active_routine_id=active_routine.id if active_routine else None,
         active_routine_name=active_routine.name if active_routine else None,
     )
+
+
+@router.get("/unread-counts")
+def get_unread_counts(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Single endpoint that returns ALL unread counts — saves 2-3 API calls per poll."""
+    # Notifications
+    notif_count = (
+        db.query(sqlfunc.count(Notification.id))
+        .filter(Notification.user_id == user.id, Notification.is_read == False)
+        .scalar() or 0
+    )
+
+    # Support messages (unread admin replies)
+    support_count = (
+        db.query(sqlfunc.count(SupportMessage.id))
+        .filter(
+            SupportMessage.user_id == user.id,
+            SupportMessage.is_from_admin == True,
+            SupportMessage.is_read == False,
+        )
+        .scalar() or 0
+    )
+
+    # Walkie-talkie (admin only)
+    walkie_count = 0
+    if user.is_admin:
+        from app.models.admin_chat import AdminChatMember, AdminChatMessage
+        memberships = db.query(AdminChatMember).filter(AdminChatMember.user_id == user.id).all()
+        for m in memberships:
+            q = db.query(sqlfunc.count(AdminChatMessage.id)).filter(
+                AdminChatMessage.chat_id == m.chat_id,
+                AdminChatMessage.sender_id != user.id,
+            )
+            if m.last_read_at:
+                q = q.filter(AdminChatMessage.created_at > m.last_read_at)
+            walkie_count += q.scalar() or 0
+
+    return {
+        "notifications": notif_count,
+        "support": support_count,
+        "walkie": walkie_count,
+    }

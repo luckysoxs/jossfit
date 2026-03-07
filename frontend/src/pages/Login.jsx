@@ -7,6 +7,7 @@ export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
+  const [remember, setRemember] = useState(true)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
@@ -17,7 +18,7 @@ export default function Login() {
     setError('')
     setLoading(true)
     try {
-      await login(email, password)
+      await login(email, password, remember)
       navigate('/')
     } catch (err) {
       setError(err.response?.data?.detail || 'Error al iniciar sesión')
@@ -74,6 +75,16 @@ export default function Login() {
               </button>
             </div>
           </div>
+
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(e) => setRemember(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-brand-500 focus:ring-brand-500"
+            />
+            <span className="text-sm text-gray-600 dark:text-gray-400">Recuérdame</span>
+          </label>
 
           <button type="submit" className="btn-primary w-full" disabled={loading}>
             {loading ? 'Entrando...' : 'Iniciar Sesión'}

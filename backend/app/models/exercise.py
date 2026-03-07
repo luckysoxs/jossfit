@@ -35,6 +35,7 @@ class Exercise(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100), unique=True)
+    name_es: Mapped[str | None] = mapped_column(String(100), nullable=True)
     muscle_group: Mapped[MuscleGroup] = mapped_column(Enum(MuscleGroup))
     secondary_muscles: Mapped[str | None] = mapped_column(String(255), nullable=True)
     category: Mapped[ExerciseCategory] = mapped_column(Enum(ExerciseCategory))

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
+import { cacheSet, cacheGet } from '../services/offlineCache'
 import StatCard from '../components/ui/StatCard'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import AppTour from '../components/ui/AppTour'
@@ -23,8 +24,14 @@ export default function Dashboard() {
 
   useEffect(() => {
     api.get('/dashboard/summary')
-      .then((res) => setData(res.data))
-      .catch(() => {})
+      .then((res) => {
+        setData(res.data)
+        cacheSet('dashboard_summary', res.data)
+      })
+      .catch(() => {
+        const cached = cacheGet('dashboard_summary')
+        if (cached) setData(cached)
+      })
       .finally(() => setLoading(false))
   }, [])
 

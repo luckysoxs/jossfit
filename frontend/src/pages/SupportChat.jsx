@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import api from '../services/api'
+import useSmartPolling from '../hooks/useSmartPolling'
 import { MessageCircle, Send, HelpCircle, Dumbbell, Award, AlertCircle } from 'lucide-react'
 
 export default function SupportChat() {
@@ -9,7 +10,7 @@ export default function SupportChat() {
   const [sending, setSending] = useState(false)
   const bottomRef = useRef(null)
 
-  const fetchMessages = async () => {
+  const fetchMessages = useCallback(async () => {
     try {
       const res = await api.get('/support/messages')
       setMessages(res.data)
@@ -18,19 +19,11 @@ export default function SupportChat() {
     } finally {
       setLoading(false)
     }
-  }
-
-  useEffect(() => {
-    fetchMessages()
-    const interval = setInterval(fetchMessages, 10000)
-    return () => clearInterval(interval)
   }, [])
 
-  useEffect(() => {
-    const onFocus = () => fetchMessages()
-    window.addEventListener('focus', onFocus)
-    return () => window.removeEventListener('focus', onFocus)
-  }, [])
+  // Poll every 15s, pauses when tab hidden or offline
+  // (was 10s + separate focus listener = wasted data)
+  useSmartPolling(fetchMessages, 15000)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })

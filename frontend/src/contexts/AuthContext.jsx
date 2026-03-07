@@ -4,28 +4,33 @@ import { applyAccentColor } from '../data/accentColors'
 
 const AuthContext = createContext(null)
 
+function getStorage() {
+  if (localStorage.getItem('token')) return localStorage
+  if (sessionStorage.getItem('token')) return sessionStorage
+  return localStorage
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const token = localStorage.getItem('token')
-    const stored = localStorage.getItem('user')
+    const storage = getStorage()
+    const token = storage.getItem('token')
+    const stored = storage.getItem('user')
 
     if (token && stored) {
       const storedUser = JSON.parse(stored)
       setUser(storedUser)
       applyAccentColor(storedUser?.accent_color || 'blue')
 
-      // Refresh user data from backend (picks up admin changes, etc.)
       api.get('/auth/me').then(({ data }) => {
-        localStorage.setItem('user', JSON.stringify(data))
+        storage.setItem('user', JSON.stringify(data))
         setUser(data)
         applyAccentColor(data.accent_color || 'blue')
       }).catch(() => {
-        // Token expired or invalid
-        localStorage.removeItem('token')
-        localStorage.removeItem('user')
+        storage.removeItem('token')
+        storage.removeItem('user')
         setUser(null)
       }).finally(() => setLoading(false))
     } else {
@@ -34,10 +39,15 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  const login = async (email, password) => {
+  const login = async (email, password, remember = true) => {
     const { data } = await api.post('/auth/login', { email, password })
-    localStorage.setItem('token', data.access_token)
-    localStorage.setItem('user', JSON.stringify(data.user))
+    const storage = remember ? localStorage : sessionStorage
+    const other = remember ? sessionStorage : localStorage
+    other.removeItem('token')
+    other.removeItem('user')
+
+    storage.setItem('token', data.access_token)
+    storage.setItem('user', JSON.stringify(data.user))
     setUser(data.user)
     applyAccentColor(data.user.accent_color || 'blue')
     return data.user
@@ -55,12 +65,15 @@ export function AuthProvider({ children }) {
   const logout = () => {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
+    sessionStorage.removeItem('token')
+    sessionStorage.removeItem('user')
     setUser(null)
   }
 
   const updateUser = async (updates) => {
     const { data } = await api.put('/users/me', updates)
-    localStorage.setItem('user', JSON.stringify(data))
+    const storage = getStorage()
+    storage.setItem('user', JSON.stringify(data))
     setUser(data)
     return data
   }

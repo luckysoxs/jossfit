@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import String, Integer, Boolean, ForeignKey, DateTime, Text, func
+from sqlalchemy import String, Integer, Boolean, ForeignKey, DateTime, Text, Float, LargeBinary, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -56,7 +56,10 @@ class AdminChatMessage(Base):
     sender_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("users.id", ondelete="CASCADE")
     )
-    content: Mapped[str] = mapped_column(Text)
+    content: Mapped[str] = mapped_column(Text, default="")
+    message_type: Mapped[str] = mapped_column(String(10), default="text")
+    audio_data: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    audio_duration: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now()
     )

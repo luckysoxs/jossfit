@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../services/api'
+import { cacheSet, cacheGet } from '../services/offlineCache'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import PageTour from '../components/ui/PageTour'
 import { Plus, Zap, Calendar, ChevronRight, Trash2 } from 'lucide-react'
@@ -10,7 +11,16 @@ export default function Routines() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    api.get('/routines').then((r) => setRoutines(r.data)).finally(() => setLoading(false))
+    api.get('/routines')
+      .then((r) => {
+        setRoutines(r.data)
+        cacheSet('routines_list', r.data)
+      })
+      .catch(() => {
+        const cached = cacheGet('routines_list')
+        if (cached) setRoutines(cached)
+      })
+      .finally(() => setLoading(false))
   }, [])
 
   const deleteRoutine = async (id) => {

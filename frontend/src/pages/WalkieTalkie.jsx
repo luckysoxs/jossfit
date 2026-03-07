@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import useSmartPolling from '../hooks/useSmartPolling'
 import api from '../services/api'
 import {
   Radio,
@@ -11,6 +12,10 @@ import {
   MessageCircle,
   User as UserIcon,
   Search,
+  Mic,
+  Play,
+  Pause,
+  Square,
 } from 'lucide-react'
 
 export default function WalkieTalkie() {
@@ -24,8 +29,20 @@ export default function WalkieTalkie() {
   const [showNewChat, setShowNewChat] = useState(false)
   const bottomRef = useRef(null)
 
+  // ─── Voice recording state ─────────────────────────────────
+  const [isRecording, setIsRecording] = useState(false)
+  const [recordingDuration, setRecordingDuration] = useState(0)
+  const mediaRecorderRef = useRef(null)
+  const audioChunksRef = useRef([])
+  const recordingTimerRef = useRef(null)
+  const streamRef = useRef(null)
+
+  // ─── Audio playback state ──────────────────────────────────
+  const [playingId, setPlayingId] = useState(null)
+  const audioRef = useRef(null)
+
   // ─── Fetch chat list ─────────────────────────────────────
-  const fetchChats = async () => {
+  const fetchChats = useCallback(async () => {
     try {
       const res = await api.get('/admin/walkie-talkie/chats')
       setChats(res.data)
@@ -34,16 +51,13 @@ export default function WalkieTalkie() {
     } finally {
       setLoading(false)
     }
-  }
-
-  useEffect(() => {
-    fetchChats()
-    const interval = setInterval(fetchChats, 8000)
-    return () => clearInterval(interval)
   }, [])
 
+  // Poll chats every 15s (was 8s), pauses when tab hidden/offline
+  useSmartPolling(fetchChats, 15000)
+
   // ─── Fetch messages for active chat ──────────────────────
-  const fetchMessages = async () => {
+  const fetchMessages = useCallback(async () => {
     if (!activeChat) return
     try {
       const res = await api.get(`/admin/walkie-talkie/chats/${activeChat.id}/messages`)
@@ -52,31 +66,28 @@ export default function WalkieTalkie() {
     } catch (err) {
       console.error('Walkie messages error:', err)
     }
-  }
-
-  useEffect(() => {
-    if (!activeChat) return
-    fetchMessages()
-    const interval = setInterval(fetchMessages, 5000)
-    return () => clearInterval(interval)
   }, [activeChat?.id])
+
+  // Poll messages every 8s (was 5s), pauses when tab hidden/offline
+  useSmartPolling(fetchMessages, 8000, { enabled: !!activeChat })
 
   // Scroll to bottom on new messages
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Refresh on focus
+  // Cleanup audio on unmount
   useEffect(() => {
-    const onFocus = () => {
-      fetchChats()
-      if (activeChat) fetchMessages()
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current = null
+      }
+      stopRecording()
     }
-    window.addEventListener('focus', onFocus)
-    return () => window.removeEventListener('focus', onFocus)
-  }, [activeChat])
+  }, [])
 
-  // ─── Send message ────────────────────────────────────────
+  // ─── Send text message ─────────────────────────────────────
   const handleSend = async (e) => {
     e.preventDefault()
     if (!input.trim() || sending || !activeChat) return
@@ -94,13 +105,173 @@ export default function WalkieTalkie() {
     setSending(false)
   }
 
-  // ─── Open chat ───────────────────────────────────────────
+  // ─── Voice recording ──────────────────────────────────────
+  const startRecording = useCallback(async () => {
+    if (!activeChat || isRecording) return
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      streamRef.current = stream
+
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus'
+          : 'audio/webm',
+      })
+      mediaRecorderRef.current = mediaRecorder
+      audioChunksRef.current = []
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunksRef.current.push(e.data)
+        }
+      }
+
+      mediaRecorder.onstop = async () => {
+        // Stop all tracks
+        stream.getTracks().forEach((t) => t.stop())
+        streamRef.current = null
+
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+        if (blob.size < 500) {
+          // Too short, ignore
+          setIsRecording(false)
+          setRecordingDuration(0)
+          return
+        }
+
+        // Convert to base64 and send
+        const reader = new FileReader()
+        reader.onloadend = async () => {
+          const base64 = reader.result.split(',')[1]
+          setSending(true)
+          try {
+            await api.post(`/admin/walkie-talkie/chats/${activeChat.id}/voice`, {
+              audio_base64: base64,
+              duration: recordingDuration,
+            })
+            await fetchMessages()
+            await fetchChats()
+          } catch (err) {
+            alert(err.response?.data?.detail || 'Error al enviar voz')
+          }
+          setSending(false)
+        }
+        reader.readAsDataURL(blob)
+
+        setIsRecording(false)
+        setRecordingDuration(0)
+      }
+
+      mediaRecorder.start(250) // collect data every 250ms
+      setIsRecording(true)
+      setRecordingDuration(0)
+
+      // Duration timer
+      const startTime = Date.now()
+      recordingTimerRef.current = setInterval(() => {
+        const elapsed = (Date.now() - startTime) / 1000
+        setRecordingDuration(elapsed)
+        if (elapsed >= 90) {
+          stopRecording()
+        }
+      }, 100)
+    } catch (err) {
+      console.error('Mic error:', err)
+      alert('No se pudo acceder al micrófono')
+    }
+  }, [activeChat, isRecording, recordingDuration])
+
+  const stopRecording = useCallback(() => {
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current)
+      recordingTimerRef.current = null
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop()
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop())
+      streamRef.current = null
+    }
+  }, [])
+
+  const cancelRecording = useCallback(() => {
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current)
+      recordingTimerRef.current = null
+    }
+    // Stop without triggering onstop send
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.ondataavailable = null
+      mediaRecorderRef.current.onstop = null
+      if (mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop()
+      }
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop())
+      streamRef.current = null
+    }
+    audioChunksRef.current = []
+    setIsRecording(false)
+    setRecordingDuration(0)
+  }, [])
+
+  // ─── Audio playback ───────────────────────────────────────
+  const togglePlayAudio = useCallback(async (msgId, audioUrl) => {
+    if (playingId === msgId) {
+      // Stop playing
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current = null
+      }
+      setPlayingId(null)
+      return
+    }
+
+    // Stop previous
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current = null
+    }
+
+    try {
+      const res = await api.get(audioUrl, { responseType: 'blob' })
+      const url = URL.createObjectURL(res.data)
+      const audio = new Audio(url)
+      audioRef.current = audio
+      setPlayingId(msgId)
+
+      audio.onended = () => {
+        setPlayingId(null)
+        audioRef.current = null
+        URL.revokeObjectURL(url)
+      }
+      audio.onerror = () => {
+        setPlayingId(null)
+        audioRef.current = null
+        URL.revokeObjectURL(url)
+      }
+      audio.play()
+    } catch {
+      alert('Error al reproducir audio')
+      setPlayingId(null)
+    }
+  }, [playingId])
+
+  // ─── Open/close chat ──────────────────────────────────────
   const openChat = (chat) => {
     setActiveChat(chat)
     setMessages([])
   }
 
   const goBack = () => {
+    cancelRecording()
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current = null
+    }
+    setPlayingId(null)
     setActiveChat(null)
     setMessages([])
     fetchChats()
@@ -115,6 +286,12 @@ export default function WalkieTalkie() {
 
   const getChatInitial = (chat) => {
     return getChatName(chat)[0]?.toUpperCase() || '?'
+  }
+
+  const formatDuration = (secs) => {
+    const m = Math.floor(secs / 60)
+    const s = Math.floor(secs % 60)
+    return `${m}:${s.toString().padStart(2, '0')}`
   }
 
   // ─── Loading state ──────────────────────────────────────
@@ -163,64 +340,166 @@ export default function WalkieTalkie() {
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center space-y-3 px-4">
                 <div className="w-14 h-14 rounded-full bg-brand-500/10 flex items-center justify-center mx-auto">
-                  <MessageCircle size={28} className="text-brand-500" />
+                  <Radio size={28} className="text-brand-500" />
                 </div>
                 <p className="text-sm text-gray-500">
-                  Inicia la conversación
+                  Mantén presionado el micrófono para hablar
                 </p>
               </div>
             </div>
           ) : (
-            messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`max-w-[80%] p-3 rounded-2xl text-sm ${
-                  msg.sender_id === user.id
-                    ? 'self-end bg-brand-500 text-white rounded-tr-sm'
-                    : 'self-start bg-gray-100 dark:bg-gray-800 rounded-tl-sm'
-                }`}
-              >
-                {msg.sender_id !== user.id && activeChat.is_group && (
-                  <p className="text-[10px] font-semibold text-brand-500 mb-1">
-                    {msg.sender_name}
-                  </p>
-                )}
-                <p className="whitespace-pre-wrap break-words">{msg.content}</p>
-                <p
-                  className={`text-[10px] mt-1 ${
-                    msg.sender_id === user.id ? 'text-white/60' : 'text-gray-400'
+            messages.map((msg) => {
+              const isMine = msg.sender_id === user.id
+              const isVoice = msg.message_type === 'voice'
+
+              return (
+                <div
+                  key={msg.id}
+                  className={`max-w-[80%] p-3 rounded-2xl text-sm ${
+                    isMine
+                      ? 'self-end bg-brand-500 text-white rounded-tr-sm'
+                      : 'self-start bg-gray-100 dark:bg-gray-800 rounded-tl-sm'
                   }`}
                 >
-                  {new Date(msg.created_at).toLocaleString('es-MX', {
-                    day: '2-digit',
-                    month: 'short',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </p>
-              </div>
-            ))
+                  {!isMine && activeChat.is_group && (
+                    <p className={`text-[10px] font-semibold mb-1 ${isMine ? 'text-white/80' : 'text-brand-500'}`}>
+                      {msg.sender_name}
+                    </p>
+                  )}
+
+                  {isVoice ? (
+                    <div className="flex items-center gap-3 min-w-[180px]">
+                      <button
+                        onClick={() => togglePlayAudio(msg.id, msg.audio_url)}
+                        className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${
+                          isMine
+                            ? 'bg-white/20 hover:bg-white/30'
+                            : 'bg-brand-500/10 hover:bg-brand-500/20'
+                        }`}
+                      >
+                        {playingId === msg.id ? (
+                          <Pause size={16} className={isMine ? 'text-white' : 'text-brand-500'} />
+                        ) : (
+                          <Play size={16} className={`${isMine ? 'text-white' : 'text-brand-500'} ml-0.5`} />
+                        )}
+                      </button>
+                      <div className="flex-1 space-y-1">
+                        {/* Waveform placeholder */}
+                        <div className="flex items-center gap-0.5 h-5">
+                          {Array.from({ length: 20 }).map((_, i) => (
+                            <div
+                              key={i}
+                              className={`w-1 rounded-full transition-all ${
+                                isMine ? 'bg-white/40' : 'bg-gray-400/40 dark:bg-gray-500/40'
+                              } ${
+                                playingId === msg.id ? 'animate-pulse' : ''
+                              }`}
+                              style={{
+                                height: `${Math.max(4, Math.sin(i * 0.8) * 12 + Math.random() * 8 + 6)}px`,
+                              }}
+                            />
+                          ))}
+                        </div>
+                        <p className={`text-[10px] ${isMine ? 'text-white/60' : 'text-gray-400'}`}>
+                          {formatDuration(msg.audio_duration || 0)}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                  )}
+
+                  <p
+                    className={`text-[10px] mt-1 ${
+                      isMine ? 'text-white/60' : 'text-gray-400'
+                    }`}
+                  >
+                    {new Date(msg.created_at).toLocaleString('es-MX', {
+                      day: '2-digit',
+                      month: 'short',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </p>
+                </div>
+              )
+            })
           )}
           <div ref={bottomRef} />
         </div>
 
-        {/* Input */}
-        <form onSubmit={handleSend} className="flex gap-2">
-          <input
-            className="input flex-1"
-            placeholder="Escribe tu mensaje..."
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            maxLength={2000}
-          />
-          <button
-            type="submit"
-            className="btn-primary px-4 flex items-center gap-2"
-            disabled={sending || !input.trim()}
-          >
-            <Send size={18} />
-          </button>
-        </form>
+        {/* Recording overlay */}
+        {isRecording && (
+          <div className="card p-4 bg-red-500/5 border-red-500/20 flex items-center gap-4">
+            <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-red-500">Grabando...</p>
+              <p className="text-xs text-gray-500">{formatDuration(recordingDuration)}</p>
+            </div>
+            <button
+              onClick={cancelRecording}
+              className="p-2 rounded-lg hover:bg-red-500/10 text-red-500"
+              title="Cancelar"
+            >
+              <X size={18} />
+            </button>
+            <button
+              onClick={stopRecording}
+              className="p-2 rounded-lg bg-red-500 text-white hover:bg-red-600"
+              title="Enviar"
+            >
+              <Send size={18} />
+            </button>
+          </div>
+        )}
+
+        {/* Input area */}
+        {!isRecording && (
+          <div className="flex gap-2">
+            <form onSubmit={handleSend} className="flex-1 flex gap-2">
+              <input
+                className="input flex-1"
+                placeholder="Escribe o mantén el mic..."
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                maxLength={2000}
+              />
+              {input.trim() ? (
+                <button
+                  type="submit"
+                  className="btn-primary px-4 flex items-center gap-2"
+                  disabled={sending}
+                >
+                  <Send size={18} />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault()
+                    startRecording()
+                  }}
+                  onMouseUp={stopRecording}
+                  onMouseLeave={() => {
+                    if (isRecording) stopRecording()
+                  }}
+                  onTouchStart={(e) => {
+                    e.preventDefault()
+                    startRecording()
+                  }}
+                  onTouchEnd={(e) => {
+                    e.preventDefault()
+                    stopRecording()
+                  }}
+                  className="btn-primary px-4 flex items-center gap-2 select-none"
+                  disabled={sending}
+                >
+                  <Mic size={18} />
+                </button>
+              )}
+            </form>
+          </div>
+        )}
       </div>
     )
   }
@@ -237,7 +516,7 @@ export default function WalkieTalkie() {
           <div>
             <h1 className="text-xl font-bold">Walkie-Talkie</h1>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Chat entre administradores
+              Push-to-talk entre admins
             </p>
           </div>
         </div>

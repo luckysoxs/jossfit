@@ -15,6 +15,11 @@ class SendMessageRequest(BaseModel):
     content: str
 
 
+class SendVoiceRequest(BaseModel):
+    audio_base64: str
+    duration: float
+
+
 class UpdateChatRequest(BaseModel):
     name: str | None = None
     add_member_ids: list[int] | None = None
@@ -36,6 +41,9 @@ class ChatMessageResponse(BaseModel):
     sender_id: int
     sender_name: str
     content: str
+    message_type: str = "text"
+    audio_duration: float | None = None
+    audio_url: str | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
