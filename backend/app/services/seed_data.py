@@ -133,6 +133,9 @@ EXERCISES = [
     ("Cable Kickback (Glute)", "Patada con Cable (Glúteo)", MuscleGroup.GLUTES, None, ExerciseCategory.ISOLATION, "Cable"),
     ("Hip Abduction Machine", "Máquina de Abducción", MuscleGroup.GLUTES, None, ExerciseCategory.ISOLATION, "Machine"),
     ("Frog Pump", "Bombeo de Rana", MuscleGroup.GLUTES, None, ExerciseCategory.ISOLATION, "Bodyweight"),
+    ("Dumbbell Sumo Squat", "Sentadilla Sumo con Mancuerna", MuscleGroup.GLUTES, "quadriceps,hamstrings", ExerciseCategory.COMPOUND, "Dumbbells"),
+    ("Cable Lateral Kick", "Patada Lateral en Polea", MuscleGroup.GLUTES, None, ExerciseCategory.ISOLATION, "Cable"),
+    ("Banded Lateral Kick", "Patada Lateral con Polainas", MuscleGroup.GLUTES, None, ExerciseCategory.ISOLATION, "Bands"),
 
     # ── Calves ──
     ("Standing Calf Raise", "Elevación de Pantorrilla de Pie", MuscleGroup.CALVES, None, ExerciseCategory.ISOLATION, "Machine"),

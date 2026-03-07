@@ -914,6 +914,12 @@ export default function RoutineDetail() {
 
 // ─── Exercise Picker Modal ─────────────────────────────────────
 
+const EQUIPMENT_OPTIONS = ['Barbell', 'Dumbbells', 'Cable', 'Machine', 'Bodyweight', 'Smith Machine', 'Kettlebell', 'Bands']
+const CATEGORY_OPTIONS = [
+  { value: 'compound', label: 'Compuesto' },
+  { value: 'isolation', label: 'Aislamiento' },
+]
+
 function ExercisePickerModal({ title, priorityMuscle, showCustomize, onClose, onSelect }) {
   const [exercises, setExercises] = useState([])
   const [loading, setLoading] = useState(true)
@@ -921,6 +927,10 @@ function ExercisePickerModal({ title, priorityMuscle, showCustomize, onClose, on
   const [selectedExercise, setSelectedExercise] = useState(null)
   const [config, setConfig] = useState({ sets: 3, reps_min: 8, reps_max: 12, rest_seconds: 90 })
   const [submitting, setSubmitting] = useState(false)
+  const [showCreate, setShowCreate] = useState(false)
+  const [newEx, setNewEx] = useState({
+    name: '', muscle_group: priorityMuscle || 'chest', category: 'compound', equipment: 'Barbell',
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -959,6 +969,24 @@ function ExercisePickerModal({ title, priorityMuscle, showCustomize, onClose, on
     }
   }
 
+  const handleCreateExercise = async () => {
+    if (!newEx.name.trim()) return
+    setSubmitting(true)
+    try {
+      const r = await api.post('/exercises', newEx)
+      const created = r.data
+      setExercises(prev => [...prev, created])
+      cacheSet('all_exercises', [...exercises, created])
+      setShowCreate(false)
+      handleSelect(created)
+    } catch (err) {
+      const msg = err.response?.data?.detail || 'Error al crear ejercicio'
+      alert(msg)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   const handleConfirmAdd = async () => {
     if (!selectedExercise) return
     setSubmitting(true)
@@ -988,6 +1016,69 @@ function ExercisePickerModal({ title, priorityMuscle, showCustomize, onClose, on
     if (b === priorityMuscle) return 1
     return (MUSCLE_LABELS[a] || a).localeCompare(MUSCLE_LABELS[b] || b)
   })
+
+  // Create exercise view
+  if (showCreate) {
+    return (
+      <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-md shadow-2xl">
+          <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <button onClick={() => setShowCreate(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                <ArrowLeft size={20} />
+              </button>
+              <h3 className="font-bold text-sm">Crear ejercicio</h3>
+            </div>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><X size={20} /></button>
+          </div>
+          <div className="p-4 space-y-3">
+            <div>
+              <label className="label">Nombre</label>
+              <input type="text" className="input text-sm" placeholder="Ej: Sentadilla Sumo con Mancuerna"
+                value={newEx.name} onChange={e => setNewEx({ ...newEx, name: e.target.value })} autoFocus />
+            </div>
+            <div>
+              <label className="label">Grupo muscular</label>
+              <select className="input text-sm" value={newEx.muscle_group}
+                onChange={e => setNewEx({ ...newEx, muscle_group: e.target.value })}>
+                {Object.entries(MUSCLE_LABELS).map(([k, v]) => (
+                  <option key={k} value={k}>{v}</option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label">Tipo</label>
+                <select className="input text-sm" value={newEx.category}
+                  onChange={e => setNewEx({ ...newEx, category: e.target.value })}>
+                  {CATEGORY_OPTIONS.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="label">Equipo</label>
+                <select className="input text-sm" value={newEx.equipment}
+                  onChange={e => setNewEx({ ...newEx, equipment: e.target.value })}>
+                  {EQUIPMENT_OPTIONS.map(eq => (
+                    <option key={eq} value={eq}>{eq}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <button onClick={handleCreateExercise} disabled={submitting || !newEx.name.trim()}
+              className="btn-primary w-full flex items-center justify-center gap-2 mt-2">
+              {submitting ? (
+                <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+              ) : (
+                <><Plus size={16} /> Crear y agregar</>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   // Customize view
   if (selectedExercise) {
@@ -1084,7 +1175,20 @@ function ExercisePickerModal({ title, priorityMuscle, showCustomize, onClose, on
               </div>
             ))
           ) : (
-            <p className="text-center text-sm text-gray-400 py-8">No se encontraron ejercicios</p>
+            <div className="text-center py-8">
+              <p className="text-sm text-gray-400 mb-3">No se encontraron ejercicios</p>
+              <button onClick={() => { setNewEx({ ...newEx, name: searchTerm }); setShowCreate(true) }}
+                className="text-sm font-medium text-brand-500 hover:text-brand-400 inline-flex items-center gap-1.5">
+                <Plus size={14} /> Crear "{searchTerm || 'nuevo'}"
+              </button>
+            </div>
+          )}
+          {/* Always show create button at bottom */}
+          {!loading && sortedGroups.length > 0 && (
+            <button onClick={() => { setNewEx({ ...newEx, name: searchTerm }); setShowCreate(true) }}
+              className="w-full py-3 text-sm font-medium text-brand-500 hover:text-brand-400 flex items-center justify-center gap-1.5 border-t border-gray-100 dark:border-gray-800 mt-2">
+              <Plus size={14} /> Crear ejercicio nuevo
+            </button>
           )}
         </div>
       </div>
