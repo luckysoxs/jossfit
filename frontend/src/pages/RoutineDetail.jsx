@@ -15,6 +15,23 @@ const MUSCLE_LABELS = {
   traps: 'Trapecios', forearms: 'Antebrazos', cardio: 'Cardio', full_body: 'Cuerpo Completo',
 }
 
+const MUSCLE_COLORS = {
+  chest: 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400',
+  back: 'bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-400',
+  shoulders: 'bg-orange-100 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400',
+  biceps: 'bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400',
+  triceps: 'bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400',
+  quadriceps: 'bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400',
+  hamstrings: 'bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400',
+  glutes: 'bg-pink-100 dark:bg-pink-500/20 text-pink-600 dark:text-pink-400',
+  calves: 'bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400',
+  abs: 'bg-teal-100 dark:bg-teal-500/20 text-teal-600 dark:text-teal-400',
+  traps: 'bg-cyan-100 dark:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400',
+  forearms: 'bg-lime-100 dark:bg-lime-500/20 text-lime-600 dark:text-lime-400',
+  cardio: 'bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400',
+  full_body: 'bg-brand-100 dark:bg-brand-500/20 text-brand-600 dark:text-brand-400',
+}
+
 const WEEKDAY_NAMES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
 const WEEKDAY_SHORT = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
@@ -377,7 +394,12 @@ export default function RoutineDetail() {
                     {exSubtitle(ex.exercise) && (
                       <p className="text-[11px] text-gray-400 italic">{exSubtitle(ex.exercise)}</p>
                     )}
-                    <p className="text-xs text-gray-400">{MUSCLE_LABELS[ex.exercise?.muscle_group] || ex.exercise?.muscle_group} · {ex.exercise?.equipment}</p>
+                    <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${MUSCLE_COLORS[ex.exercise?.muscle_group] || 'bg-gray-100 dark:bg-gray-700 text-gray-500'}`}>
+                        {MUSCLE_LABELS[ex.exercise?.muscle_group] || ex.exercise?.muscle_group}
+                      </span>
+                      <span className="text-[10px] text-gray-400">{ex.exercise?.equipment}</span>
+                    </div>
                   </div>
                   <div className="text-right text-sm ml-3">
                     <p className="font-medium">{ex.sets} x {ex.reps_min}-{ex.reps_max}</p>

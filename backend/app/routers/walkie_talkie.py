@@ -1,7 +1,7 @@
 """Admin walkie-talkie: messaging between admins (DM and group) with voice."""
 
 import base64
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
@@ -26,6 +26,7 @@ from app.auth.security import get_admin_user
 router = APIRouter(prefix="/admin/walkie-talkie", tags=["Walkie-Talkie"])
 
 MAX_AUDIO_BYTES = 1_500_000  # ~1.5 MB max (~90s of opus audio)
+MESSAGE_RETENTION_HOURS = 24  # Auto-delete messages older than this
 
 
 # ─── helpers ────────────────────────────────────────────────
@@ -80,6 +81,46 @@ def _build_message_response(msg: AdminChatMessage, sender_name: str) -> ChatMess
     )
 
 
+def _cleanup_old_messages(db: Session):
+    """Delete messages older than MESSAGE_RETENTION_HOURS to save storage."""
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=MESSAGE_RETENTION_HOURS)
+    try:
+        db.query(AdminChatMessage).filter(
+            AdminChatMessage.created_at < cutoff
+        ).delete(synchronize_session=False)
+        db.commit()
+    except Exception:
+        db.rollback()
+
+
+# ─── POST /alert ─────────────────────────────────────────────
+
+@router.post("/alert")
+def send_talk_alert(
+    admin: User = Depends(get_admin_user),
+    db: Session = Depends(get_db),
+):
+    """Send a 'want to talk' alert to all other admins via push notification."""
+    try:
+        from app.services.push_service import send_push_to_user
+
+        other_admins = (
+            db.query(User)
+            .filter(User.is_admin == True, User.id != admin.id)
+            .all()
+        )
+        for other in other_admins:
+            send_push_to_user(
+                db, other.id,
+                f"📻 {admin.name} quiere hablar",
+                "Abre el Walkie-Talkie para conectar",
+                "/admin/walkie-talkie",
+            )
+        return {"ok": True, "alerted": len(other_admins)}
+    except Exception as e:
+        raise HTTPException(500, f"Error enviando alerta: {str(e)}")
+
+
 # ─── GET /chats ─────────────────────────────────────────────
 
 @router.get("/chats", response_model=list[ChatListItem])
@@ -87,6 +128,9 @@ def list_chats(
     admin: User = Depends(get_admin_user),
     db: Session = Depends(get_db),
 ):
+    # Cleanup old messages on each chat list fetch (lightweight)
+    _cleanup_old_messages(db)
+
     memberships = (
         db.query(AdminChatMember)
         .filter(AdminChatMember.user_id == admin.id)

@@ -16,6 +16,8 @@ import {
   Play,
   Pause,
   Square,
+  AlertTriangle,
+  Volume2,
 } from 'lucide-react'
 
 export default function WalkieTalkie() {
@@ -27,6 +29,8 @@ export default function WalkieTalkie() {
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const [showNewChat, setShowNewChat] = useState(false)
+  const [alertSending, setAlertSending] = useState(false)
+  const [alertSent, setAlertSent] = useState(false)
   const bottomRef = useRef(null)
 
   // ─── Voice recording state ─────────────────────────────────
@@ -41,6 +45,10 @@ export default function WalkieTalkie() {
   const [playingId, setPlayingId] = useState(null)
   const audioRef = useRef(null)
 
+  // ─── Auto-play tracking ────────────────────────────────────
+  const lastPlayedIdRef = useRef(0) // Track highest auto-played message ID
+  const autoPlayEnabledRef = useRef(true)
+
   // ─── Fetch chat list ─────────────────────────────────────
   const fetchChats = useCallback(async () => {
     try {
@@ -53,7 +61,7 @@ export default function WalkieTalkie() {
     }
   }, [])
 
-  // Poll chats every 15s (was 8s), pauses when tab hidden/offline
+  // Poll chats every 15s, pauses when tab hidden/offline
   useSmartPolling(fetchChats, 15000)
 
   // ─── Fetch messages for active chat ──────────────────────
@@ -68,8 +76,33 @@ export default function WalkieTalkie() {
     }
   }, [activeChat?.id])
 
-  // Poll messages every 8s (was 5s), pauses when tab hidden/offline
-  useSmartPolling(fetchMessages, 8000, { enabled: !!activeChat })
+  // Poll messages every 5s for real-time feel, pauses when tab hidden/offline
+  useSmartPolling(fetchMessages, 5000, { enabled: !!activeChat })
+
+  // ─── Auto-play incoming voice messages (Zello-style) ──────
+  useEffect(() => {
+    if (!activeChat || messages.length === 0 || !autoPlayEnabledRef.current) return
+
+    // Find new voice messages from OTHER users
+    const newVoiceMessages = messages.filter(
+      (msg) =>
+        msg.message_type === 'voice' &&
+        msg.sender_id !== user.id &&
+        msg.id > lastPlayedIdRef.current
+    )
+
+    if (newVoiceMessages.length > 0) {
+      // Auto-play the latest incoming voice message
+      const latest = newVoiceMessages[newVoiceMessages.length - 1]
+      lastPlayedIdRef.current = latest.id
+
+      // Don't auto-play if user is currently recording
+      if (isRecording) return
+
+      // Auto-play it
+      togglePlayAudio(latest.id, latest.audio_url)
+    }
+  }, [messages, activeChat, user.id, isRecording])
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -86,6 +119,20 @@ export default function WalkieTalkie() {
       stopRecording()
     }
   }, [])
+
+  // ─── Send alert ──────────────────────────────────────────
+  const sendAlert = async () => {
+    if (alertSending) return
+    setAlertSending(true)
+    try {
+      await api.post('/admin/walkie-talkie/alert')
+      setAlertSent(true)
+      setTimeout(() => setAlertSent(false), 3000)
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Error al enviar alerta')
+    }
+    setAlertSending(false)
+  }
 
   // ─── Send text message ─────────────────────────────────────
   const handleSend = async (e) => {
@@ -254,7 +301,7 @@ export default function WalkieTalkie() {
       }
       audio.play()
     } catch {
-      alert('Error al reproducir audio')
+      // Silently fail for auto-play (browser may block)
       setPlayingId(null)
     }
   }, [playingId])
@@ -263,6 +310,8 @@ export default function WalkieTalkie() {
   const openChat = (chat) => {
     setActiveChat(chat)
     setMessages([])
+    // Initialize lastPlayedId to avoid replaying old messages
+    lastPlayedIdRef.current = 0
   }
 
   const goBack = () => {
@@ -274,6 +323,7 @@ export default function WalkieTalkie() {
     setPlayingId(null)
     setActiveChat(null)
     setMessages([])
+    lastPlayedIdRef.current = 0
     fetchChats()
   }
 
@@ -326,16 +376,29 @@ export default function WalkieTalkie() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-sm truncate">{getChatName(activeChat)}</p>
-            <p className="text-[10px] text-gray-400">
-              {activeChat.is_group
-                ? `${activeChat.members.length} miembros`
-                : 'Mensaje directo'}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-[10px] text-gray-400">
+                {activeChat.is_group
+                  ? `${activeChat.members.length} miembros`
+                  : 'Mensaje directo'}
+              </p>
+              <div className="flex items-center gap-1 text-[10px] text-green-500">
+                <Volume2 size={10} />
+                <span>Auto-play</span>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Messages */}
         <div className="card p-4 min-h-[55vh] max-h-[60vh] overflow-y-auto flex flex-col gap-3">
+          {/* Ephemeral notice */}
+          <div className="text-center py-1">
+            <p className="text-[10px] text-amber-500 bg-amber-50 dark:bg-amber-500/10 px-3 py-1 rounded-full inline-block">
+              Los mensajes se borran automáticamente cada 24h
+            </p>
+          </div>
+
           {messages.length === 0 ? (
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center space-y-3 px-4">
@@ -344,6 +407,9 @@ export default function WalkieTalkie() {
                 </div>
                 <p className="text-sm text-gray-500">
                   Mantén presionado el micrófono para hablar
+                </p>
+                <p className="text-xs text-gray-400">
+                  El audio se reproduce automáticamente al recibirlo
                 </p>
               </div>
             </div>
@@ -384,7 +450,7 @@ export default function WalkieTalkie() {
                         )}
                       </button>
                       <div className="flex-1 space-y-1">
-                        {/* Waveform placeholder */}
+                        {/* Waveform */}
                         <div className="flex items-center gap-0.5 h-5">
                           {Array.from({ length: 20 }).map((_, i) => (
                             <div
@@ -415,8 +481,6 @@ export default function WalkieTalkie() {
                     }`}
                   >
                     {new Date(msg.created_at).toLocaleString('es-MX', {
-                      day: '2-digit',
-                      month: 'short',
                       hour: '2-digit',
                       minute: '2-digit',
                     })}
@@ -433,7 +497,7 @@ export default function WalkieTalkie() {
           <div className="card p-4 bg-red-500/5 border-red-500/20 flex items-center gap-4">
             <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
             <div className="flex-1">
-              <p className="text-sm font-semibold text-red-500">Grabando...</p>
+              <p className="text-sm font-semibold text-red-500">Transmitiendo...</p>
               <p className="text-xs text-gray-500">{formatDuration(recordingDuration)}</p>
             </div>
             <button
@@ -520,12 +584,40 @@ export default function WalkieTalkie() {
             </p>
           </div>
         </div>
-        <button
-          onClick={() => setShowNewChat(true)}
-          className="btn-primary px-3 py-2 flex items-center gap-2 text-sm"
-        >
-          <Plus size={16} /> Nuevo
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={sendAlert}
+            disabled={alertSending || alertSent}
+            className={`px-3 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition-colors ${
+              alertSent
+                ? 'bg-green-50 dark:bg-green-500/10 text-green-500'
+                : 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/20'
+            }`}
+            title="Alertar que quieres hablar"
+          >
+            {alertSent ? (
+              <>✓ Enviado</>
+            ) : alertSending ? (
+              <div className="animate-spin w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full" />
+            ) : (
+              <><AlertTriangle size={16} /> Alerta</>
+            )}
+          </button>
+          <button
+            onClick={() => setShowNewChat(true)}
+            className="btn-primary px-3 py-2 flex items-center gap-2 text-sm"
+          >
+            <Plus size={16} /> Nuevo
+          </button>
+        </div>
+      </div>
+
+      {/* Info banner */}
+      <div className="flex items-center gap-3 bg-brand-50 dark:bg-brand-500/10 rounded-xl p-3">
+        <Volume2 size={18} className="text-brand-500 flex-shrink-0" />
+        <p className="text-xs text-brand-600 dark:text-brand-400">
+          Los audios se reproducen automáticamente al recibirlos. Los mensajes se borran cada 24h.
+        </p>
       </div>
 
       {/* Chat list */}
@@ -574,8 +666,6 @@ export default function WalkieTalkie() {
                       {chat.last_message_at && (
                         <p className="text-[10px] text-gray-400 whitespace-nowrap">
                           {new Date(chat.last_message_at).toLocaleString('es-MX', {
-                            day: '2-digit',
-                            month: 'short',
                             hour: '2-digit',
                             minute: '2-digit',
                           })}
