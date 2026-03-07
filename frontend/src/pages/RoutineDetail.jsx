@@ -317,15 +317,27 @@ export default function RoutineDetail() {
     setDragOverIdx(null)
   }
 
-  // Touch drag for mobile
+  // Touch drag for mobile (only on grip icon, with threshold)
+  const dragActiveRef = useRef(false)
   const handleTouchStart = (e, idx) => {
     touchStartY.current = e.touches[0].clientY
     touchStartIdx.current = idx
-    setDragIdx(idx)
+    dragActiveRef.current = false // Don't activate drag until threshold met
   }
   const handleTouchMove = (e, currentIdx) => {
     if (touchStartY.current === null) return
     const touchY = e.touches[0].clientY
+    const diff = Math.abs(touchY - touchStartY.current)
+    // Only activate drag after 30px threshold to avoid interfering with scroll
+    if (!dragActiveRef.current) {
+      if (diff > 30) {
+        dragActiveRef.current = true
+        setDragIdx(touchStartIdx.current)
+        e.preventDefault() // Prevent scroll only when dragging
+      }
+      return
+    }
+    e.preventDefault()
     // Find which card we're over
     for (let i = 0; i < dayCardsRef.current.length; i++) {
       const card = dayCardsRef.current[i]
@@ -338,9 +350,15 @@ export default function RoutineDetail() {
     }
   }
   const handleTouchEnd = async () => {
-    await handleDragDayEnd()
+    if (dragActiveRef.current) {
+      await handleDragDayEnd()
+    } else {
+      setDragIdx(null)
+      setDragOverIdx(null)
+    }
     touchStartY.current = null
     touchStartIdx.current = null
+    dragActiveRef.current = false
   }
 
   const deleteExercise = async (exId) => {
