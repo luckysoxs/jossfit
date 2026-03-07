@@ -27,6 +27,7 @@ import SupportChat from './pages/SupportChat'
 import Notes from './pages/Notes'
 import NotificationCenter from './pages/NotificationCenter'
 import TermsAndConditions from './pages/TermsAndConditions'
+import WalkieTalkie from './pages/WalkieTalkie'
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
@@ -72,6 +73,7 @@ export default function App() {
       <Route path="/notes/:noteId" element={<ProtectedRoute><Notes /></ProtectedRoute>} />
       <Route path="/notifications" element={<ProtectedRoute><NotificationCenter /></ProtectedRoute>} />
       <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
+      <Route path="/admin/walkie-talkie" element={<AdminRoute><WalkieTalkie /></AdminRoute>} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -30,6 +30,7 @@ from app.routers import (
     support,
     notes,
     notification_center,
+    walkie_talkie,
 )
 
 
@@ -49,6 +50,30 @@ def run_migrations():
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS accepted_terms BOOLEAN DEFAULT TRUE",
         "ALTER TABLE routines ADD COLUMN IF NOT EXISTS ai_data JSONB",
         "ALTER TABLE routines ADD COLUMN IF NOT EXISTS generation_type VARCHAR(20) DEFAULT 'normal'",
+        # Walkie-Talkie tables
+        """CREATE TABLE IF NOT EXISTS admin_chats (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(100),
+            is_group BOOLEAN DEFAULT FALSE,
+            created_by INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            created_at TIMESTAMP DEFAULT NOW()
+        )""",
+        """CREATE TABLE IF NOT EXISTS admin_chat_members (
+            id SERIAL PRIMARY KEY,
+            chat_id INTEGER REFERENCES admin_chats(id) ON DELETE CASCADE,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            last_read_at TIMESTAMP
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_acm_chat_id ON admin_chat_members(chat_id)",
+        "CREATE INDEX IF NOT EXISTS idx_acm_user_id ON admin_chat_members(user_id)",
+        """CREATE TABLE IF NOT EXISTS admin_chat_messages (
+            id SERIAL PRIMARY KEY,
+            chat_id INTEGER REFERENCES admin_chats(id) ON DELETE CASCADE,
+            sender_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            content TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT NOW()
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_acmsg_chat_id ON admin_chat_messages(chat_id)",
     ]
     with engine.connect() as conn:
         for sql in migrations:
@@ -106,6 +131,7 @@ app.include_router(notifications.router)
 app.include_router(support.router)
 app.include_router(notes.router)
 app.include_router(notification_center.router)
+app.include_router(walkie_talkie.router)
 
 
 @app.get("/health")

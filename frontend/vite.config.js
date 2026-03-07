@@ -57,6 +57,12 @@ export default defineConfig({
       '/store': 'http://localhost:8000',
       '/benefits': 'http://localhost:8000',
       '/notifications': 'http://localhost:8000',
+      '/admin': 'http://localhost:8000',
+      '/support': 'http://localhost:8000',
+      '/notes': 'http://localhost:8000',
+      '/notification-center': 'http://localhost:8000',
+      '/cardio': 'http://localhost:8000',
+      '/personal-bests': 'http://localhost:8000',
     },
   },
 })

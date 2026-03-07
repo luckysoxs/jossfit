@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useTheme } from '../../contexts/ThemeContext'
 import { useAuth } from '../../contexts/AuthContext'
-import { Sun, Moon, Shield, MessageCircle, Bell } from 'lucide-react'
+import { Sun, Moon, Shield, MessageCircle, Bell, Radio } from 'lucide-react'
 import api from '../../services/api'
 
 export default function TopBar() {
@@ -10,17 +10,27 @@ export default function TopBar() {
   const { user } = useAuth()
   const [unreadSupport, setUnreadSupport] = useState(0)
   const [unreadNotifs, setUnreadNotifs] = useState(0)
+  const [unreadWalkie, setUnreadWalkie] = useState(0)
 
   useEffect(() => {
     if (!user) return
     const fetchUnread = async () => {
       try {
-        const [support, notifs] = await Promise.all([
+        const promises = [
           api.get('/support/unread-count').catch(() => ({ data: { unread: 0 } })),
           api.get('/notification-center/unread-count').catch(() => ({ data: { count: 0 } })),
-        ])
-        setUnreadSupport(support.data.unread)
-        setUnreadNotifs(notifs.data.count)
+        ]
+        if (user.is_admin) {
+          promises.push(
+            api.get('/admin/walkie-talkie/unread').catch(() => ({ data: { unread: 0 } }))
+          )
+        }
+        const results = await Promise.all(promises)
+        setUnreadSupport(results[0].data.unread)
+        setUnreadNotifs(results[1].data.count)
+        if (user.is_admin && results[2]) {
+          setUnreadWalkie(results[2].data.unread)
+        }
       } catch {}
     }
     fetchUnread()
@@ -65,13 +75,27 @@ export default function TopBar() {
             </>
           )}
           {user?.is_admin && (
-            <Link
-              to="/admin"
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-brand-500"
-              aria-label="Admin Panel"
-            >
-              <Shield size={20} />
-            </Link>
+            <>
+              <Link
+                to="/admin/walkie-talkie"
+                className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-brand-500"
+                aria-label="Walkie-Talkie"
+              >
+                <Radio size={18} />
+                {unreadWalkie > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                    {unreadWalkie > 9 ? '9+' : unreadWalkie}
+                  </span>
+                )}
+              </Link>
+              <Link
+                to="/admin"
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-brand-500"
+                aria-label="Admin Panel"
+              >
+                <Shield size={20} />
+              </Link>
+            </>
           )}
           <button
             onClick={toggleTheme}

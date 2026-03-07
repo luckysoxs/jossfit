@@ -15,6 +15,7 @@ from app.models.push_subscription import PushSubscription
 from app.models.support_message import SupportMessage
 from app.models.note import Note
 from app.models.notification import Notification
+from app.models.admin_chat import AdminChat, AdminChatMember, AdminChatMessage
 
 __all__ = [
     "User", "Exercise", "Routine", "RoutineDay", "RoutineExercise",
@@ -22,4 +23,5 @@ __all__ = [
     "Supplement", "Goal", "OneRepMax", "PartnerBrand", "ProgressionLog",
     "CardioSession", "PushSubscription", "SupportMessage",
     "Note", "Notification",
+    "AdminChat", "AdminChatMember", "AdminChatMessage",
 ]
