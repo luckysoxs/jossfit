@@ -212,6 +212,18 @@ def add_exercise(
     if not day:
         raise HTTPException(status_code=404, detail="Day not found")
 
+    # Prevent duplicate exercise in the same day
+    already = (
+        db.query(RoutineExercise)
+        .filter(
+            RoutineExercise.routine_day_id == day.id,
+            RoutineExercise.exercise_id == data.exercise_id,
+        )
+        .first()
+    )
+    if already:
+        raise HTTPException(status_code=409, detail="Este ejercicio ya está en este día")
+
     ex = RoutineExercise(
         routine_day_id=day.id,
         exercise_id=data.exercise_id,

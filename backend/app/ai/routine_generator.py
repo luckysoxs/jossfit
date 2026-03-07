@@ -209,6 +209,7 @@ def generate_routine(
         allocation = _allocate_exercises(main_muscles, max_ex) if main_muscles else {}
 
         exercises_for_day = []
+        used_exercise_ids = set()  # Prevent duplicates within the same day
         order = 1
 
         # ── Main muscles (within budget) ──
@@ -246,6 +247,8 @@ def generate_routine(
             for ex in compounds:
                 if added >= count:
                     break
+                if ex.id in used_exercise_ids:
+                    continue
                 base_rest = 120 if objective == "strength" else 90
                 exercises_for_day.append({
                     "exercise_id": ex.id,
@@ -258,12 +261,15 @@ def generate_routine(
                     "muscle_group": muscle,
                     "category": "compound",
                 })
+                used_exercise_ids.add(ex.id)
                 order += 1
                 added += 1
 
             for ex in isolations:
                 if added >= count:
                     break
+                if ex.id in used_exercise_ids:
+                    continue
                 exercises_for_day.append({
                     "exercise_id": ex.id,
                     "order": order,
@@ -275,6 +281,7 @@ def generate_routine(
                     "muscle_group": muscle,
                     "category": "isolation",
                 })
+                used_exercise_ids.add(ex.id)
                 order += 1
                 added += 1
 
@@ -287,10 +294,21 @@ def generate_routine(
 
             ex = (
                 db.query(Exercise)
-                .filter(Exercise.muscle_group == mg)
+                .filter(
+                    Exercise.muscle_group == mg,
+                    ~Exercise.id.in_(used_exercise_ids),
+                )
                 .order_by(sqlfunc.random())
                 .first()
             )
+            if not ex:
+                # Fallback: allow reuse if no unique exercise available
+                ex = (
+                    db.query(Exercise)
+                    .filter(Exercise.muscle_group == mg)
+                    .order_by(sqlfunc.random())
+                    .first()
+                )
             if not ex:
                 continue
 
@@ -306,6 +324,7 @@ def generate_routine(
                 "muscle_group": muscle,
                 "category": "isolation",
             })
+            used_exercise_ids.add(ex.id)
             order += 1
 
         routine_days.append({

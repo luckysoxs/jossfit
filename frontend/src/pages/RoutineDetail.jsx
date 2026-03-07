@@ -4,10 +4,9 @@ import api from '../services/api'
 import { cacheSet, cacheGet, queueAction } from '../services/offlineCache'
 import useOnlineStatus from '../hooks/useOnlineStatus'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
-import RestTimer from '../components/ui/RestTimer'
 import OneRMCalculator from '../components/routines/OneRMCalculator'
 import AIRoutineView from '../components/routines/AIRoutineView'
-import { ArrowLeft, Play, Check, ChevronRight, Calculator, RefreshCw, X, Zap, Trash2, Plus, Trophy, Dumbbell, GripVertical, ChevronUp, ChevronDown, Search, Settings2, WifiOff, TrendingUp, Timer } from 'lucide-react'
+import { ArrowLeft, Play, Check, ChevronRight, Calculator, RefreshCw, X, Zap, Trash2, Plus, Trophy, Dumbbell, GripVertical, ChevronUp, ChevronDown, Search, Settings2, WifiOff, TrendingUp } from 'lucide-react'
 
 const MUSCLE_LABELS = {
   chest: 'Pecho', back: 'Espalda', shoulders: 'Hombros', biceps: 'Bíceps',
@@ -53,13 +52,6 @@ export default function RoutineDetail() {
   const [quickSetForm, setQuickSetForm] = useState({ weight_kg: '', reps: '' })
   const [quickSetSaving, setQuickSetSaving] = useState(false)
   const [quickSetNewPR, setQuickSetNewPR] = useState(false)
-
-  // Rest timer state (optional)
-  const [restTimer, setRestTimer] = useState(null) // { seconds, exerciseName }
-  const [restTimerEnabled, setRestTimerEnabled] = useState(() => {
-    const saved = localStorage.getItem('rest_timer_enabled')
-    return saved !== null ? saved === 'true' : true
-  })
 
   const todayKey = `routine_progress_${id}_${new Date().toISOString().split('T')[0]}`
 
@@ -116,22 +108,16 @@ export default function RoutineDetail() {
     if (saved) setChecked(JSON.parse(saved))
   }, [todayKey])
 
-  const handleExerciseCheck = (routineExId, exerciseId, exerciseName, restSeconds) => {
+  const handleExerciseCheck = (routineExId, exerciseId, exerciseName) => {
     if (checked[routineExId]) {
       const next = { ...checked, [routineExId]: false }
       setChecked(next)
       localStorage.setItem(todayKey, JSON.stringify(next))
     } else {
       const prev = personalBests[exerciseId]
-      setQuickSetExercise({ routineExId, exerciseId, name: exerciseName, restSeconds: restSeconds || 90 })
+      setQuickSetExercise({ routineExId, exerciseId, name: exerciseName })
       setQuickSetForm({ weight_kg: prev?.weight_kg?.toString() || '', reps: prev?.reps?.toString() || '' })
       setQuickSetNewPR(false)
-    }
-  }
-
-  const startRestTimer = (exerciseName, seconds) => {
-    if (restTimerEnabled && seconds > 0) {
-      setRestTimer({ seconds, exerciseName })
     }
   }
 
@@ -172,18 +158,12 @@ export default function RoutineDetail() {
 
       if (isNewPR) {
         setQuickSetNewPR(true)
-        const name = quickSetExercise.name
-        const rest = quickSetExercise.restSeconds
         setTimeout(() => {
           setQuickSetExercise(null)
           setQuickSetNewPR(false)
-          startRestTimer(name, rest)
         }, 1500)
       } else {
-        const name = quickSetExercise.name
-        const rest = quickSetExercise.restSeconds
         setQuickSetExercise(null)
-        startRestTimer(name, rest)
       }
     } catch {
       alert('Error al guardar')
@@ -196,10 +176,7 @@ export default function RoutineDetail() {
     const next = { ...checked, [quickSetExercise.routineExId]: true }
     setChecked(next)
     localStorage.setItem(todayKey, JSON.stringify(next))
-    const name = quickSetExercise.name
-    const rest = quickSetExercise.restSeconds
     setQuickSetExercise(null)
-    startRestTimer(name, rest)
   }
 
   const getYoutubeUrl = (name) => {
@@ -328,7 +305,7 @@ export default function RoutineDetail() {
               </div>
               {/* Check button */}
               <button
-                onClick={() => handleExerciseCheck(ex.id, ex.exercise_id, exDisplayName(ex.exercise), ex.rest_seconds)}
+                onClick={() => handleExerciseCheck(ex.id, ex.exercise_id, exDisplayName(ex.exercise))}
                 className={`w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
                   checked[ex.id] ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 dark:border-gray-600'
                 }`}
@@ -401,32 +378,6 @@ export default function RoutineDetail() {
           className="card w-full flex items-center justify-center gap-2 py-3 text-sm font-medium text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-500/10 transition-colors border-2 border-dashed border-brand-500/30">
           <Plus size={16} /> Agregar ejercicio
         </button>
-
-        {/* Rest Timer Toggle */}
-        <div className="flex items-center justify-between px-2">
-          <span className="text-xs text-gray-400 flex items-center gap-1.5">
-            <Timer size={14} /> Timer de descanso
-          </span>
-          <button
-            onClick={() => {
-              const next = !restTimerEnabled
-              setRestTimerEnabled(next)
-              localStorage.setItem('rest_timer_enabled', String(next))
-            }}
-            className={`relative w-10 h-[22px] rounded-full transition-colors ${restTimerEnabled ? 'bg-brand-500' : 'bg-gray-300 dark:bg-gray-700'}`}
-          >
-            <span className={`absolute top-0.5 left-0.5 w-[18px] h-[18px] bg-white rounded-full shadow transition-transform ${restTimerEnabled ? 'translate-x-[18px]' : ''}`} />
-          </button>
-        </div>
-
-        {/* Rest Timer Overlay */}
-        {restTimer && (
-          <RestTimer
-            seconds={restTimer.seconds}
-            exerciseName={restTimer.exerciseName}
-            onClose={() => setRestTimer(null)}
-          />
-        )}
 
         {/* Quick Set Popup */}
         {quickSetExercise && (
