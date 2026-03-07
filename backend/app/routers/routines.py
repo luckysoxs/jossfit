@@ -120,6 +120,34 @@ def delete_routine(
     db.commit()
 
 
+@router.put("/reorder-exercises", status_code=200)
+def reorder_exercises(
+    day_id: int = Body(...),
+    exercise_order: list[int] = Body(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Reorder exercises within a day. exercise_order is a list of RoutineExercise IDs in the new order."""
+    day = (
+        db.query(RoutineDay)
+        .join(Routine)
+        .filter(RoutineDay.id == day_id, Routine.user_id == user.id)
+        .first()
+    )
+    if not day:
+        raise HTTPException(status_code=404, detail="Day not found")
+
+    exercises = db.query(RoutineExercise).filter(RoutineExercise.routine_day_id == day_id).all()
+    ex_map = {e.id: e for e in exercises}
+
+    for new_order, ex_id in enumerate(exercise_order, start=1):
+        if ex_id in ex_map:
+            ex_map[ex_id].order = new_order
+
+    db.commit()
+    return {"ok": True}
+
+
 @router.put("/exercises/{routine_exercise_id}/swap", status_code=200)
 def swap_exercise(
     routine_exercise_id: int,

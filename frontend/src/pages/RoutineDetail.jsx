@@ -167,9 +167,33 @@ export default function RoutineDetail() {
           </div>
         </div>
 
-        {day.exercises?.map((ex) => (
+        {day.exercises?.sort((a, b) => a.order - b.order).map((ex, exIdx, exArr) => {
+          const swapExerciseOrder = async (dir) => {
+            const sorted = [...exArr]
+            const ids = sorted.map(e => e.id)
+            const i = ids.indexOf(ex.id)
+            if (dir === 'up' && i > 0) [ids[i], ids[i - 1]] = [ids[i - 1], ids[i]]
+            else if (dir === 'down' && i < ids.length - 1) [ids[i], ids[i + 1]] = [ids[i + 1], ids[i]]
+            else return
+            await api.put('/routines/reorder-exercises', { day_id: day.id, exercise_order: ids })
+            await reloadRoutine()
+          }
+
+          return (
           <div key={ex.id} className={`card bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2.5 transition-opacity ${checked[ex.id] ? 'opacity-40' : ''}`}>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              {/* Reorder arrows */}
+              <div className="flex flex-col gap-0.5 flex-shrink-0">
+                <button onClick={() => swapExerciseOrder('up')} disabled={exIdx === 0}
+                  className="text-gray-400 hover:text-brand-500 disabled:opacity-20 disabled:cursor-default p-0.5">
+                  <ArrowUp size={12} />
+                </button>
+                <button onClick={() => swapExerciseOrder('down')} disabled={exIdx === exArr.length - 1}
+                  className="text-gray-400 hover:text-brand-500 disabled:opacity-20 disabled:cursor-default p-0.5">
+                  <ArrowDown size={12} />
+                </button>
+              </div>
+              {/* Check button */}
               <button
                 onClick={() => handleExerciseCheck(ex.id, ex.exercise_id, ex.exercise?.name)}
                 className={`w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
@@ -218,7 +242,8 @@ export default function RoutineDetail() {
               </div>
             </div>
           </div>
-        ))}
+          )
+        })}
 
         <button onClick={() => { setAddingToDay(day); loadExercises(); setSearchTerm('') }}
           className="card w-full flex items-center justify-center gap-2 py-3 text-sm font-medium text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-500/10 transition-colors border-2 border-dashed border-brand-500/30">
