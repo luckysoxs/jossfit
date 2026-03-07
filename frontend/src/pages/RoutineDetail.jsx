@@ -317,38 +317,44 @@ export default function RoutineDetail() {
     setDragOverIdx(null)
   }
 
-  // Touch drag for mobile (only on grip icon, with threshold)
+  // Touch drag for mobile (with threshold + non-passive touchmove)
   const dragActiveRef = useRef(false)
+  const dayCardsContainerRef = useRef(null)
   const handleTouchStart = (e, idx) => {
     touchStartY.current = e.touches[0].clientY
     touchStartIdx.current = idx
-    dragActiveRef.current = false // Don't activate drag until threshold met
+    dragActiveRef.current = false
   }
-  const handleTouchMove = (e, currentIdx) => {
-    if (touchStartY.current === null) return
-    const touchY = e.touches[0].clientY
-    const diff = Math.abs(touchY - touchStartY.current)
-    // Only activate drag after 30px threshold to avoid interfering with scroll
-    if (!dragActiveRef.current) {
-      if (diff > 30) {
-        dragActiveRef.current = true
-        setDragIdx(touchStartIdx.current)
-        e.preventDefault() // Prevent scroll only when dragging
+  // Register touchmove with { passive: false } so preventDefault works
+  useEffect(() => {
+    const container = dayCardsContainerRef.current
+    if (!container) return
+    const onTouchMove = (e) => {
+      if (touchStartY.current === null) return
+      const touchY = e.touches[0].clientY
+      const diff = Math.abs(touchY - touchStartY.current)
+      if (!dragActiveRef.current) {
+        if (diff > 30) {
+          dragActiveRef.current = true
+          setDragIdx(touchStartIdx.current)
+          e.preventDefault()
+        }
+        return
       }
-      return
-    }
-    e.preventDefault()
-    // Find which card we're over
-    for (let i = 0; i < dayCardsRef.current.length; i++) {
-      const card = dayCardsRef.current[i]
-      if (!card) continue
-      const rect = card.getBoundingClientRect()
-      if (touchY >= rect.top && touchY <= rect.bottom) {
-        setDragOverIdx(i)
-        break
+      e.preventDefault()
+      for (let i = 0; i < dayCardsRef.current.length; i++) {
+        const card = dayCardsRef.current[i]
+        if (!card) continue
+        const rect = card.getBoundingClientRect()
+        if (touchY >= rect.top && touchY <= rect.bottom) {
+          setDragOverIdx(i)
+          break
+        }
       }
     }
-  }
+    container.addEventListener('touchmove', onTouchMove, { passive: false })
+    return () => container.removeEventListener('touchmove', onTouchMove)
+  })
   const handleTouchEnd = async () => {
     if (dragActiveRef.current) {
       await handleDragDayEnd()
@@ -362,29 +368,44 @@ export default function RoutineDetail() {
   }
 
   const deleteExercise = async (exId) => {
-    await api.delete(`/routines/exercises/${exId}`)
-    await reloadRoutine()
+    try {
+      await api.delete(`/routines/exercises/${exId}`)
+      await reloadRoutine()
+    } catch (err) {
+      console.error('Error deleting exercise:', err)
+      alert('Error al eliminar ejercicio')
+    }
   }
 
   // --- Move exercise up/down ---
   const moveExUp = async (exIdx, dayId, sortedExercises) => {
     if (exIdx === 0 || reordering) return
     setReordering(true)
-    const items = [...sortedExercises]
-    ;[items[exIdx - 1], items[exIdx]] = [items[exIdx], items[exIdx - 1]]
-    await api.put('/routines/reorder-exercises', { day_id: dayId, exercise_order: items.map(e => e.id) })
-    await reloadRoutine()
-    setReordering(false)
+    try {
+      const items = [...sortedExercises]
+      ;[items[exIdx - 1], items[exIdx]] = [items[exIdx], items[exIdx - 1]]
+      await api.put('/routines/reorder-exercises', { day_id: dayId, exercise_order: items.map(e => e.id) })
+      await reloadRoutine()
+    } catch (err) {
+      console.error('Error reordering:', err)
+    } finally {
+      setReordering(false)
+    }
   }
 
   const moveExDown = async (exIdx, dayId, sortedExercises) => {
     if (exIdx >= sortedExercises.length - 1 || reordering) return
     setReordering(true)
-    const items = [...sortedExercises]
-    ;[items[exIdx], items[exIdx + 1]] = [items[exIdx + 1], items[exIdx]]
-    await api.put('/routines/reorder-exercises', { day_id: dayId, exercise_order: items.map(e => e.id) })
-    await reloadRoutine()
-    setReordering(false)
+    try {
+      const items = [...sortedExercises]
+      ;[items[exIdx], items[exIdx + 1]] = [items[exIdx + 1], items[exIdx]]
+      await api.put('/routines/reorder-exercises', { day_id: dayId, exercise_order: items.map(e => e.id) })
+      await reloadRoutine()
+    } catch (err) {
+      console.error('Error reordering:', err)
+    } finally {
+      setReordering(false)
+    }
   }
 
   if (loading) return <LoadingSpinner />
@@ -396,7 +417,11 @@ export default function RoutineDetail() {
   // ─── Day detail view ───
   if (selectedDay !== null) {
     const day = routine.days?.find(d => d.day_number === selectedDay)
-    if (!day) { setSelectedDay(null); return null }
+    if (!day) {
+      // Use effect-like pattern: schedule state update for next tick
+      Promise.resolve().then(() => setSelectedDay(null))
+      return null
+    }
 
     const sortedExercises = [...(day.exercises || [])].sort((a, b) => a.order - b.order)
     const dayExIds = sortedExercises.map(e => e.id)
@@ -821,6 +846,7 @@ export default function RoutineDetail() {
           {/* Rest day cards for schedule context */}
           {(() => {
             // Build full week view: training days + rest days
+            dayCardsRef.current = [] // Reset refs on each render
             const weekCards = []
             let trainingIdx = 0
             for (let wd = 0; wd < 7; wd++) {
@@ -868,7 +894,6 @@ export default function RoutineDetail() {
                     onDragOver={(e) => handleDragDayOver(e, currentTrainingIdx)}
                     onDragEnd={handleDragDayEnd}
                     onTouchStart={(e) => handleTouchStart(e, currentTrainingIdx)}
-                    onTouchMove={(e) => handleTouchMove(e, currentTrainingIdx)}
                     onTouchEnd={handleTouchEnd}
                     className={`card hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all cursor-grab active:cursor-grabbing ${dayAllDone ? 'border border-green-500/30' : ''} ${isToday ? 'ring-2 ring-brand-500/40' : ''} ${isDragging ? 'opacity-50 scale-95' : ''} ${isDragOver ? 'border-2 border-brand-500 border-dashed' : ''}`}>
                     <div className="flex items-center gap-2">
@@ -903,7 +928,7 @@ export default function RoutineDetail() {
                 )
               }
             }
-            return weekCards
+            return <div ref={dayCardsContainerRef} className="space-y-2">{weekCards}</div>
           })()}
         </>
       )}
@@ -975,10 +1000,11 @@ function ExercisePickerModal({ title, priorityMuscle, showCustomize, onClose, on
     try {
       const r = await api.post('/exercises', newEx)
       const created = r.data
-      setExercises(prev => [...prev, created])
-      cacheSet('all_exercises', [...exercises, created])
+      const updated = [...exercises, created]
+      setExercises(updated)
+      cacheSet('all_exercises', updated)
       setShowCreate(false)
-      handleSelect(created)
+      await handleSelect(created)
     } catch (err) {
       const msg = err.response?.data?.detail || 'Error al crear ejercicio'
       alert(msg)

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -43,10 +44,15 @@ def create_exercise(
     except ValueError:
         raise HTTPException(400, f"Categoría inválida: {req.category}")
 
-    # Check duplicate by name
-    existing = db.query(Exercise).filter(
-        (Exercise.name == req.name) | (Exercise.name_es == req.name)
-    ).first()
+    # Check duplicate by name (both name and name_es fields)
+    conditions = [
+        Exercise.name == req.name,
+        Exercise.name_es == req.name,
+    ]
+    if req.name_es:
+        conditions.append(Exercise.name == req.name_es)
+        conditions.append(Exercise.name_es == req.name_es)
+    existing = db.query(Exercise).filter(or_(*conditions)).first()
     if existing:
         raise HTTPException(409, "Ya existe un ejercicio con ese nombre")
 
