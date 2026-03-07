@@ -34,8 +34,19 @@ export default function RoutineDetail() {
   const [routine, setRoutine] = useState(null)
   const [loading, setLoading] = useState(true)
   const [offlineMode, setOfflineMode] = useState(false)
-  const [checked, setChecked] = useState({})
-  const [selectedDay, setSelectedDay] = useState(null)
+  const todayDate = new Date().toISOString().split('T')[0]
+  const [checked, setChecked] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`routine_progress_${id}_${todayDate}`)
+      return saved ? JSON.parse(saved) : {}
+    } catch { return {} }
+  })
+  const [selectedDay, setSelectedDay] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem(`routine_selected_day_${id}`)
+      return saved ? JSON.parse(saved) : null
+    } catch { return null }
+  })
   const [oneRMExercise, setOneRMExercise] = useState(null)
   const [personalBests, setPersonalBests] = useState({})
   const [showAIView, setShowAIView] = useState(false)
@@ -53,7 +64,7 @@ export default function RoutineDetail() {
   const [quickSetSaving, setQuickSetSaving] = useState(false)
   const [quickSetNewPR, setQuickSetNewPR] = useState(false)
 
-  const todayKey = `routine_progress_${id}_${new Date().toISOString().split('T')[0]}`
+  const todayKey = `routine_progress_${id}_${todayDate}`
 
   useEffect(() => {
     let cancelled = false
@@ -103,10 +114,21 @@ export default function RoutineDetail() {
     }
   }, [online])
 
+  // Persist checked progress to sessionStorage as backup
   useEffect(() => {
-    const saved = localStorage.getItem(todayKey)
-    if (saved) setChecked(JSON.parse(saved))
-  }, [todayKey])
+    if (Object.keys(checked).length > 0) {
+      sessionStorage.setItem(todayKey, JSON.stringify(checked))
+    }
+  }, [checked, todayKey])
+
+  // Persist selected day across refreshes
+  useEffect(() => {
+    if (selectedDay !== null) {
+      sessionStorage.setItem(`routine_selected_day_${id}`, JSON.stringify(selectedDay))
+    } else {
+      sessionStorage.removeItem(`routine_selected_day_${id}`)
+    }
+  }, [selectedDay, id])
 
   const handleExerciseCheck = (routineExId, exerciseId, exerciseName) => {
     if (checked[routineExId]) {
