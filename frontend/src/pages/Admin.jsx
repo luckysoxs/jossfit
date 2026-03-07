@@ -1066,18 +1066,23 @@ function NotesSection() {
                   )}
                 </div>
                 <p className="text-xs text-gray-400 line-clamp-2">{note.content}</p>
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
                   <p className="text-[10px] text-gray-400">
-                    {new Date(note.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    Creada: {new Date(note.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </p>
                   {note.updated_at && (
                     <p className="text-[10px] text-blue-400">
-                      · Editada {new Date(note.updated_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}
+                      · Editada: {new Date(note.updated_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                     </p>
                   )}
                   {isPending && (
-                    <p className="text-[10px] text-amber-500">
+                    <p className="text-[10px] text-amber-500 font-medium">
                       · Publica: {new Date(note.scheduled_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  )}
+                  {note.published && note.scheduled_at && (
+                    <p className="text-[10px] text-green-500">
+                      · Publicada: {new Date(note.scheduled_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                     </p>
                   )}
                 </div>

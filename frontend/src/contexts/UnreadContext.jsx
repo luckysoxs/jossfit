@@ -3,11 +3,11 @@ import { useAuth } from './AuthContext'
 import useSmartPolling from '../hooks/useSmartPolling'
 import api from '../services/api'
 
-const UnreadContext = createContext({ notifications: 0, support: 0, walkie: 0 })
+const UnreadContext = createContext({ notifications: 0, support: 0, walkie: 0, notes: 0 })
 
 export function UnreadProvider({ children }) {
   const { user } = useAuth()
-  const [counts, setCounts] = useState({ notifications: 0, support: 0, walkie: 0 })
+  const [counts, setCounts] = useState({ notifications: 0, support: 0, walkie: 0, notes: 0 })
 
   const fetchCounts = useCallback(async () => {
     try {

@@ -60,6 +60,21 @@ def mark_all_read(
     return {"ok": True}
 
 
+@router.put("/read-notes")
+def mark_notes_read(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Mark all note-related notifications as read."""
+    db.query(Notification).filter(
+        Notification.user_id == user.id,
+        Notification.is_read == False,
+        Notification.url.like("/notes%"),
+    ).update({"is_read": True}, synchronize_session="fetch")
+    db.commit()
+    return {"ok": True}
+
+
 @router.put("/{notification_id}/read")
 def mark_read(
     notification_id: int,

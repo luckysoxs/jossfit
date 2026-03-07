@@ -303,6 +303,17 @@ def get_unread_counts(
         .scalar() or 0
     )
 
+    # Unread note notifications
+    notes_count = (
+        db.query(sqlfunc.count(Notification.id))
+        .filter(
+            Notification.user_id == user.id,
+            Notification.is_read == False,
+            Notification.url.like("/notes%"),
+        )
+        .scalar() or 0
+    )
+
     # Walkie-talkie (admin only)
     walkie_count = 0
     if user.is_admin:
@@ -321,4 +332,5 @@ def get_unread_counts(
         "notifications": notif_count,
         "support": support_count,
         "walkie": walkie_count,
+        "notes": notes_count,
     }

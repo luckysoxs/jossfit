@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { useUnread } from '../contexts/UnreadContext'
 import api from '../services/api'
 import { cacheSet, cacheGet } from '../services/offlineCache'
 import StatCard from '../components/ui/StatCard'
@@ -18,6 +19,7 @@ import {
 
 export default function Dashboard() {
   const { user } = useAuth()
+  const { notes: unreadNotes } = useUnread()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showTour, setShowTour] = useState(false)
@@ -73,7 +75,7 @@ export default function Dashboard() {
     { to: '/cardio', icon: HeartPulse, label: 'Cardio', color: 'bg-red-500', tour: 'link-cardio' },
     { to: '/goals', icon: Target, label: 'Objetivos', color: 'bg-green-500' },
     { to: '/benefits', icon: Award, label: 'Beneficios', color: 'bg-purple-500' },
-    { to: '/notes', icon: BookOpen, label: 'Notas', color: 'bg-amber-500' },
+    { to: '/notes', icon: BookOpen, label: 'Notas', color: 'bg-amber-500', badge: unreadNotes },
   ]
 
   return (
@@ -90,15 +92,20 @@ export default function Dashboard() {
 
       {/* Quick Links */}
       <div data-tour="quick-links" className="grid grid-cols-5 gap-2">
-        {quickLinks.map(({ to, icon: Icon, label, color, tour }) => (
+        {quickLinks.map(({ to, icon: Icon, label, color, tour, badge }) => (
           <Link
             key={to}
             to={to}
             data-tour={tour}
-            className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 hover:scale-[1.02] transition-transform"
+            className="relative flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 hover:scale-[1.02] transition-transform"
           >
-            <div className={`p-2 rounded-xl ${color} text-white`}>
+            <div className={`relative p-2 rounded-xl ${color} text-white`}>
               <Icon size={18} />
+              {badge > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center border-2 border-white dark:border-gray-900">
+                  {badge > 9 ? '9+' : badge}
+                </span>
+              )}
             </div>
             <span className="text-xs font-medium text-center leading-tight">{label}</span>
           </Link>

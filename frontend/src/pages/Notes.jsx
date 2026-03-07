@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import api from '../services/api'
-import { BookOpen, ArrowLeft, Calendar, Tag } from 'lucide-react'
+import { BookOpen, ArrowLeft, Calendar, Clock } from 'lucide-react'
 
 const CATEGORY_LABELS = {
   general: 'General',
@@ -21,6 +21,17 @@ const CATEGORY_COLORS = {
   motivacion: 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400',
 }
 
+function formatDate(dateStr, includeTime = false) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  const opts = { day: '2-digit', month: 'short', year: 'numeric' }
+  if (includeTime) {
+    opts.hour = '2-digit'
+    opts.minute = '2-digit'
+  }
+  return d.toLocaleDateString('es-MX', opts)
+}
+
 export default function Notes() {
   const { noteId } = useParams()
   const navigate = useNavigate()
@@ -37,6 +48,9 @@ export default function Notes() {
         if (found) setSelectedNote(found)
       }
     }).catch(() => {}).finally(() => setLoading(false))
+
+    // Mark note notifications as read when visiting this page
+    api.put('/notification-center/read-notes').catch(() => {})
   }, [noteId])
 
   if (loading) {
@@ -57,14 +71,19 @@ export default function Notes() {
         </button>
 
         <div className="card space-y-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${CATEGORY_COLORS[selectedNote.category] || CATEGORY_COLORS.general}`}>
               {CATEGORY_LABELS[selectedNote.category] || selectedNote.category}
             </span>
             <span className="text-xs text-gray-400 flex items-center gap-1">
               <Calendar size={12} />
-              {new Date(selectedNote.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+              {formatDate(selectedNote.created_at, true)}
             </span>
+            {selectedNote.updated_at && (
+              <span className="text-xs text-blue-400 flex items-center gap-1">
+                · Editada {formatDate(selectedNote.updated_at)}
+              </span>
+            )}
           </div>
 
           <h1 className="text-xl font-bold">{selectedNote.title}</h1>
@@ -124,9 +143,15 @@ export default function Notes() {
                   {CATEGORY_LABELS[note.category] || note.category}
                 </span>
               </div>
-              <p className="text-[10px] text-gray-400 mt-2">
-                {new Date(note.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}
-              </p>
+              <div className="flex items-center gap-2 mt-2">
+                <p className="text-[10px] text-gray-400 flex items-center gap-1">
+                  <Clock size={10} />
+                  {formatDate(note.created_at, true)}
+                </p>
+                {note.updated_at && (
+                  <p className="text-[10px] text-blue-400">· Editada</p>
+                )}
+              </div>
             </button>
           ))}
         </div>
