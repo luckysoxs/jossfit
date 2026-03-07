@@ -7,7 +7,7 @@ import {
   Calendar, Mail, Phone, Target, TrendingUp, Eye,
   Ruler, Weight, Brain, Moon, Pill, Trophy, BarChart3,
   Award, Plus, Edit3, ToggleLeft, ToggleRight, ExternalLink, Tag, Percent,
-  Bell, Send, MessageCircle, ChevronUp, ChevronDown, GripVertical, BookOpen,
+  Bell, Send, MessageCircle, ChevronUp, ChevronDown, GripVertical, BookOpen, Clock,
 } from 'lucide-react'
 
 function StatCard({ icon: Icon, label, value, color = 'brand' }) {
@@ -940,12 +940,23 @@ function ChatSection() {
 
 const NOTE_CATEGORIES = ['general', 'nutricion', 'entrenamiento', 'suplementos', 'salud', 'motivacion']
 
+function formatReadTime(seconds) {
+  if (!seconds || seconds === 0) return '0s'
+  if (seconds < 60) return `${seconds}s`
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return s > 0 ? `${m}m ${s}s` : `${m}m`
+}
+
 function NotesSection() {
   const [notes, setNotes] = useState([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState({ title: '', content: '', category: 'general', scheduled_at: '' })
   const [saving, setSaving] = useState(false)
+  const [allStats, setAllStats] = useState({})
+  const [expandedStats, setExpandedStats] = useState(null)
+  const [detailStats, setDetailStats] = useState(null)
 
   const fetchNotes = async () => {
     try {
@@ -958,7 +969,27 @@ function NotesSection() {
     }
   }
 
-  useEffect(() => { fetchNotes() }, [])
+  const fetchAllStats = async () => {
+    try {
+      const res = await api.get('/notes/all-stats')
+      setAllStats(res.data)
+    } catch {}
+  }
+
+  const fetchDetailStats = async (noteId) => {
+    if (expandedStats === noteId) {
+      setExpandedStats(null)
+      setDetailStats(null)
+      return
+    }
+    try {
+      const res = await api.get(`/notes/${noteId}/stats`)
+      setDetailStats(res.data)
+      setExpandedStats(noteId)
+    } catch {}
+  }
+
+  useEffect(() => { fetchNotes(); fetchAllStats() }, [])
 
   const saveNote = async () => {
     if (!form.title.trim() || !form.content.trim()) return
@@ -1048,49 +1079,92 @@ function NotesSection() {
       <div className="space-y-2">
         {notes.map(note => {
           const isPending = note.scheduled_at && !note.published
+          const stats = allStats[String(note.id)]
           return (
-            <div key={note.id} className={`card flex items-start justify-between gap-3 ${isPending ? 'border border-amber-400/30 bg-amber-50/30 dark:bg-amber-500/5' : ''}`}>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <h4 className="font-semibold text-sm">{note.title}</h4>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-500">{note.category}</span>
-                  {isPending && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                      <Calendar size={10} /> Programada
-                    </span>
-                  )}
-                  {note.published && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-400">
-                      Publicada
-                    </span>
-                  )}
+            <div key={note.id} className={`card ${isPending ? 'border border-amber-400/30 bg-amber-50/30 dark:bg-amber-500/5' : ''}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <h4 className="font-semibold text-sm">{note.title}</h4>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-500">{note.category}</span>
+                    {isPending && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                        <Calendar size={10} /> Programada
+                      </span>
+                    )}
+                    {note.published && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-400">
+                        Publicada
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400 line-clamp-2">{note.content}</p>
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    <p className="text-[10px] text-gray-400">
+                      Creada: {new Date(note.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                    {note.updated_at && (
+                      <p className="text-[10px] text-blue-400">
+                        · Editada: {new Date(note.updated_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    )}
+                    {isPending && (
+                      <p className="text-[10px] text-amber-500 font-medium">
+                        · Publica: {new Date(note.scheduled_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    )}
+                    {note.published && note.scheduled_at && (
+                      <p className="text-[10px] text-green-500">
+                        · Publicada: {new Date(note.scheduled_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <p className="text-xs text-gray-400 line-clamp-2">{note.content}</p>
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  <p className="text-[10px] text-gray-400">
-                    Creada: {new Date(note.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                  {note.updated_at && (
-                    <p className="text-[10px] text-blue-400">
-                      · Editada: {new Date(note.updated_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  )}
-                  {isPending && (
-                    <p className="text-[10px] text-amber-500 font-medium">
-                      · Publica: {new Date(note.scheduled_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  )}
-                  {note.published && note.scheduled_at && (
-                    <p className="text-[10px] text-green-500">
-                      · Publicada: {new Date(note.scheduled_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  )}
+                <div className="flex gap-1.5">
+                  <button onClick={() => startEdit(note)} className="p-1.5 text-gray-400 hover:text-brand-500"><Edit3 size={14} /></button>
+                  <button onClick={() => deleteNote(note.id)} className="p-1.5 text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
                 </div>
               </div>
-              <div className="flex gap-1.5">
-                <button onClick={() => startEdit(note)} className="p-1.5 text-gray-400 hover:text-brand-500"><Edit3 size={14} /></button>
-                <button onClick={() => deleteNote(note.id)} className="p-1.5 text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
-              </div>
+
+              {/* Stats bar */}
+              {note.published && (
+                <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                  <button
+                    onClick={() => fetchDetailStats(note.id)}
+                    className="flex items-center gap-3 text-[11px] text-gray-500 dark:text-gray-400 hover:text-brand-500 transition-colors w-full"
+                  >
+                    <span className="flex items-center gap-1">
+                      <Eye size={12} /> {stats?.unique_readers || 0} lectores
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <BarChart3 size={12} /> {stats?.total_opens || 0} aperturas
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Clock size={12} /> {formatReadTime(stats?.avg_read_seconds || 0)} prom.
+                    </span>
+                  </button>
+
+                  {/* Expanded reader details */}
+                  {expandedStats === note.id && detailStats && (
+                    <div className="mt-2 space-y-1">
+                      {detailStats.readers.length === 0 ? (
+                        <p className="text-[10px] text-gray-400 italic">Nadie ha abierto esta nota aún</p>
+                      ) : (
+                        detailStats.readers.map(r => (
+                          <div key={r.user_id} className="flex items-center justify-between text-[10px] bg-gray-50 dark:bg-gray-800/50 rounded-lg px-2.5 py-1.5">
+                            <span className="font-medium text-gray-600 dark:text-gray-300">{r.user_name}</span>
+                            <div className="flex items-center gap-3 text-gray-400">
+                              <span>{r.opens} {r.opens === 1 ? 'vez' : 'veces'}</span>
+                              <span>{formatReadTime(r.total_seconds)}</span>
+                              <span>{new Date(r.last_opened).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}</span>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )
         })}

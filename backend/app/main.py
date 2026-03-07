@@ -93,6 +93,16 @@ def run_migrations():
         "ALTER TABLE notes ADD COLUMN IF NOT EXISTS published BOOLEAN DEFAULT FALSE",
         # Mark all existing notes as published (they were created before this feature)
         "UPDATE notes SET published = TRUE WHERE published IS NULL OR published = FALSE AND scheduled_at IS NULL",
+        # Note analytics (views + read time)
+        """CREATE TABLE IF NOT EXISTS note_views (
+            id SERIAL PRIMARY KEY,
+            note_id INTEGER REFERENCES notes(id) ON DELETE CASCADE,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            opened_at TIMESTAMP DEFAULT NOW(),
+            read_seconds INTEGER DEFAULT 0
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_note_views_note_id ON note_views(note_id)",
+        "CREATE INDEX IF NOT EXISTS idx_note_views_user_id ON note_views(user_id)",
     ]
     with engine.connect() as conn:
         for sql in migrations:

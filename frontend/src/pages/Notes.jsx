@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import { BookOpen, ArrowLeft, Calendar, Clock } from 'lucide-react'
@@ -30,6 +30,78 @@ function formatDate(dateStr, includeTime = false) {
     opts.minute = '2-digit'
   }
   return d.toLocaleDateString('es-MX', opts)
+}
+
+function NoteDetail({ note, onBack }) {
+  const viewRef = useRef({ id: null, start: Date.now() })
+  const sentRef = useRef(false)
+
+  const sendReadTime = useCallback(() => {
+    if (sentRef.current || !viewRef.current.id) return
+    sentRef.current = true
+    const seconds = Math.round((Date.now() - viewRef.current.start) / 1000)
+    if (seconds < 1) return
+    // Use keepalive fetch for reliability on page unload
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token')
+    const baseUrl = import.meta.env.VITE_API_URL || ''
+    fetch(`${baseUrl}/notes/${note.id}/view/${viewRef.current.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ read_seconds: seconds }),
+      keepalive: true,
+    }).catch(() => {})
+  }, [note.id])
+
+  useEffect(() => {
+    sentRef.current = false
+    viewRef.current = { id: null, start: Date.now() }
+
+    // Register the view
+    api.post(`/notes/${note.id}/view`, { read_seconds: 0 })
+      .then(r => { viewRef.current.id = r.data.view_id })
+      .catch(() => {})
+
+    // Send read time on beforeunload (tab close)
+    const onUnload = () => sendReadTime()
+    window.addEventListener('beforeunload', onUnload)
+
+    return () => {
+      window.removeEventListener('beforeunload', onUnload)
+      sendReadTime() // cleanup on unmount / navigate away
+    }
+  }, [note.id, sendReadTime])
+
+  return (
+    <div className="max-w-2xl mx-auto space-y-4">
+      <button onClick={onBack}
+        className="flex items-center gap-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+        <ArrowLeft size={20} /> Volver a notas
+      </button>
+
+      <div className="card space-y-4">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${CATEGORY_COLORS[note.category] || CATEGORY_COLORS.general}`}>
+            {CATEGORY_LABELS[note.category] || note.category}
+          </span>
+          <span className="text-xs text-gray-400 flex items-center gap-1">
+            <Calendar size={12} />
+            {formatDate(note.created_at, true)}
+          </span>
+          {note.updated_at && (
+            <span className="text-xs text-blue-400 flex items-center gap-1">
+              · Editada {formatDate(note.updated_at)}
+            </span>
+          )}
+        </div>
+
+        <h1 className="text-xl font-bold">{note.title}</h1>
+
+        <div className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
+          {note.content}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default function Notes() {
@@ -64,35 +136,10 @@ export default function Notes() {
   // Note detail view
   if (selectedNote) {
     return (
-      <div className="max-w-2xl mx-auto space-y-4">
-        <button onClick={() => { setSelectedNote(null); navigate('/notes') }}
-          className="flex items-center gap-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
-          <ArrowLeft size={20} /> Volver a notas
-        </button>
-
-        <div className="card space-y-4">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${CATEGORY_COLORS[selectedNote.category] || CATEGORY_COLORS.general}`}>
-              {CATEGORY_LABELS[selectedNote.category] || selectedNote.category}
-            </span>
-            <span className="text-xs text-gray-400 flex items-center gap-1">
-              <Calendar size={12} />
-              {formatDate(selectedNote.created_at, true)}
-            </span>
-            {selectedNote.updated_at && (
-              <span className="text-xs text-blue-400 flex items-center gap-1">
-                · Editada {formatDate(selectedNote.updated_at)}
-              </span>
-            )}
-          </div>
-
-          <h1 className="text-xl font-bold">{selectedNote.title}</h1>
-
-          <div className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
-            {selectedNote.content}
-          </div>
-        </div>
-      </div>
+      <NoteDetail
+        note={selectedNote}
+        onBack={() => { setSelectedNote(null); navigate('/notes') }}
+      />
     )
   }
 

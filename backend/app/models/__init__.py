@@ -14,6 +14,7 @@ from app.models.cardio_session import CardioSession
 from app.models.push_subscription import PushSubscription
 from app.models.support_message import SupportMessage
 from app.models.note import Note
+from app.models.note_view import NoteView
 from app.models.notification import Notification
 from app.models.admin_chat import AdminChat, AdminChatMember, AdminChatMessage
 
@@ -22,6 +23,6 @@ __all__ = [
     "Workout", "WorkoutSet", "BodyMetric", "NutritionLog", "SleepLog",
     "Supplement", "Goal", "OneRepMax", "PartnerBrand", "ProgressionLog",
     "CardioSession", "PushSubscription", "SupportMessage",
-    "Note", "Notification",
+    "Note", "NoteView", "Notification",
     "AdminChat", "AdminChatMember", "AdminChatMessage",
 ]

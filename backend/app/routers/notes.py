@@ -2,11 +2,13 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import func as sqlfunc
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.user import User
 from app.models.note import Note
+from app.models.note_view import NoteView
 from app.models.notification import Notification
 from app.auth.security import get_current_user
 from app.services.push_service import send_push_to_all
@@ -35,6 +37,14 @@ class NoteResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ViewCreate(BaseModel):
+    read_seconds: int = 0
+
+
+class ViewUpdate(BaseModel):
+    read_seconds: int
+
+
 def _get_admin(user: User = Depends(get_current_user)):
     if not user.is_admin:
         raise HTTPException(status_code=403, detail="Admin only")
@@ -58,6 +68,39 @@ def list_notes(
     )
 
 
+# ── Analytics endpoints (must be before /{note_id} to avoid path conflict) ──
+
+@router.get("/all-stats")
+def all_notes_stats(
+    admin: User = Depends(_get_admin),
+    db: Session = Depends(get_db),
+):
+    """Bulk stats for all notes — avoids N+1 requests."""
+    rows = (
+        db.query(
+            NoteView.note_id,
+            sqlfunc.count(NoteView.id).label("total_opens"),
+            sqlfunc.count(sqlfunc.distinct(NoteView.user_id)).label("unique_readers"),
+            sqlfunc.coalesce(
+                sqlfunc.avg(
+                    sqlfunc.nullif(NoteView.read_seconds, 0)
+                ),
+                0,
+            ).label("avg_read_seconds"),
+        )
+        .group_by(NoteView.note_id)
+        .all()
+    )
+    result = {}
+    for note_id, total_opens, unique_readers, avg_secs in rows:
+        result[str(note_id)] = {
+            "total_opens": total_opens,
+            "unique_readers": unique_readers,
+            "avg_read_seconds": round(float(avg_secs)),
+        }
+    return result
+
+
 @router.get("/{note_id}", response_model=NoteResponse)
 def get_note(
     note_id: int,
@@ -68,6 +111,104 @@ def get_note(
     if not note:
         raise HTTPException(status_code=404, detail="Nota no encontrada")
     return note
+
+
+@router.get("/{note_id}/stats")
+def note_stats(
+    note_id: int,
+    admin: User = Depends(_get_admin),
+    db: Session = Depends(get_db),
+):
+    """Per-note detailed stats with reader breakdown."""
+    note = db.query(Note).filter(Note.id == note_id).first()
+    if not note:
+        raise HTTPException(status_code=404, detail="Nota no encontrada")
+
+    total_opens = db.query(sqlfunc.count(NoteView.id)).filter(NoteView.note_id == note_id).scalar() or 0
+    unique_readers = db.query(sqlfunc.count(sqlfunc.distinct(NoteView.user_id))).filter(NoteView.note_id == note_id).scalar() or 0
+    avg_secs = (
+        db.query(sqlfunc.avg(NoteView.read_seconds))
+        .filter(NoteView.note_id == note_id, NoteView.read_seconds > 0)
+        .scalar()
+    )
+
+    # Reader breakdown
+    reader_rows = (
+        db.query(
+            NoteView.user_id,
+            User.name,
+            sqlfunc.count(NoteView.id).label("opens"),
+            sqlfunc.sum(NoteView.read_seconds).label("total_seconds"),
+            sqlfunc.max(NoteView.opened_at).label("last_opened"),
+        )
+        .join(User, User.id == NoteView.user_id)
+        .filter(NoteView.note_id == note_id)
+        .group_by(NoteView.user_id, User.name)
+        .order_by(sqlfunc.max(NoteView.opened_at).desc())
+        .all()
+    )
+
+    readers = [
+        {
+            "user_id": uid,
+            "user_name": name,
+            "opens": opens,
+            "total_seconds": int(total_secs or 0),
+            "last_opened": str(last_opened) if last_opened else None,
+        }
+        for uid, name, opens, total_secs, last_opened in reader_rows
+    ]
+
+    return {
+        "total_opens": total_opens,
+        "unique_readers": unique_readers,
+        "avg_read_seconds": round(float(avg_secs)) if avg_secs else 0,
+        "readers": readers,
+    }
+
+
+@router.post("/{note_id}/view")
+def record_view(
+    note_id: int,
+    data: ViewCreate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Record that a user opened a note."""
+    note = db.query(Note).filter(Note.id == note_id).first()
+    if not note:
+        raise HTTPException(status_code=404, detail="Nota no encontrada")
+
+    view = NoteView(
+        note_id=note_id,
+        user_id=user.id,
+        read_seconds=data.read_seconds,
+    )
+    db.add(view)
+    db.commit()
+    db.refresh(view)
+    return {"view_id": view.id}
+
+
+@router.put("/{note_id}/view/{view_id}")
+def update_view(
+    note_id: int,
+    view_id: int,
+    data: ViewUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update read time when user leaves the note."""
+    view = db.query(NoteView).filter(
+        NoteView.id == view_id,
+        NoteView.note_id == note_id,
+        NoteView.user_id == user.id,
+    ).first()
+    if not view:
+        raise HTTPException(status_code=404, detail="Vista no encontrada")
+    view.read_seconds = data.read_seconds
+    db.commit()
+    return {"ok": True}
 
 
 @router.post("", response_model=NoteResponse, status_code=201)
