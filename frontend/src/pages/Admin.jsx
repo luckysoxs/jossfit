@@ -1092,12 +1092,299 @@ function NotesSection() {
   )
 }
 
+const MUSCLE_LABELS = {
+  chest: 'Pecho', back: 'Espalda', shoulders: 'Hombros', biceps: 'Bíceps',
+  triceps: 'Tríceps', quadriceps: 'Cuádriceps', hamstrings: 'Isquiotibiales',
+  glutes: 'Glúteos', calves: 'Pantorrillas', abs: 'Abdominales',
+  traps: 'Trapecios', forearms: 'Antebrazos', cardio: 'Cardio', full_body: 'Cuerpo Completo',
+}
+const CATEGORY_LABELS = { compound: 'Compuesto', isolation: 'Aislamiento', cardio: 'Cardio', mobility: 'Movilidad' }
+const EQUIPMENT_LIST = ['Barbell', 'Dumbbells', 'Cable', 'Machine', 'Bodyweight', 'Smith Machine', 'Kettlebell', 'Bands', 'EZ Bar']
+
+function ExercisesSection() {
+  const [exercises, setExercises] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [muscleFilter, setMuscleFilter] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
+  const [showForm, setShowForm] = useState(false)
+  const [editingEx, setEditingEx] = useState(null)
+  const [form, setForm] = useState({ name: '', name_es: '', muscle_group: 'chest', category: 'compound', equipment: 'Barbell', secondary_muscles: '' })
+  const [saving, setSaving] = useState(false)
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null)
+
+  const fetchExercises = async () => {
+    try {
+      const res = await api.get('/exercises')
+      setExercises(Array.isArray(res.data) ? res.data : [])
+    } catch (err) {
+      console.error('Exercises error:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { fetchExercises() }, [])
+
+  const openCreate = () => {
+    setEditingEx(null)
+    setForm({ name: '', name_es: '', muscle_group: 'chest', category: 'compound', equipment: 'Barbell', secondary_muscles: '' })
+    setShowForm(true)
+  }
+
+  const openEdit = (ex) => {
+    setEditingEx(ex)
+    setForm({
+      name: ex.name || '',
+      name_es: ex.name_es || '',
+      muscle_group: ex.muscle_group || 'chest',
+      category: ex.category || 'compound',
+      equipment: ex.equipment || 'Barbell',
+      secondary_muscles: ex.secondary_muscles || '',
+    })
+    setShowForm(true)
+  }
+
+  const handleSave = async () => {
+    if (!form.name.trim()) return
+    setSaving(true)
+    try {
+      if (editingEx) {
+        await api.put(`/exercises/${editingEx.id}`, {
+          name: form.name,
+          name_es: form.name_es || null,
+          muscle_group: form.muscle_group,
+          category: form.category,
+          equipment: form.equipment || null,
+          secondary_muscles: form.secondary_muscles || null,
+        })
+      } else {
+        await api.post('/exercises', {
+          name: form.name,
+          name_es: form.name_es || null,
+          muscle_group: form.muscle_group,
+          category: form.category,
+          equipment: form.equipment || null,
+        })
+      }
+      setShowForm(false)
+      fetchExercises()
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Error al guardar ejercicio')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async (id) => {
+    try {
+      await api.delete(`/exercises/${id}`)
+      setConfirmDeleteId(null)
+      fetchExercises()
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Error al eliminar')
+    }
+  }
+
+  const term = searchTerm.toLowerCase()
+  let filtered = exercises.filter(e =>
+    (e.name || '').toLowerCase().includes(term) ||
+    (e.name_es || '').toLowerCase().includes(term)
+  )
+  if (muscleFilter) filtered = filtered.filter(e => e.muscle_group === muscleFilter)
+  if (categoryFilter) filtered = filtered.filter(e => e.category === categoryFilter)
+
+  // Group by muscle
+  const grouped = {}
+  filtered.forEach(e => {
+    const g = e.muscle_group || 'other'
+    if (!grouped[g]) grouped[g] = []
+    grouped[g].push(e)
+  })
+  const sortedGroups = Object.keys(grouped).sort((a, b) =>
+    (MUSCLE_LABELS[a] || a).localeCompare(MUSCLE_LABELS[b] || b)
+  )
+
+  return (
+    <div className="space-y-4">
+      {/* Header + Add */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold">Ejercicios</h2>
+          <p className="text-xs text-gray-400">{exercises.length} ejercicios en total</p>
+        </div>
+        <button onClick={openCreate}
+          className="btn-primary text-sm flex items-center gap-1.5">
+          <Plus size={16} /> Nuevo
+        </button>
+      </div>
+
+      {/* Search + Filters */}
+      <div className="card p-3 space-y-2">
+        <div className="relative">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input type="text" placeholder="Buscar ejercicio..." value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)} className="input pl-9 w-full text-sm" />
+        </div>
+        <div className="flex gap-2">
+          <select className="input text-xs flex-1" value={muscleFilter}
+            onChange={e => setMuscleFilter(e.target.value)}>
+            <option value="">Todos los músculos</option>
+            {Object.entries(MUSCLE_LABELS).map(([k, v]) => (
+              <option key={k} value={k}>{v}</option>
+            ))}
+          </select>
+          <select className="input text-xs flex-1" value={categoryFilter}
+            onChange={e => setCategoryFilter(e.target.value)}>
+            <option value="">Todas las categorías</option>
+            {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
+              <option key={k} value={k}>{v}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Exercises List */}
+      {loading ? (
+        <div className="flex justify-center py-8">
+          <div className="animate-spin w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full" />
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {sortedGroups.map(group => (
+            <div key={group}>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold text-brand-500 uppercase tracking-wide">
+                  {MUSCLE_LABELS[group] || group}
+                </p>
+                <span className="text-[10px] text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">
+                  {grouped[group].length}
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                {grouped[group].map(ex => (
+                  <div key={ex.id} className="card p-3 flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{ex.name_es || ex.name}</p>
+                      {ex.name_es && <p className="text-[11px] text-gray-400 italic truncate">{ex.name}</p>}
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        <span className="text-[10px] text-gray-400">{CATEGORY_LABELS[ex.category] || ex.category}</span>
+                        {ex.equipment && <span className="text-[10px] text-gray-400">· {ex.equipment}</span>}
+                        {ex.secondary_muscles && <span className="text-[10px] text-gray-300">· {ex.secondary_muscles}</span>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+                      <button onClick={() => openEdit(ex)}
+                        className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-400 hover:text-brand-500 transition-colors">
+                        <Edit3 size={14} />
+                      </button>
+                      {confirmDeleteId === ex.id ? (
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => handleDelete(ex.id)}
+                            className="text-[10px] text-red-500 font-bold px-2 py-1 bg-red-50 dark:bg-red-500/10 rounded">
+                            Sí
+                          </button>
+                          <button onClick={() => setConfirmDeleteId(null)}
+                            className="text-[10px] text-gray-400 font-bold px-2 py-1">
+                            No
+                          </button>
+                        </div>
+                      ) : (
+                        <button onClick={() => setConfirmDeleteId(ex.id)}
+                          className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-400 hover:text-red-500 transition-colors">
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+          {sortedGroups.length === 0 && (
+            <p className="text-center text-gray-400 text-sm py-8">No se encontraron ejercicios</p>
+          )}
+        </div>
+      )}
+
+      {/* Create/Edit Modal */}
+      {showForm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-800 animate-in">
+            <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center">
+              <h3 className="font-bold">{editingEx ? 'Editar Ejercicio' : 'Nuevo Ejercicio'}</h3>
+              <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><X size={20} /></button>
+            </div>
+            <div className="p-4 space-y-3">
+              <div>
+                <label className="text-xs font-medium text-gray-500 mb-1 block">Nombre (EN)</label>
+                <input type="text" className="input text-sm" placeholder="Ej: Dumbbell Sumo Squat"
+                  value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} autoFocus />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-500 mb-1 block">Nombre (ES)</label>
+                <input type="text" className="input text-sm" placeholder="Ej: Sentadilla Sumo con Mancuerna"
+                  value={form.name_es} onChange={e => setForm({ ...form, name_es: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-500 mb-1 block">Grupo Muscular</label>
+                  <select className="input text-sm" value={form.muscle_group}
+                    onChange={e => setForm({ ...form, muscle_group: e.target.value })}>
+                    {Object.entries(MUSCLE_LABELS).map(([k, v]) => (
+                      <option key={k} value={k}>{v}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-500 mb-1 block">Categoría</label>
+                  <select className="input text-sm" value={form.category}
+                    onChange={e => setForm({ ...form, category: e.target.value })}>
+                    {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
+                      <option key={k} value={k}>{v}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-500 mb-1 block">Equipo</label>
+                  <select className="input text-sm" value={form.equipment}
+                    onChange={e => setForm({ ...form, equipment: e.target.value })}>
+                    <option value="">Sin equipo</option>
+                    {EQUIPMENT_LIST.map(eq => (
+                      <option key={eq} value={eq}>{eq}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-500 mb-1 block">Músc. Secundarios</label>
+                  <input type="text" className="input text-sm" placeholder="Ej: glutes,hamstrings"
+                    value={form.secondary_muscles} onChange={e => setForm({ ...form, secondary_muscles: e.target.value })} />
+                </div>
+              </div>
+              <button onClick={handleSave} disabled={saving || !form.name.trim()}
+                className="btn-primary w-full flex items-center justify-center gap-2 mt-2">
+                {saving ? (
+                  <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                ) : (
+                  <>{editingEx ? <Edit3 size={16} /> : <Plus size={16} />} {editingEx ? 'Guardar Cambios' : 'Crear Ejercicio'}</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Admin() {
   const { user } = useAuth()
   const [mainTab, setMainTab] = useState(() => {
     const params = new URLSearchParams(window.location.search)
     const tab = params.get('tab')
-    return ['users', 'partners', 'notifications', 'chat', 'notes'].includes(tab) ? tab : 'users'
+    return ['users', 'partners', 'notifications', 'chat', 'notes', 'exercises'].includes(tab) ? tab : 'users'
   })
   const [stats, setStats] = useState(null)
   const [users, setUsers] = useState([])
@@ -1191,6 +1478,7 @@ export default function Admin() {
           { id: 'notes', label: 'Notas', icon: BookOpen },
           { id: 'notifications', label: 'Push', icon: Bell },
           { id: 'chat', label: 'Chat', icon: MessageCircle },
+          { id: 'exercises', label: 'Ejercicios', icon: Dumbbell },
         ].map(({ id, label, icon: TabIcon }) => (
           <button
             key={id}
@@ -1217,6 +1505,9 @@ export default function Admin() {
 
       {/* Chat Tab */}
       {mainTab === 'chat' && <ChatSection />}
+
+      {/* Exercises Tab */}
+      {mainTab === 'exercises' && <ExercisesSection />}
 
       {/* Users Tab */}
       {mainTab === 'users' && stats && (

@@ -4,8 +4,8 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.exercise import Exercise, MuscleGroup, ExerciseCategory
-from app.schemas.exercise import ExerciseResponse, CreateExerciseRequest
-from app.auth.security import get_current_user
+from app.schemas.exercise import ExerciseResponse, CreateExerciseRequest, UpdateExerciseRequest
+from app.auth.security import get_current_user, get_admin_user
 
 router = APIRouter(prefix="/exercises", tags=["Exercises"])
 
@@ -67,3 +67,64 @@ def create_exercise(
     db.commit()
     db.refresh(exercise)
     return exercise
+
+
+@router.put("/{exercise_id}", response_model=ExerciseResponse)
+def update_exercise(
+    exercise_id: int,
+    req: UpdateExerciseRequest,
+    db: Session = Depends(get_db),
+    _=Depends(get_admin_user),
+):
+    """Admin: update an exercise."""
+    exercise = db.query(Exercise).filter(Exercise.id == exercise_id).first()
+    if not exercise:
+        raise HTTPException(404, "Ejercicio no encontrado")
+
+    if req.name is not None:
+        # Check duplicate
+        dup = db.query(Exercise).filter(
+            Exercise.name == req.name, Exercise.id != exercise_id
+        ).first()
+        if dup:
+            raise HTTPException(409, "Ya existe un ejercicio con ese nombre")
+        exercise.name = req.name
+
+    if req.name_es is not None:
+        exercise.name_es = req.name_es or None
+
+    if req.muscle_group is not None:
+        try:
+            exercise.muscle_group = MuscleGroup(req.muscle_group)
+        except ValueError:
+            raise HTTPException(400, f"Grupo muscular inválido: {req.muscle_group}")
+
+    if req.category is not None:
+        try:
+            exercise.category = ExerciseCategory(req.category)
+        except ValueError:
+            raise HTTPException(400, f"Categoría inválida: {req.category}")
+
+    if req.secondary_muscles is not None:
+        exercise.secondary_muscles = req.secondary_muscles or None
+
+    if req.equipment is not None:
+        exercise.equipment = req.equipment or None
+
+    db.commit()
+    db.refresh(exercise)
+    return exercise
+
+
+@router.delete("/{exercise_id}", status_code=204)
+def delete_exercise(
+    exercise_id: int,
+    db: Session = Depends(get_db),
+    _=Depends(get_admin_user),
+):
+    """Admin: delete an exercise."""
+    exercise = db.query(Exercise).filter(Exercise.id == exercise_id).first()
+    if not exercise:
+        raise HTTPException(404, "Ejercicio no encontrado")
+    db.delete(exercise)
+    db.commit()

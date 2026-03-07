@@ -20,3 +20,12 @@ class CreateExerciseRequest(BaseModel):
     muscle_group: str
     category: str = "compound"
     equipment: str | None = Field(None, max_length=100)
+
+
+class UpdateExerciseRequest(BaseModel):
+    name: str | None = Field(None, min_length=2, max_length=100)
+    name_es: str | None = Field(None, max_length=100)
+    muscle_group: str | None = None
+    secondary_muscles: str | None = None
+    category: str | None = None
+    equipment: str | None = Field(None, max_length=100)

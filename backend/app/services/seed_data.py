@@ -136,6 +136,7 @@ EXERCISES = [
     ("Dumbbell Sumo Squat", "Sentadilla Sumo con Mancuerna", MuscleGroup.GLUTES, "quadriceps,hamstrings", ExerciseCategory.COMPOUND, "Dumbbells"),
     ("Cable Lateral Kick", "Patada Lateral en Polea", MuscleGroup.GLUTES, None, ExerciseCategory.ISOLATION, "Cable"),
     ("Banded Lateral Kick", "Patada Lateral con Polainas", MuscleGroup.GLUTES, None, ExerciseCategory.ISOLATION, "Bands"),
+    ("Single Leg Glute Press", "Prensa Unilateral para Glúteos", MuscleGroup.GLUTES, "quadriceps,hamstrings", ExerciseCategory.COMPOUND, "Machine"),
 
     # ── Calves ──
     ("Standing Calf Raise", "Elevación de Pantorrilla de Pie", MuscleGroup.CALVES, None, ExerciseCategory.ISOLATION, "Machine"),
