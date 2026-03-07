@@ -115,13 +115,14 @@ def run_migrations():
         # Note push preference
         "ALTER TABLE notes ADD COLUMN IF NOT EXISTS send_push BOOLEAN DEFAULT TRUE",
     ]
-    with engine.connect() as conn:
-        for sql in migrations:
-            try:
+    # Each migration runs in its own transaction so a failure in one
+    # doesn't abort all subsequent migrations (PostgreSQL behaviour).
+    for sql in migrations:
+        try:
+            with engine.begin() as conn:
                 conn.execute(text(sql))
-            except Exception:
-                pass
-        conn.commit()
+        except Exception:
+            pass
 
 
 async def publish_scheduled_notes():
