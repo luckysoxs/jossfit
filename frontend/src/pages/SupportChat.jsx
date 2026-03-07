@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import api from '../services/api'
 import useSmartPolling from '../hooks/useSmartPolling'
 import { MessageCircle, Send, HelpCircle, Dumbbell, Award, AlertCircle } from 'lucide-react'

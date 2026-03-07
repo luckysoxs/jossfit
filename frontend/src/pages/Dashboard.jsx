@@ -9,7 +9,7 @@ import AppTour from '../components/ui/AppTour'
 import { requestNotificationPermission, subscribeToPush, isPushSubscribed } from '../services/pushNotifications'
 import {
   Dumbbell, Flame, Timer, TrendingUp, Heart, Moon, Scale, Zap,
-  ChevronRight, Target, HeartPulse, Award, BookOpen,
+  ChevronRight, Target, HeartPulse, Award, BookOpen, Shield,
 } from 'lucide-react'
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -21,6 +21,7 @@ export default function Dashboard() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showTour, setShowTour] = useState(false)
+  const [strengthScore, setStrengthScore] = useState(null)
 
   useEffect(() => {
     api.get('/dashboard/summary')
@@ -33,6 +34,16 @@ export default function Dashboard() {
         if (cached) setData(cached)
       })
       .finally(() => setLoading(false))
+
+    api.get('/dashboard/strength-score')
+      .then((res) => {
+        setStrengthScore(res.data)
+        cacheSet('strength_score', res.data)
+      })
+      .catch(() => {
+        const cached = cacheGet('strength_score')
+        if (cached) setStrengthScore(cached)
+      })
   }, [])
 
   useEffect(() => {
@@ -129,6 +140,64 @@ export default function Dashboard() {
           <span>Calidad: {d.avg_sleep_quality ? `${d.avg_sleep_quality}/10` : '—'}</span>
         </div>
       </div>
+
+      {/* Strength Score Card */}
+      {strengthScore && strengthScore.total_score > 0 && (() => {
+        const ss = strengthScore
+        const CAT_COLORS = { push: 'bg-blue-500', pull: 'bg-green-500', legs: 'bg-purple-500', core: 'bg-amber-500' }
+        const CAT_TEXT = { push: 'text-blue-500', pull: 'text-green-500', legs: 'text-purple-500', core: 'text-amber-500' }
+        const maxCat = Math.max(...ss.categories.map(c => c.total_1rm), 1)
+        return (
+          <div className="card">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="font-semibold flex items-center gap-2">
+                <Shield size={18} className="text-brand-500" /> Strength Score
+              </h3>
+              <div className="text-right">
+                <span className="text-2xl font-bold">{Math.round(ss.total_score)}</span>
+                <span className="text-xs text-gray-400 ml-1">kg</span>
+              </div>
+            </div>
+
+            {/* Change & ratio */}
+            <div className="flex items-center gap-3 mb-4 text-xs">
+              {ss.change_pct != null && (
+                <span className={`font-medium ${ss.change_pct >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  {ss.change_pct >= 0 ? '↑' : '↓'} {Math.abs(ss.change_pct)}% vs hace 30d
+                </span>
+              )}
+              {ss.strength_ratio && (
+                <span className="text-gray-400">
+                  Ratio: <span className="font-semibold text-gray-600 dark:text-gray-300">{ss.strength_ratio}x</span> peso corporal
+                </span>
+              )}
+            </div>
+
+            {/* Category bars */}
+            <div className="space-y-3">
+              {ss.categories.filter(c => c.exercise_count > 0).map(cat => (
+                <div key={cat.category}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={`text-xs font-semibold ${CAT_TEXT[cat.category]}`}>{cat.label}</span>
+                    <span className="text-xs text-gray-500">{Math.round(cat.total_1rm)} kg</span>
+                  </div>
+                  <div className="w-full h-2.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-700 ${CAT_COLORS[cat.category]}`}
+                      style={{ width: `${(cat.total_1rm / maxCat) * 100}%` }}
+                    />
+                  </div>
+                  {cat.top_exercise && (
+                    <p className="text-[10px] text-gray-400 mt-0.5">
+                      Mejor: {cat.top_exercise} — {Math.round(cat.top_1rm)} kg
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Strength Progress Chart */}
       {d.strength_progress?.length > 0 && (

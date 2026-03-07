@@ -14,7 +14,7 @@ from app.models.exercise import Exercise
 from app.models.routine import Routine
 from app.models.notification import Notification
 from app.models.support_message import SupportMessage
-from app.schemas.dashboard import DashboardSummary, StrengthProgress
+from app.schemas.dashboard import DashboardSummary, StrengthProgress, StrengthScoreResponse, CategoryScore
 from app.services.algorithms import calculate_weekly_volume, detect_overtraining
 from app.auth.security import get_current_user
 
@@ -164,6 +164,118 @@ def get_summary(
         recovery_score=recovery_score,
         active_routine_id=active_routine.id if active_routine else None,
         active_routine_name=active_routine.name if active_routine else None,
+    )
+
+
+PUSH_MUSCLES = {"chest", "shoulders", "triceps"}
+PULL_MUSCLES = {"back", "biceps", "traps", "forearms"}
+LEG_MUSCLES = {"quadriceps", "hamstrings", "glutes", "calves"}
+CORE_MUSCLES = {"abs", "full_body"}
+
+CATEGORY_LABELS = {
+    "push": "Empuje",
+    "pull": "Tirón",
+    "legs": "Piernas",
+    "core": "Core",
+}
+
+
+def _classify_muscle(muscle_group: str) -> str:
+    mg = muscle_group.lower()
+    if mg in PUSH_MUSCLES:
+        return "push"
+    if mg in PULL_MUSCLES:
+        return "pull"
+    if mg in LEG_MUSCLES:
+        return "legs"
+    return "core"
+
+
+def _calc_strength_scores(db: Session, user_id: int, before_date=None):
+    """Get the best 1RM per exercise (optionally only records before a date)."""
+    from sqlalchemy import func as sf
+
+    q = (
+        db.query(
+            OneRepMax.exercise_id,
+            sf.max(OneRepMax.estimated_1rm).label("best_1rm"),
+        )
+        .filter(OneRepMax.user_id == user_id)
+    )
+    if before_date:
+        q = q.filter(OneRepMax.date < before_date)
+    q = q.group_by(OneRepMax.exercise_id)
+
+    results = {}  # category -> { total, exercises: [{name, 1rm}] }
+    for cat in ("push", "pull", "legs", "core"):
+        results[cat] = {"total": 0.0, "exercises": []}
+
+    for ex_id, best_1rm in q.all():
+        exercise = db.query(Exercise).filter(Exercise.id == ex_id).first()
+        if not exercise:
+            continue
+        cat = _classify_muscle(exercise.muscle_group.value if hasattr(exercise.muscle_group, 'value') else exercise.muscle_group)
+        results[cat]["total"] += best_1rm
+        results[cat]["exercises"].append({
+            "name": exercise.name_es or exercise.name,
+            "1rm": best_1rm,
+        })
+
+    return results
+
+
+@router.get("/strength-score", response_model=StrengthScoreResponse)
+def get_strength_score(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    today = date.today()
+    month_ago = today - timedelta(days=30)
+
+    # Current scores
+    current = _calc_strength_scores(db, user.id)
+    total_score = sum(c["total"] for c in current.values())
+
+    # Previous scores (30 days ago)
+    previous = _calc_strength_scores(db, user.id, before_date=month_ago)
+    previous_score = sum(c["total"] for c in previous.values())
+
+    # Body weight
+    latest_bw = (
+        db.query(BodyMetric)
+        .filter(BodyMetric.user_id == user.id, BodyMetric.weight_kg.isnot(None))
+        .order_by(BodyMetric.date.desc())
+        .first()
+    )
+    body_weight = latest_bw.weight_kg if latest_bw else None
+    strength_ratio = round(total_score / body_weight, 2) if body_weight and total_score > 0 else None
+
+    # Change %
+    change_pct = None
+    if previous_score > 0 and total_score > 0:
+        change_pct = round(((total_score - previous_score) / previous_score) * 100, 1)
+
+    categories = []
+    for cat in ("push", "pull", "legs", "core"):
+        data = current[cat]
+        exercises_sorted = sorted(data["exercises"], key=lambda x: x["1rm"], reverse=True)
+        top = exercises_sorted[0] if exercises_sorted else None
+        categories.append(CategoryScore(
+            category=cat,
+            label=CATEGORY_LABELS[cat],
+            total_1rm=round(data["total"], 1),
+            exercise_count=len(data["exercises"]),
+            top_exercise=top["name"] if top else None,
+            top_1rm=round(top["1rm"], 1) if top else None,
+        ))
+
+    return StrengthScoreResponse(
+        total_score=round(total_score, 1),
+        categories=categories,
+        body_weight=body_weight,
+        strength_ratio=strength_ratio,
+        previous_score=round(previous_score, 1) if previous_score > 0 else None,
+        change_pct=change_pct,
     )
 
 
