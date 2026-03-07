@@ -3,7 +3,6 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
 
 from app.database import get_db
 from app.models.user import User
@@ -29,6 +28,7 @@ class NoteResponse(BaseModel):
     content: str
     category: str
     scheduled_at: str | None = None
+    published: bool = False
     updated_at: str | None = None
     created_at: str
 
@@ -46,14 +46,13 @@ def list_notes(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    now = datetime.utcnow()
     if user.is_admin:
-        # Admins see all notes (including future scheduled)
+        # Admins see all notes (including unpublished/scheduled)
         return db.query(Note).order_by(Note.created_at.desc()).all()
-    # Regular users only see published notes (no scheduled_at or scheduled_at <= now)
+    # Regular users only see published notes
     return (
         db.query(Note)
-        .filter(or_(Note.scheduled_at.is_(None), Note.scheduled_at <= now))
+        .filter(Note.published == True)
         .order_by(Note.created_at.desc())
         .all()
     )
@@ -84,18 +83,21 @@ def create_note(
         except ValueError:
             raise HTTPException(status_code=400, detail="Formato de fecha inválido")
 
+    is_immediate = not scheduled or scheduled <= datetime.utcnow()
+
     note = Note(
         admin_id=admin.id,
         title=data.title,
         content=data.content,
         category=data.category,
         scheduled_at=scheduled,
+        published=is_immediate,
     )
     db.add(note)
     db.flush()
 
     # Only notify immediately if not scheduled for the future
-    if not scheduled or scheduled <= datetime.utcnow():
+    if is_immediate:
         all_users = db.query(User.id).all()
         for (uid,) in all_users:
             db.add(Notification(
@@ -108,6 +110,7 @@ def create_note(
         db.refresh(note)
         send_push_to_all(db, f"Nueva nota: {data.title}", data.content[:100], f"/notes/{note.id}")
     else:
+        # Scheduled for the future — the background task will publish it
         db.commit()
         db.refresh(note)
 

@@ -1047,16 +1047,21 @@ function NotesSection() {
       {/* Notes list */}
       <div className="space-y-2">
         {notes.map(note => {
-          const isScheduled = note.scheduled_at && new Date(note.scheduled_at) > new Date()
+          const isPending = note.scheduled_at && !note.published
           return (
-            <div key={note.id} className={`card flex items-start justify-between gap-3 ${isScheduled ? 'border border-amber-400/30 bg-amber-50/30 dark:bg-amber-500/5' : ''}`}>
+            <div key={note.id} className={`card flex items-start justify-between gap-3 ${isPending ? 'border border-amber-400/30 bg-amber-50/30 dark:bg-amber-500/5' : ''}`}>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <h4 className="font-semibold text-sm">{note.title}</h4>
                   <span className="px-2 py-0.5 rounded-full text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-500">{note.category}</span>
-                  {isScheduled && (
+                  {isPending && (
                     <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center gap-1">
                       <Calendar size={10} /> Programada
+                    </span>
+                  )}
+                  {note.published && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-400">
+                      Publicada
                     </span>
                   )}
                 </div>
@@ -1070,7 +1075,7 @@ function NotesSection() {
                       · Editada {new Date(note.updated_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}
                     </p>
                   )}
-                  {isScheduled && (
+                  {isPending && (
                     <p className="text-[10px] text-amber-500">
                       · Publica: {new Date(note.scheduled_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                     </p>

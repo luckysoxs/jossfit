@@ -1,4 +1,7 @@
+import asyncio
+import logging
 from contextlib import asynccontextmanager
+from datetime import datetime
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,6 +12,8 @@ from app.config import settings
 from app.database import engine, SessionLocal, Base
 from app.models import *  # noqa: F401 – register all models
 from app.services.seed_data import seed_all
+
+logger = logging.getLogger(__name__)
 from app.routers import (
     auth,
     users,
@@ -85,6 +90,9 @@ def run_migrations():
         # Notes scheduling and editing
         "ALTER TABLE notes ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMP",
         "ALTER TABLE notes ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP",
+        "ALTER TABLE notes ADD COLUMN IF NOT EXISTS published BOOLEAN DEFAULT FALSE",
+        # Mark all existing notes as published (they were created before this feature)
+        "UPDATE notes SET published = TRUE WHERE published IS NULL OR published = FALSE AND scheduled_at IS NULL",
     ]
     with engine.connect() as conn:
         for sql in migrations:
@@ -93,6 +101,47 @@ def run_migrations():
             except Exception:
                 pass
         conn.commit()
+
+
+async def publish_scheduled_notes():
+    """Background task: check every 60s for notes ready to publish."""
+    from app.models.note import Note
+    from app.models.notification import Notification
+    from app.models.user import User
+    from app.services.push_service import send_push_to_all
+
+    while True:
+        await asyncio.sleep(60)
+        try:
+            db = SessionLocal()
+            now = datetime.utcnow()
+            pending = (
+                db.query(Note)
+                .filter(
+                    Note.scheduled_at.isnot(None),
+                    Note.scheduled_at <= now,
+                    Note.published == False,
+                )
+                .all()
+            )
+            for note in pending:
+                # Create in-app notifications for all users
+                all_users = db.query(User.id).all()
+                for (uid,) in all_users:
+                    db.add(Notification(
+                        user_id=uid,
+                        title=note.title,
+                        body=f"Nueva nota: {note.title}",
+                        url=f"/notes/{note.id}",
+                    ))
+                note.published = True
+                db.commit()
+                # Send push notification
+                send_push_to_all(db, f"Nueva nota: {note.title}", note.content[:100], f"/notes/{note.id}")
+                logger.info(f"Published scheduled note #{note.id}: {note.title}")
+            db.close()
+        except Exception as e:
+            logger.error(f"Error publishing scheduled notes: {e}")
 
 
 @asynccontextmanager
@@ -104,7 +153,10 @@ async def lifespan(app: FastAPI):
         seed_all(db)
     finally:
         db.close()
+    # Start background scheduler
+    task = asyncio.create_task(publish_scheduled_notes())
     yield
+    task.cancel()
 
 
 app = FastAPI(
