@@ -95,6 +95,26 @@ def reorder_days(
     return {"ok": True}
 
 
+@router.put("/{routine_id}/schedule")
+def update_schedule(
+    routine_id: int,
+    rest_weekdays: list[int] = Body(..., embed=True),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Set rest weekdays for a routine. 0=Monday, 6=Sunday."""
+    routine = db.query(Routine).filter(Routine.id == routine_id, Routine.user_id == user.id).first()
+    if not routine:
+        raise HTTPException(status_code=404, detail="Routine not found")
+    # Validate: rest days should leave enough training days
+    training_days_available = 7 - len(rest_weekdays)
+    if training_days_available < routine.days_per_week:
+        raise HTTPException(status_code=400, detail="Demasiados días de descanso para tu rutina")
+    routine.rest_weekdays = rest_weekdays
+    db.commit()
+    return {"ok": True, "rest_weekdays": rest_weekdays}
+
+
 @router.get("/{routine_id}", response_model=RoutineResponse)
 def get_routine(
     routine_id: int,

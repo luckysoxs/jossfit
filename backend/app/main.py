@@ -80,6 +80,11 @@ def run_migrations():
         "ALTER TABLE admin_chat_messages ADD COLUMN IF NOT EXISTS audio_duration FLOAT",
         # Exercise Spanish names
         "ALTER TABLE exercises ADD COLUMN IF NOT EXISTS name_es VARCHAR(100)",
+        # Routine weekday schedule
+        "ALTER TABLE routines ADD COLUMN IF NOT EXISTS rest_weekdays JSONB",
+        # Notes scheduling and editing
+        "ALTER TABLE notes ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMP",
+        "ALTER TABLE notes ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP",
     ]
     with engine.connect() as conn:
         for sql in migrations:

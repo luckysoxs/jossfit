@@ -17,6 +17,7 @@ class Routine(Base):
     days_per_week: Mapped[int] = mapped_column(Integer)
     generation_type: Mapped[str] = mapped_column(String(20), default="normal")
     ai_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    rest_weekdays: Mapped[list | None] = mapped_column(JSON, nullable=True)  # e.g. [6] = Sunday rest
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     user = relationship("User", back_populates="routines")

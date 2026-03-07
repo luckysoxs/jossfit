@@ -944,7 +944,7 @@ function NotesSection() {
   const [notes, setNotes] = useState([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(null)
-  const [form, setForm] = useState({ title: '', content: '', category: 'general' })
+  const [form, setForm] = useState({ title: '', content: '', category: 'general', scheduled_at: '' })
   const [saving, setSaving] = useState(false)
 
   const fetchNotes = async () => {
@@ -964,12 +964,18 @@ function NotesSection() {
     if (!form.title.trim() || !form.content.trim()) return
     setSaving(true)
     try {
-      if (editing) {
-        await api.put(`/notes/${editing}`, form)
-      } else {
-        await api.post('/notes', form)
+      const payload = {
+        title: form.title,
+        content: form.content,
+        category: form.category,
+        scheduled_at: form.scheduled_at || null,
       }
-      setForm({ title: '', content: '', category: 'general' })
+      if (editing) {
+        await api.put(`/notes/${editing}`, payload)
+      } else {
+        await api.post('/notes', payload)
+      }
+      setForm({ title: '', content: '', category: 'general', scheduled_at: '' })
       setEditing(null)
       fetchNotes()
     } catch (err) {
@@ -987,7 +993,12 @@ function NotesSection() {
 
   const startEdit = (note) => {
     setEditing(note.id)
-    setForm({ title: note.title, content: note.content, category: note.category })
+    setForm({
+      title: note.title,
+      content: note.content,
+      category: note.category,
+      scheduled_at: note.scheduled_at ? note.scheduled_at.slice(0, 16) : '',
+    })
   }
 
   if (loading) return <div className="text-center py-8 text-gray-400">Cargando...</div>
@@ -1002,39 +1013,77 @@ function NotesSection() {
           {NOTE_CATEGORIES.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
         </select>
         <textarea className="input min-h-[120px]" placeholder="Contenido de la nota..." value={form.content} onChange={e => setForm({ ...form, content: e.target.value })} />
+        <div>
+          <label className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
+            <Calendar size={14} /> Programar publicación (opcional)
+          </label>
+          <input
+            type="datetime-local"
+            className="input text-sm"
+            value={form.scheduled_at}
+            onChange={e => setForm({ ...form, scheduled_at: e.target.value })}
+          />
+          {form.scheduled_at && (
+            <button onClick={() => setForm({ ...form, scheduled_at: '' })}
+              className="text-[11px] text-red-400 hover:text-red-500 mt-1">
+              Quitar programación (publicar ahora)
+            </button>
+          )}
+        </div>
         <div className="flex gap-2">
           <button onClick={saveNote} disabled={saving || !form.title.trim() || !form.content.trim()}
             className="btn-primary flex items-center gap-2">
-            <Send size={14} /> {saving ? 'Guardando...' : (editing ? 'Actualizar' : 'Publicar y notificar')}
+            <Send size={14} /> {saving ? 'Guardando...' : (editing ? 'Actualizar' : (form.scheduled_at ? 'Programar nota' : 'Publicar y notificar'))}
           </button>
           {editing && (
-            <button onClick={() => { setEditing(null); setForm({ title: '', content: '', category: 'general' }) }}
+            <button onClick={() => { setEditing(null); setForm({ title: '', content: '', category: 'general', scheduled_at: '' }) }}
               className="px-4 py-2 text-sm text-gray-400 hover:text-gray-600">Cancelar</button>
           )}
         </div>
-        {!editing && <p className="text-[11px] text-gray-400">Al publicar se enviará push notification y notificación in-app a todos los usuarios.</p>}
+        {!editing && !form.scheduled_at && <p className="text-[11px] text-gray-400">Al publicar se enviará push notification y notificación in-app a todos los usuarios.</p>}
+        {!editing && form.scheduled_at && <p className="text-[11px] text-amber-500">La nota se publicará automáticamente en la fecha indicada. No se notificará hasta entonces.</p>}
       </div>
 
       {/* Notes list */}
       <div className="space-y-2">
-        {notes.map(note => (
-          <div key={note.id} className="card flex items-start justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <h4 className="font-semibold text-sm">{note.title}</h4>
-                <span className="px-2 py-0.5 rounded-full text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-500">{note.category}</span>
+        {notes.map(note => {
+          const isScheduled = note.scheduled_at && new Date(note.scheduled_at) > new Date()
+          return (
+            <div key={note.id} className={`card flex items-start justify-between gap-3 ${isScheduled ? 'border border-amber-400/30 bg-amber-50/30 dark:bg-amber-500/5' : ''}`}>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <h4 className="font-semibold text-sm">{note.title}</h4>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-500">{note.category}</span>
+                  {isScheduled && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                      <Calendar size={10} /> Programada
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-gray-400 line-clamp-2">{note.content}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="text-[10px] text-gray-400">
+                    {new Date(note.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  </p>
+                  {note.updated_at && (
+                    <p className="text-[10px] text-blue-400">
+                      · Editada {new Date(note.updated_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}
+                    </p>
+                  )}
+                  {isScheduled && (
+                    <p className="text-[10px] text-amber-500">
+                      · Publica: {new Date(note.scheduled_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  )}
+                </div>
               </div>
-              <p className="text-xs text-gray-400 line-clamp-2">{note.content}</p>
-              <p className="text-[10px] text-gray-400 mt-1">
-                {new Date(note.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
-              </p>
+              <div className="flex gap-1.5">
+                <button onClick={() => startEdit(note)} className="p-1.5 text-gray-400 hover:text-brand-500"><Edit3 size={14} /></button>
+                <button onClick={() => deleteNote(note.id)} className="p-1.5 text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
+              </div>
             </div>
-            <div className="flex gap-1.5">
-              <button onClick={() => startEdit(note)} className="p-1.5 text-gray-400 hover:text-brand-500"><Edit3 size={14} /></button>
-              <button onClick={() => deleteNote(note.id)} className="p-1.5 text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
-            </div>
-          </div>
-        ))}
+          )
+        })}
         {notes.length === 0 && (
           <div className="text-center py-8 text-gray-400 text-sm">No hay notas publicadas</div>
         )}

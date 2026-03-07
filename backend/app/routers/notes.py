@@ -1,6 +1,9 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 
 from app.database import get_db
 from app.models.user import User
@@ -16,6 +19,7 @@ class NoteCreate(BaseModel):
     title: str
     content: str
     category: str = "general"
+    scheduled_at: str | None = None  # ISO datetime string or null
 
 
 class NoteResponse(BaseModel):
@@ -24,6 +28,8 @@ class NoteResponse(BaseModel):
     title: str
     content: str
     category: str
+    scheduled_at: str | None = None
+    updated_at: str | None = None
     created_at: str
 
     model_config = {"from_attributes": True}
@@ -40,7 +46,17 @@ def list_notes(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return db.query(Note).order_by(Note.created_at.desc()).all()
+    now = datetime.utcnow()
+    if user.is_admin:
+        # Admins see all notes (including future scheduled)
+        return db.query(Note).order_by(Note.created_at.desc()).all()
+    # Regular users only see published notes (no scheduled_at or scheduled_at <= now)
+    return (
+        db.query(Note)
+        .filter(or_(Note.scheduled_at.is_(None), Note.scheduled_at <= now))
+        .order_by(Note.created_at.desc())
+        .all()
+    )
 
 
 @router.get("/{note_id}", response_model=NoteResponse)
@@ -61,30 +77,39 @@ def create_note(
     admin: User = Depends(_get_admin),
     db: Session = Depends(get_db),
 ):
+    scheduled = None
+    if data.scheduled_at:
+        try:
+            scheduled = datetime.fromisoformat(data.scheduled_at.replace("Z", "+00:00"))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Formato de fecha inválido")
+
     note = Note(
         admin_id=admin.id,
         title=data.title,
         content=data.content,
         category=data.category,
+        scheduled_at=scheduled,
     )
     db.add(note)
     db.flush()
 
-    # Create in-app notification for ALL users
-    all_users = db.query(User.id).all()
-    for (uid,) in all_users:
-        db.add(Notification(
-            user_id=uid,
-            title=data.title,
-            body=f"Nueva nota: {data.title}",
-            url=f"/notes/{note.id}",
-        ))
-
-    db.commit()
-    db.refresh(note)
-
-    # Send push notification to all
-    send_push_to_all(db, f"Nueva nota: {data.title}", data.content[:100], f"/notes/{note.id}")
+    # Only notify immediately if not scheduled for the future
+    if not scheduled or scheduled <= datetime.utcnow():
+        all_users = db.query(User.id).all()
+        for (uid,) in all_users:
+            db.add(Notification(
+                user_id=uid,
+                title=data.title,
+                body=f"Nueva nota: {data.title}",
+                url=f"/notes/{note.id}",
+            ))
+        db.commit()
+        db.refresh(note)
+        send_push_to_all(db, f"Nueva nota: {data.title}", data.content[:100], f"/notes/{note.id}")
+    else:
+        db.commit()
+        db.refresh(note)
 
     return note
 
@@ -102,6 +127,14 @@ def update_note(
     note.title = data.title
     note.content = data.content
     note.category = data.category
+    note.updated_at = datetime.utcnow()
+    if data.scheduled_at:
+        try:
+            note.scheduled_at = datetime.fromisoformat(data.scheduled_at.replace("Z", "+00:00"))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Formato de fecha inválido")
+    else:
+        note.scheduled_at = None
     db.commit()
     db.refresh(note)
     return note

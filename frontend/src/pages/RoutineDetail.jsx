@@ -6,13 +6,39 @@ import useOnlineStatus from '../hooks/useOnlineStatus'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import OneRMCalculator from '../components/routines/OneRMCalculator'
 import AIRoutineView from '../components/routines/AIRoutineView'
-import { ArrowLeft, Play, Check, ChevronRight, Calculator, RefreshCw, X, Zap, Trash2, Plus, Trophy, Dumbbell, GripVertical, ChevronUp, ChevronDown, Search, Settings2, WifiOff, TrendingUp } from 'lucide-react'
+import { ArrowLeft, Play, Check, ChevronRight, Calculator, RefreshCw, X, Zap, Trash2, Plus, Trophy, Dumbbell, GripVertical, ChevronUp, ChevronDown, Search, Settings2, WifiOff, TrendingUp, Calendar, Moon } from 'lucide-react'
 
 const MUSCLE_LABELS = {
   chest: 'Pecho', back: 'Espalda', shoulders: 'Hombros', biceps: 'Bíceps',
   triceps: 'Tríceps', quadriceps: 'Cuádriceps', hamstrings: 'Isquiotibiales',
   glutes: 'Glúteos', calves: 'Pantorrillas', abs: 'Abdominales',
   traps: 'Trapecios', forearms: 'Antebrazos', cardio: 'Cardio', full_body: 'Cuerpo Completo',
+}
+
+const WEEKDAY_NAMES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+const WEEKDAY_SHORT = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+
+function getWeekdayMap(daysPerWeek, restWeekdays = [6]) {
+  // Map routine day_number -> weekday index (0=Monday...6=Sunday)
+  const trainingWeekdays = []
+  for (let i = 0; i < 7; i++) {
+    if (!restWeekdays.includes(i)) trainingWeekdays.push(i)
+  }
+  const map = {} // day_number -> weekday
+  for (let i = 0; i < Math.min(daysPerWeek, trainingWeekdays.length); i++) {
+    map[i + 1] = trainingWeekdays[i]
+  }
+  return map
+}
+
+function getNextTrainingDate(weekdayIndex) {
+  const today = new Date()
+  const todayWeekday = (today.getDay() + 6) % 7 // JS Sunday=0 → our Monday=0
+  let daysAhead = weekdayIndex - todayWeekday
+  if (daysAhead < 0) daysAhead += 7
+  const nextDate = new Date(today)
+  nextDate.setDate(today.getDate() + daysAhead)
+  return nextDate
 }
 
 function exDisplayName(ex) {
@@ -50,6 +76,7 @@ export default function RoutineDetail() {
   const [oneRMExercise, setOneRMExercise] = useState(null)
   const [personalBests, setPersonalBests] = useState({})
   const [showAIView, setShowAIView] = useState(false)
+  const [showSchedule, setShowSchedule] = useState(false)
 
   // Exercise picker modals
   const [swapExercise, setSwapExercise] = useState(null)
@@ -283,7 +310,14 @@ export default function RoutineDetail() {
 
         <div className="card">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold">Dia {day.day_number}: {day.name}</h2>
+            <h2 className="text-lg font-bold">
+              {(() => {
+                const rw = routine.rest_weekdays || [6]
+                const wMap = getWeekdayMap(routine.days_per_week, rw)
+                const wd = wMap[day.day_number]
+                return wd !== undefined ? `${WEEKDAY_NAMES[wd]} - ${day.name}` : `Dia ${day.day_number}: ${day.name}`
+              })()}
+            </h2>
             {offlineMode && (
               <span className="flex items-center gap-1 text-xs text-amber-500 bg-amber-50 dark:bg-amber-500/10 px-2 py-1 rounded-full">
                 <WifiOff size={12} /> Offline
@@ -516,7 +550,22 @@ export default function RoutineDetail() {
   }
 
   // ─── Day cards view ───
-  const sortedDays = [...(routine.days || [])].sort((a, b) => a.day_number - b.day_number)
+  const restWeekdays = routine.rest_weekdays || [6] // default Sunday rest
+  const weekdayMap = getWeekdayMap(routine.days_per_week, restWeekdays)
+  const sortedDays = [...(routine.days || [])].sort((a, b) => {
+    const wa = weekdayMap[a.day_number] ?? a.day_number
+    const wb = weekdayMap[b.day_number] ?? b.day_number
+    return wa - wb
+  })
+
+  const todayWeekday = (new Date().getDay() + 6) % 7 // Monday=0
+
+  const saveRestDays = async (newRest) => {
+    try {
+      await api.put(`/routines/${id}/schedule`, { rest_weekdays: newRest })
+      setRoutine(r => ({ ...r, rest_weekdays: newRest }))
+    } catch {}
+  }
 
   return (
     <div className="space-y-4">
@@ -530,18 +579,73 @@ export default function RoutineDetail() {
             <h1 className="text-xl font-bold">{routine.name}</h1>
             <div className="flex gap-3 text-sm text-gray-400 mt-1">
               <span className="bg-brand-50 dark:bg-brand-500/10 text-brand-500 px-2 py-0.5 rounded-full">{routine.split_type}</span>
-              <span>{routine.days_per_week} dias/semana</span>
+              <span>{routine.days_per_week} días/semana</span>
               {routine.generation_type === 'adaptativo' && (
                 <span className="bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full">Adaptativo</span>
               )}
             </div>
           </div>
-          <button onClick={() => navigate('/routines/generate')}
-            className="flex items-center gap-1.5 text-xs font-medium text-brand-500 hover:text-brand-400 bg-brand-50 dark:bg-brand-500/10 px-3 py-2 rounded-xl transition-colors">
-            <Zap size={14} /> Nueva rutina
-          </button>
+          <div className="flex gap-1.5">
+            <button onClick={() => setShowSchedule(true)}
+              className="flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-brand-500 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-xl transition-colors">
+              <Calendar size={14} />
+            </button>
+            <button onClick={() => navigate('/routines/generate')}
+              className="flex items-center gap-1.5 text-xs font-medium text-brand-500 hover:text-brand-400 bg-brand-50 dark:bg-brand-500/10 px-3 py-2 rounded-xl transition-colors">
+              <Zap size={14} /> Nueva
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Schedule Config Modal */}
+      {showSchedule && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-sm shadow-2xl border border-gray-100 dark:border-gray-800 animate-in">
+            <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center">
+              <h3 className="font-bold">Días de descanso</h3>
+              <button onClick={() => setShowSchedule(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><X size={20} /></button>
+            </div>
+            <div className="p-4 space-y-3">
+              <p className="text-xs text-gray-400">Selecciona tus días de descanso. Los demás serán días de entrenamiento.</p>
+              <div className="grid grid-cols-7 gap-1.5">
+                {WEEKDAY_NAMES.map((name, i) => {
+                  const isRest = restWeekdays.includes(i)
+                  const maxRest = 7 - routine.days_per_week
+                  const canToggle = isRest || restWeekdays.length < maxRest
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        if (!canToggle && !isRest) return
+                        const next = isRest
+                          ? restWeekdays.filter(d => d !== i)
+                          : [...restWeekdays, i]
+                        saveRestDays(next)
+                      }}
+                      className={`py-2 rounded-lg text-[10px] font-semibold transition-colors ${
+                        isRest
+                          ? 'bg-gray-200 dark:bg-gray-700 text-gray-500'
+                          : 'bg-brand-500 text-white'
+                      } ${!canToggle && !isRest ? 'opacity-40' : ''}`}
+                    >
+                      {WEEKDAY_SHORT[i]}
+                    </button>
+                  )
+                })}
+              </div>
+              <div className="flex items-center justify-between text-xs pt-2">
+                <span className="text-gray-400">
+                  <span className="inline-block w-3 h-3 rounded bg-brand-500 mr-1 align-middle" /> Entreno
+                </span>
+                <span className="text-gray-400">
+                  <span className="inline-block w-3 h-3 rounded bg-gray-200 dark:bg-gray-700 mr-1 align-middle" /> Descanso
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {routine.ai_data && (
         <div className="flex gap-2">
@@ -573,45 +677,77 @@ export default function RoutineDetail() {
             </div>
           )}
 
-          {sortedDays.map((day, idx) => {
-            const dayExIds = day.exercises?.map(e => e.id) || []
-            const dayDone = dayExIds.filter(eId => checked[eId]).length
-            const dayAllDone = dayExIds.length > 0 && dayDone === dayExIds.length
-
-            return (
-              <div key={day.id}
-                className={`card hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all ${dayAllDone ? 'border border-green-500/30' : ''}`}>
-                <div className="flex items-center gap-2">
-                  <div className="flex flex-col items-center flex-shrink-0 -my-1">
-                    <button onClick={() => moveDayUp(idx, sortedDays)} disabled={idx === 0 || reordering}
-                      className={`p-0.5 rounded transition-colors ${idx === 0 ? 'text-gray-300 dark:text-gray-700' : 'text-gray-400 hover:text-brand-500 active:text-brand-600'}`}>
-                      <ChevronUp size={16} />
-                    </button>
-                    <GripVertical size={14} className="text-gray-300 dark:text-gray-600" />
-                    <button onClick={() => moveDayDown(idx, sortedDays)} disabled={idx >= sortedDays.length - 1 || reordering}
-                      className={`p-0.5 rounded transition-colors ${idx >= sortedDays.length - 1 ? 'text-gray-300 dark:text-gray-700' : 'text-gray-400 hover:text-brand-500 active:text-brand-600'}`}>
-                      <ChevronDown size={16} />
-                    </button>
-                  </div>
-                  <button onClick={() => setSelectedDay(day.day_number)} className="flex-1 text-left">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-semibold">Dia {day.day_number}: {day.name}</h3>
-                        {day.focus && <p className="text-xs text-gray-400 mt-0.5">{day.focus}</p>}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-sm font-medium ${dayAllDone ? 'text-green-500' : 'text-gray-400'}`}>
-                          {dayDone}/{dayExIds.length}
-                        </span>
-                        <ChevronRight size={18} className="text-gray-400" />
+          {/* Rest day cards for schedule context */}
+          {(() => {
+            // Build full week view: training days + rest days
+            const weekCards = []
+            for (let wd = 0; wd < 7; wd++) {
+              const isRest = restWeekdays.includes(wd)
+              if (isRest) {
+                const nextDate = getNextTrainingDate(wd)
+                const isToday = wd === todayWeekday
+                weekCards.push(
+                  <div key={`rest-${wd}`}
+                    className={`card bg-gray-50 dark:bg-gray-800/30 border border-dashed border-gray-200 dark:border-gray-700 opacity-60 ${isToday ? 'ring-2 ring-green-400/50' : ''}`}>
+                    <div className="flex items-center justify-between py-1">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                          <Moon size={16} className="text-gray-400" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-gray-400">{WEEKDAY_NAMES[wd]} - Descanso</h3>
+                          {isToday && <p className="text-[11px] text-green-500 font-medium">Hoy</p>}
+                        </div>
                       </div>
                     </div>
-                    <p className="text-xs text-gray-400 mt-1">{dayExIds.length} ejercicios</p>
-                  </button>
-                </div>
-              </div>
-            )
-          })}
+                  </div>
+                )
+              } else {
+                // Find the training day mapped to this weekday
+                const dayEntry = sortedDays.find(d => weekdayMap[d.day_number] === wd)
+                if (!dayEntry) continue
+
+                const dayExIds = dayEntry.exercises?.map(e => e.id) || []
+                const dayDone = dayExIds.filter(eId => checked[eId]).length
+                const dayAllDone = dayExIds.length > 0 && dayDone === dayExIds.length
+                const isToday = wd === todayWeekday
+                const nextDate = getNextTrainingDate(wd)
+                const nextDateStr = nextDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
+
+                weekCards.push(
+                  <div key={dayEntry.id}
+                    className={`card hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all ${dayAllDone ? 'border border-green-500/30' : ''} ${isToday ? 'ring-2 ring-brand-500/40' : ''}`}>
+                    <button onClick={() => setSelectedDay(dayEntry.day_number)} className="w-full text-left">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isToday ? 'bg-brand-500 text-white' : 'bg-brand-50 dark:bg-brand-500/10 text-brand-500'}`}>
+                            <Dumbbell size={16} />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold">{WEEKDAY_NAMES[wd]} - {dayEntry.name}</h3>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              {isToday ? (
+                                <span className="text-[11px] text-brand-500 font-semibold">Hoy · {dayExIds.length} ejercicios</span>
+                              ) : (
+                                <span className="text-[11px] text-gray-400">Próx: {nextDateStr} · {dayExIds.length} ejercicios</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-sm font-medium ${dayAllDone ? 'text-green-500' : 'text-gray-400'}`}>
+                            {dayDone}/{dayExIds.length}
+                          </span>
+                          <ChevronRight size={18} className="text-gray-400" />
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                )
+              }
+            }
+            return weekCards
+          })()}
         </>
       )}
     </div>

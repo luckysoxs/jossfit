@@ -63,6 +63,7 @@ class RoutineResponse(BaseModel):
     days_per_week: int
     generation_type: str = "normal"
     ai_data: dict | None = None
+    rest_weekdays: list[int] | None = None
     created_at: datetime
     days: list[RoutineDayResponse] = []
 
