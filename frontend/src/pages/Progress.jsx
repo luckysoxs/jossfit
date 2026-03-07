@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import api from '../services/api'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
+import PageTour from '../components/ui/PageTour'
 import { TrendingUp, AlertTriangle, Shield, Activity } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
 
@@ -40,7 +41,7 @@ export default function Progress() {
 
       {/* Overtraining & Deload */}
       {analysis && (
-        <>
+        <div data-tour="progress-charts">
           <div className={`card border-l-4 ${
             analysis.overtraining_risk === 'high' ? 'border-l-red-500' :
             analysis.overtraining_risk === 'moderate' ? 'border-l-yellow-500' : 'border-l-green-500'
@@ -96,7 +97,7 @@ export default function Progress() {
               </div>
             </div>
           )}
-        </>
+        </div>
       )}
 
       {/* Exercise Selector for 1RM & Progression */}
@@ -143,6 +144,13 @@ export default function Progress() {
           </div>
         )}
       </div>
+
+      <PageTour
+        pageKey="progress"
+        steps={[
+          { target: '[data-tour="progress-charts"]', title: 'Tu Progreso', description: 'Graficas de tu evolucion en fuerza y rendimiento.', position: 'bottom' },
+        ]}
+      />
     </div>
   )
 }

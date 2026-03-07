@@ -8,7 +8,7 @@ import AppTour from '../components/ui/AppTour'
 import { requestNotificationPermission, subscribeToPush, isPushSubscribed } from '../services/pushNotifications'
 import {
   Dumbbell, Flame, Timer, TrendingUp, Heart, Moon, Scale, Zap,
-  ChevronRight, Target, HeartPulse, Award,
+  ChevronRight, Target, HeartPulse, Award, BookOpen,
 } from 'lucide-react'
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -55,6 +55,7 @@ export default function Dashboard() {
     { to: '/cardio', icon: HeartPulse, label: 'Cardio', color: 'bg-red-500', tour: 'link-cardio' },
     { to: '/goals', icon: Target, label: 'Objetivos', color: 'bg-green-500' },
     { to: '/benefits', icon: Award, label: 'Beneficios', color: 'bg-purple-500' },
+    { to: '/notes', icon: BookOpen, label: 'Notas', color: 'bg-amber-500' },
   ]
 
   return (
@@ -70,7 +71,7 @@ export default function Dashboard() {
       </div>
 
       {/* Quick Links */}
-      <div data-tour="quick-links" className="grid grid-cols-4 gap-2">
+      <div data-tour="quick-links" className="grid grid-cols-5 gap-2">
         {quickLinks.map(({ to, icon: Icon, label, color, tour }) => (
           <Link
             key={to}

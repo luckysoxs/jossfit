@@ -1,12 +1,18 @@
 from pydantic import BaseModel
 
 
+class CustomDayConfig(BaseModel):
+    name: str
+    muscles: list[str]
+
+
 class GenerateRoutineRequest(BaseModel):
     objective: str
     days_per_week: int
     training_level: str
     priority_muscles: list[str] = []
     split_preference: str | None = None
+    custom_days: list[CustomDayConfig] | None = None
 
 
 class OneRepMaxResponse(BaseModel):

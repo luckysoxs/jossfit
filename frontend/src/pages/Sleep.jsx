@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import api from '../services/api'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
+import PageTour from '../components/ui/PageTour'
 import { Moon, Plus, Trash2 } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
@@ -48,7 +49,7 @@ export default function Sleep() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Sueño</h1>
-        <button onClick={() => setShowForm(!showForm)} className="btn-primary flex items-center gap-2 text-sm py-2 px-4">
+        <button data-tour="log-sleep" onClick={() => setShowForm(!showForm)} className="btn-primary flex items-center gap-2 text-sm py-2 px-4">
           <Plus size={18} /> Registrar
         </button>
       </div>
@@ -124,6 +125,13 @@ export default function Sleep() {
           ))}
         </div>
       )}
+
+      <PageTour
+        pageKey="sleep"
+        steps={[
+          { target: '[data-tour="log-sleep"]', title: 'Registrar Sueno', description: 'Registra tus horas de sueno y calidad.', position: 'bottom' },
+        ]}
+      />
     </div>
   )
 }

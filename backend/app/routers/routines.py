@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
@@ -70,6 +70,29 @@ def list_routines(
         .order_by(Routine.created_at.desc())
         .all()
     )
+
+
+@router.put("/reorder-days", status_code=200)
+def reorder_days(
+    routine_id: int = Body(...),
+    day_order: list[int] = Body(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Reorder days in a routine. day_order is a list of day IDs in the new order."""
+    routine = db.query(Routine).filter(Routine.id == routine_id, Routine.user_id == user.id).first()
+    if not routine:
+        raise HTTPException(status_code=404, detail="Routine not found")
+
+    days = db.query(RoutineDay).filter(RoutineDay.routine_id == routine_id).all()
+    day_map = {d.id: d for d in days}
+
+    for new_number, day_id in enumerate(day_order, start=1):
+        if day_id in day_map:
+            day_map[day_id].day_number = new_number
+
+    db.commit()
+    return {"ok": True}
 
 
 @router.get("/{routine_id}", response_model=RoutineResponse)

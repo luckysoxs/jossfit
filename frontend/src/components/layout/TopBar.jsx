@@ -2,20 +2,25 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useTheme } from '../../contexts/ThemeContext'
 import { useAuth } from '../../contexts/AuthContext'
-import { Sun, Moon, Shield, MessageCircle } from 'lucide-react'
+import { Sun, Moon, Shield, MessageCircle, Bell } from 'lucide-react'
 import api from '../../services/api'
 
 export default function TopBar() {
   const { theme, toggleTheme } = useTheme()
   const { user } = useAuth()
   const [unreadSupport, setUnreadSupport] = useState(0)
+  const [unreadNotifs, setUnreadNotifs] = useState(0)
 
   useEffect(() => {
     if (!user) return
     const fetchUnread = async () => {
       try {
-        const res = await api.get('/support/unread-count')
-        setUnreadSupport(res.data.unread)
+        const [support, notifs] = await Promise.all([
+          api.get('/support/unread-count').catch(() => ({ data: { unread: 0 } })),
+          api.get('/notification-center/unread-count').catch(() => ({ data: { count: 0 } })),
+        ])
+        setUnreadSupport(support.data.unread)
+        setUnreadNotifs(notifs.data.count)
       } catch {}
     }
     fetchUnread()
@@ -32,19 +37,32 @@ export default function TopBar() {
         </Link>
         <div className="flex items-center gap-3">
           {user && (
-            <Link
-              to="/support"
-              className="relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400"
-              aria-label="Chat de Ayuda"
-            >
-              <MessageCircle size={18} />
-              <span className="text-xs font-medium">Ayuda</span>
-              {unreadSupport > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                  {unreadSupport > 9 ? '9+' : unreadSupport}
-                </span>
-              )}
-            </Link>
+            <>
+              <Link
+                to="/notifications"
+                className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400"
+                aria-label="Notificaciones"
+              >
+                <Bell size={18} />
+                {unreadNotifs > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                    {unreadNotifs > 9 ? '9+' : unreadNotifs}
+                  </span>
+                )}
+              </Link>
+              <Link
+                to="/support"
+                className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400"
+                aria-label="Chat de Ayuda"
+              >
+                <MessageCircle size={18} />
+                {unreadSupport > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                    {unreadSupport > 9 ? '9+' : unreadSupport}
+                  </span>
+                )}
+              </Link>
+            </>
           )}
           {user?.is_admin && (
             <Link

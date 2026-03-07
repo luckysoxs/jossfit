@@ -7,7 +7,7 @@ import {
   Calendar, Mail, Phone, Target, TrendingUp, Eye,
   Ruler, Weight, Brain, Moon, Pill, Trophy, BarChart3,
   Award, Plus, Edit3, ToggleLeft, ToggleRight, ExternalLink, Tag, Percent,
-  Bell, Send, MessageCircle, ChevronUp, ChevronDown, GripVertical,
+  Bell, Send, MessageCircle, ChevronUp, ChevronDown, GripVertical, BookOpen,
 } from 'lucide-react'
 
 function StatCard({ icon: Icon, label, value, color = 'brand' }) {
@@ -938,12 +938,117 @@ function ChatSection() {
   )
 }
 
+const NOTE_CATEGORIES = ['general', 'nutricion', 'entrenamiento', 'suplementos', 'salud', 'motivacion']
+
+function NotesSection() {
+  const [notes, setNotes] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [editing, setEditing] = useState(null)
+  const [form, setForm] = useState({ title: '', content: '', category: 'general' })
+  const [saving, setSaving] = useState(false)
+
+  const fetchNotes = async () => {
+    try {
+      const res = await api.get('/notes')
+      setNotes(res.data)
+    } catch (err) {
+      console.error('Notes error:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { fetchNotes() }, [])
+
+  const saveNote = async () => {
+    if (!form.title.trim() || !form.content.trim()) return
+    setSaving(true)
+    try {
+      if (editing) {
+        await api.put(`/notes/${editing}`, form)
+      } else {
+        await api.post('/notes', form)
+      }
+      setForm({ title: '', content: '', category: 'general' })
+      setEditing(null)
+      fetchNotes()
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const deleteNote = async (id) => {
+    if (!confirm('¿Eliminar esta nota?')) return
+    await api.delete(`/notes/${id}`)
+    fetchNotes()
+  }
+
+  const startEdit = (note) => {
+    setEditing(note.id)
+    setForm({ title: note.title, content: note.content, category: note.category })
+  }
+
+  if (loading) return <div className="text-center py-8 text-gray-400">Cargando...</div>
+
+  return (
+    <div className="space-y-4">
+      {/* Create/Edit form */}
+      <div className="card space-y-3">
+        <h3 className="font-bold text-sm">{editing ? 'Editar Nota' : 'Nueva Nota'}</h3>
+        <input className="input" placeholder="Título de la nota" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
+        <select className="input" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
+          {NOTE_CATEGORIES.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
+        </select>
+        <textarea className="input min-h-[120px]" placeholder="Contenido de la nota..." value={form.content} onChange={e => setForm({ ...form, content: e.target.value })} />
+        <div className="flex gap-2">
+          <button onClick={saveNote} disabled={saving || !form.title.trim() || !form.content.trim()}
+            className="btn-primary flex items-center gap-2">
+            <Send size={14} /> {saving ? 'Guardando...' : (editing ? 'Actualizar' : 'Publicar y notificar')}
+          </button>
+          {editing && (
+            <button onClick={() => { setEditing(null); setForm({ title: '', content: '', category: 'general' }) }}
+              className="px-4 py-2 text-sm text-gray-400 hover:text-gray-600">Cancelar</button>
+          )}
+        </div>
+        {!editing && <p className="text-[11px] text-gray-400">Al publicar se enviará push notification y notificación in-app a todos los usuarios.</p>}
+      </div>
+
+      {/* Notes list */}
+      <div className="space-y-2">
+        {notes.map(note => (
+          <div key={note.id} className="card flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <h4 className="font-semibold text-sm">{note.title}</h4>
+                <span className="px-2 py-0.5 rounded-full text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-500">{note.category}</span>
+              </div>
+              <p className="text-xs text-gray-400 line-clamp-2">{note.content}</p>
+              <p className="text-[10px] text-gray-400 mt-1">
+                {new Date(note.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+              </p>
+            </div>
+            <div className="flex gap-1.5">
+              <button onClick={() => startEdit(note)} className="p-1.5 text-gray-400 hover:text-brand-500"><Edit3 size={14} /></button>
+              <button onClick={() => deleteNote(note.id)} className="p-1.5 text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
+            </div>
+          </div>
+        ))}
+        {notes.length === 0 && (
+          <div className="text-center py-8 text-gray-400 text-sm">No hay notas publicadas</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function Admin() {
   const { user } = useAuth()
   const [mainTab, setMainTab] = useState(() => {
     const params = new URLSearchParams(window.location.search)
     const tab = params.get('tab')
-    return ['users', 'partners', 'notifications', 'chat'].includes(tab) ? tab : 'users'
+    return ['users', 'partners', 'notifications', 'chat', 'notes'].includes(tab) ? tab : 'users'
   })
   const [stats, setStats] = useState(null)
   const [users, setUsers] = useState([])
@@ -1034,6 +1139,7 @@ export default function Admin() {
         {[
           { id: 'users', label: 'Usuarios', icon: Users },
           { id: 'partners', label: 'Partners', icon: Award },
+          { id: 'notes', label: 'Notas', icon: BookOpen },
           { id: 'notifications', label: 'Push', icon: Bell },
           { id: 'chat', label: 'Chat', icon: MessageCircle },
         ].map(({ id, label, icon: TabIcon }) => (
@@ -1050,6 +1156,9 @@ export default function Admin() {
           </button>
         ))}
       </div>
+
+      {/* Notes Tab */}
+      {mainTab === 'notes' && <NotesSection />}
 
       {/* Partners Tab */}
       {mainTab === 'partners' && <PartnersSection />}

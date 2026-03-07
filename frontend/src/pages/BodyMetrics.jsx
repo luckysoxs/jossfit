@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import api from '../services/api'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
+import PageTour from '../components/ui/PageTour'
 import { Scale, Plus, Trash2 } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
@@ -53,7 +54,7 @@ export default function BodyMetrics() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Mediciones</h1>
-        <button onClick={() => setShowForm(!showForm)} className="btn-primary flex items-center gap-2 text-sm py-2 px-4">
+        <button data-tour="add-metric" onClick={() => setShowForm(!showForm)} className="btn-primary flex items-center gap-2 text-sm py-2 px-4">
           <Plus size={18} /> Registrar
         </button>
       </div>
@@ -105,6 +106,13 @@ export default function BodyMetrics() {
           ))}
         </div>
       )}
+
+      <PageTour
+        pageKey="body-metrics"
+        steps={[
+          { target: '[data-tour="add-metric"]', title: 'Registrar Medida', description: 'Registra tu peso, grasa corporal y medidas.', position: 'bottom' },
+        ]}
+      />
     </div>
   )
 }

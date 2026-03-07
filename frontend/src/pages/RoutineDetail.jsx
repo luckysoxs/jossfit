@@ -4,7 +4,7 @@ import api from '../services/api'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import OneRMCalculator from '../components/routines/OneRMCalculator'
 import AIRoutineView from '../components/routines/AIRoutineView'
-import { ArrowLeft, Play, Check, ChevronRight, Calculator, RefreshCw, X, Zap, Trash2, Plus, Trophy, Dumbbell } from 'lucide-react'
+import { ArrowLeft, Play, Check, ChevronRight, Calculator, RefreshCw, X, Zap, Trash2, Plus, Trophy, Dumbbell, ArrowUp, ArrowDown } from 'lucide-react'
 
 export default function RoutineDetail() {
   const { id } = useParams()
@@ -494,27 +494,54 @@ export default function RoutineDetail() {
             </div>
           )}
 
-          {routine.days?.map((day) => {
+          {routine.days?.sort((a, b) => a.day_number - b.day_number).map((day, idx, arr) => {
             const dayExIds = day.exercises?.map(e => e.id) || []
             const dayDone = dayExIds.filter(eId => checked[eId]).length
             const dayAllDone = dayExIds.length > 0 && dayDone === dayExIds.length
+
+            const swapDays = async (dir) => {
+              const sorted = [...arr]
+              const newOrder = sorted.map(d => d.id)
+              const i = newOrder.indexOf(day.id)
+              if (dir === 'up' && i > 0) [newOrder[i], newOrder[i - 1]] = [newOrder[i - 1], newOrder[i]]
+              else if (dir === 'down' && i < newOrder.length - 1) [newOrder[i], newOrder[i + 1]] = [newOrder[i + 1], newOrder[i]]
+              else return
+              await api.put('/routines/reorder-days', { routine_id: routine.id, day_order: newOrder })
+              await reloadRoutine()
+            }
+
             return (
-              <button key={day.id} onClick={() => setSelectedDay(day.day_number)}
-                className={`card w-full text-left hover:bg-gray-800/50 transition-colors ${dayAllDone ? 'border border-green-500/30' : ''}`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-semibold">Dia {day.day_number}: {day.name}</h3>
-                    {day.focus && <p className="text-xs text-gray-400 mt-0.5">{day.focus}</p>}
+              <div key={day.id} className={`card hover:bg-gray-800/50 transition-colors ${dayAllDone ? 'border border-green-500/30' : ''}`}>
+                <div className="flex items-center gap-2">
+                  <div className="flex flex-col gap-0.5">
+                    <button onClick={(e) => { e.stopPropagation(); swapDays('up') }}
+                      disabled={idx === 0}
+                      className="text-gray-400 hover:text-brand-500 disabled:opacity-20 disabled:cursor-default p-0.5">
+                      <ArrowUp size={14} />
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); swapDays('down') }}
+                      disabled={idx === arr.length - 1}
+                      className="text-gray-400 hover:text-brand-500 disabled:opacity-20 disabled:cursor-default p-0.5">
+                      <ArrowDown size={14} />
+                    </button>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-sm font-medium ${dayAllDone ? 'text-green-500' : 'text-gray-400'}`}>
-                      {dayDone}/{dayExIds.length}
-                    </span>
-                    <ChevronRight size={18} className="text-gray-400" />
-                  </div>
+                  <button onClick={() => setSelectedDay(day.day_number)} className="flex-1 text-left">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-semibold">Dia {day.day_number}: {day.name}</h3>
+                        {day.focus && <p className="text-xs text-gray-400 mt-0.5">{day.focus}</p>}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm font-medium ${dayAllDone ? 'text-green-500' : 'text-gray-400'}`}>
+                          {dayDone}/{dayExIds.length}
+                        </span>
+                        <ChevronRight size={18} className="text-gray-400" />
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">{dayExIds.length} ejercicios</p>
+                  </button>
                 </div>
-                <p className="text-xs text-gray-400 mt-1">{dayExIds.length} ejercicios</p>
-              </button>
+              </div>
             )
           })}
         </>

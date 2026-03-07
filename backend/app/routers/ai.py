@@ -51,6 +51,7 @@ def generate_smart_routine(
         priority_muscles=req.priority_muscles,
         split_preference=req.split_preference,
         user_data=user_data,
+        custom_days=[d.model_dump() for d in req.custom_days] if req.custom_days else None,
     )
 
     # Save to database

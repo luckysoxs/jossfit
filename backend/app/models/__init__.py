@@ -13,10 +13,13 @@ from app.models.progression import ProgressionLog
 from app.models.cardio_session import CardioSession
 from app.models.push_subscription import PushSubscription
 from app.models.support_message import SupportMessage
+from app.models.note import Note
+from app.models.notification import Notification
 
 __all__ = [
     "User", "Exercise", "Routine", "RoutineDay", "RoutineExercise",
     "Workout", "WorkoutSet", "BodyMetric", "NutritionLog", "SleepLog",
     "Supplement", "Goal", "OneRepMax", "PartnerBrand", "ProgressionLog",
     "CardioSession", "PushSubscription", "SupportMessage",
+    "Note", "Notification",
 ]

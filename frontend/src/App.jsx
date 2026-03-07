@@ -24,6 +24,8 @@ import Cardio from './pages/Cardio'
 import Profile from './pages/Profile'
 import Admin from './pages/Admin'
 import SupportChat from './pages/SupportChat'
+import Notes from './pages/Notes'
+import NotificationCenter from './pages/NotificationCenter'
 import TermsAndConditions from './pages/TermsAndConditions'
 
 function ProtectedRoute({ children }) {
@@ -66,6 +68,9 @@ export default function App() {
       <Route path="/cardio" element={<ProtectedRoute><Cardio /></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       <Route path="/support" element={<ProtectedRoute><SupportChat /></ProtectedRoute>} />
+      <Route path="/notes" element={<ProtectedRoute><Notes /></ProtectedRoute>} />
+      <Route path="/notes/:noteId" element={<ProtectedRoute><Notes /></ProtectedRoute>} />
+      <Route path="/notifications" element={<ProtectedRoute><NotificationCenter /></ProtectedRoute>} />
       <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
 
       <Route path="*" element={<Navigate to="/" replace />} />

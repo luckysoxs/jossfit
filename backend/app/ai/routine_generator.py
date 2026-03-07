@@ -57,6 +57,17 @@ SPLIT_TEMPLATES = {
             {"name": "Arms & Abs", "focus": "biceps,triceps,forearms,abs", "day_number": 5},
         ],
     },
+    "chest_back_legs_shoulders": {
+        "name": "Pecho/Espalda - Pierna - Hombro/Brazo",
+        "days": [
+            {"name": "Pecho y Espalda", "focus": "chest,back", "day_number": 1},
+            {"name": "Pierna", "focus": "quadriceps,hamstrings,glutes,calves", "day_number": 2},
+            {"name": "Hombro y Brazo", "focus": "shoulders,biceps,triceps", "day_number": 3},
+            {"name": "Pecho y Espalda", "focus": "chest,back", "day_number": 4},
+            {"name": "Pierna", "focus": "quadriceps,hamstrings,glutes,calves", "day_number": 5},
+            {"name": "Hombro y Brazo", "focus": "shoulders,biceps,triceps", "day_number": 6},
+        ],
+    },
 }
 
 # Total MAIN exercises per day by training level (optimal volume)
@@ -141,6 +152,7 @@ def generate_routine(
     priority_muscles: list[str],
     split_preference: str | None = None,
     user_data: dict | None = None,
+    custom_days: list[dict] | None = None,
 ) -> dict:
     """Generate a complete training routine with optimal volume.
 
@@ -160,8 +172,6 @@ def generate_routine(
     }
     lim_info = get_limitation_info(limitations) if is_adaptive else {"avoid_patterns": [], "alternatives": [], "prehab": []}
 
-    split_key = select_split(days_per_week, split_preference)
-    template = SPLIT_TEMPLATES[split_key]
     max_ex = MAX_EXERCISES_PER_DAY.get(training_level, 7)
     # Apply volume multiplier to max exercises
     if is_adaptive:
@@ -169,7 +179,23 @@ def generate_routine(
     sets_cfg = SETS_CONFIG.get(training_level, SETS_CONFIG["intermediate"])
     reps = REP_RANGES.get(objective, REP_RANGES["hypertrophy"])
 
-    days_template = template["days"][:days_per_week]
+    # Custom split: user provides their own day definitions
+    if split_preference == "custom" and custom_days:
+        split_key = "custom"
+        template_name = "Personalizado"
+        days_template = [
+            {
+                "name": d.get("name", f"Día {i+1}"),
+                "focus": ",".join(d.get("muscles", [])),
+                "day_number": i + 1,
+            }
+            for i, d in enumerate(custom_days)
+        ]
+    else:
+        split_key = select_split(days_per_week, split_preference)
+        template = SPLIT_TEMPLATES[split_key]
+        template_name = template["name"]
+        days_template = template["days"][:days_per_week]
 
     routine_days = []
     for day_tmpl in days_template:
@@ -350,7 +376,7 @@ def generate_routine(
         }
 
     return {
-        "name": f"{template['name']} - {objective.replace('_', ' ').title()}",
+        "name": f"{template_name} - {objective.replace('_', ' ').title()}",
         "split_type": split_key,
         "objective": objective,
         "days_per_week": days_per_week,

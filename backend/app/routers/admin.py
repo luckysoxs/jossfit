@@ -413,14 +413,22 @@ def send_push_notification(
     admin: User = Depends(get_admin_user),
     db: Session = Depends(get_db),
 ):
-    """Send a push notification to a specific user or all subscribed users."""
+    """Send a push notification to a specific user or all subscribed users.
+    Also creates an in-app notification."""
     from app.services.push_service import send_push_to_user, send_push_to_all
+    from app.models.notification import Notification
 
+    # Create in-app notifications
     if data.user_id:
+        db.add(Notification(user_id=data.user_id, title=data.title, body=data.body, url=data.url))
         sent = send_push_to_user(db, data.user_id, data.title, data.body, data.url)
     else:
+        all_users = db.query(User.id).all()
+        for (uid,) in all_users:
+            db.add(Notification(user_id=uid, title=data.title, body=data.body, url=data.url))
         sent = send_push_to_all(db, data.title, data.body, data.url)
 
+    db.commit()
     return {"sent": sent}
 
 

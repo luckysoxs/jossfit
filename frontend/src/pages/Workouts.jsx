@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../services/api'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
+import PageTour from '../components/ui/PageTour'
 import { Plus, Dumbbell, Calendar, Clock, ChevronRight, CheckCircle, Trophy, Flame, X, ChevronDown, ChevronUp } from 'lucide-react'
 
 export default function Workouts() {
@@ -218,7 +219,7 @@ export default function Workouts() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Entrenamientos</h1>
-        <button onClick={startNewWorkout} className="btn-primary flex items-center gap-2 text-sm py-2 px-4">
+        <button data-tour="log-workout" onClick={startNewWorkout} className="btn-primary flex items-center gap-2 text-sm py-2 px-4">
           <Plus size={18} /> Nuevo
         </button>
       </div>
@@ -498,7 +499,7 @@ export default function Workouts() {
 
       {/* Workout History */}
       {!showForm && (
-        <>
+        <div data-tour="workout-history">
           {workouts.length === 0 ? (
             <div className="card text-center py-12">
               <Dumbbell size={48} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
@@ -534,8 +535,16 @@ export default function Workouts() {
               ))}
             </div>
           )}
-        </>
+        </div>
       )}
+
+      <PageTour
+        pageKey="workouts"
+        steps={[
+          { target: '[data-tour="log-workout"]', title: 'Registrar Entreno', description: 'Registra tu sesion de entrenamiento con series, peso y repeticiones.', position: 'bottom' },
+          { target: '[data-tour="workout-history"]', title: 'Historial', description: 'Aqui puedes ver todos tus entrenamientos anteriores.', position: 'top' },
+        ]}
+      />
 
       {/* Post-Workout Summary Popup */}
       {showSummary && summaryData && (

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import api from '../services/api'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
+import PageTour from '../components/ui/PageTour'
 import { Pill, Plus, Trash2, CheckCircle2, XCircle } from 'lucide-react'
 
 export default function Supplements() {
@@ -35,7 +36,7 @@ export default function Supplements() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Suplementos</h1>
-        <button onClick={() => setShowForm(!showForm)} className="btn-primary flex items-center gap-2 text-sm py-2 px-4">
+        <button data-tour="add-supplement" onClick={() => setShowForm(!showForm)} className="btn-primary flex items-center gap-2 text-sm py-2 px-4">
           <Plus size={18} /> Agregar
         </button>
       </div>
@@ -75,6 +76,13 @@ export default function Supplements() {
           ))}
         </div>
       )}
+
+      <PageTour
+        pageKey="supplements"
+        steps={[
+          { target: '[data-tour="add-supplement"]', title: 'Agregar Suplemento', description: 'Registra tus suplementos y dosis.', position: 'bottom' },
+        ]}
+      />
     </div>
   )
 }

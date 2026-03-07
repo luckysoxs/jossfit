@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
 import { User, LogOut, Sun, Moon, Save, Mail, Ruler, Weight, Calendar, CheckCircle, Palette, Bell, BellOff, HeartPulse, X, Plus } from 'lucide-react'
 import { ACCENT_COLORS, applyAccentColor } from '../data/accentColors'
+import PageTour from '../components/ui/PageTour'
 import { requestNotificationPermission, subscribeToPush, unsubscribeFromPush, isPushSubscribed } from '../services/pushNotifications'
 
 export default function Profile() {
@@ -149,7 +150,7 @@ export default function Profile() {
       </div>
 
       {/* Accent Color */}
-      <div className="card">
+      <div data-tour="personalization" className="card">
         <div className="flex items-center gap-3 mb-3">
           <Palette size={20} />
           <span className="font-medium">Color de la App</span>
@@ -366,6 +367,13 @@ export default function Profile() {
           Ver tour de la app
         </button>
       </div>
+
+      <PageTour
+        pageKey="profile"
+        steps={[
+          { target: '[data-tour="personalization"]', title: 'Personalizacion', description: 'Cambia el color de la app y modo oscuro/claro.', position: 'bottom' },
+        ]}
+      />
 
       {/* Logout */}
       <button

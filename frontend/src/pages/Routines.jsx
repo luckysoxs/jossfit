@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../services/api'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
+import PageTour from '../components/ui/PageTour'
 import { Plus, Zap, Calendar, ChevronRight, Trash2 } from 'lucide-react'
 
 export default function Routines() {
@@ -25,7 +26,7 @@ export default function Routines() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Mis Rutinas</h1>
         <div className="flex gap-2">
-          <Link to="/routines/generate" className="btn-primary flex items-center gap-2 text-sm py-2 px-4">
+          <Link data-tour="generate-routine" to="/routines/generate" className="btn-primary flex items-center gap-2 text-sm py-2 px-4">
             <Zap size={16} /> Generar
           </Link>
           <Link to="/routines/create" className="btn-secondary flex items-center gap-2 text-sm py-2 px-4">
@@ -34,6 +35,7 @@ export default function Routines() {
         </div>
       </div>
 
+      <div data-tour="routine-list">
       {routines.length === 0 ? (
         <div className="card text-center py-12">
           <Calendar size={48} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
@@ -78,6 +80,15 @@ export default function Routines() {
           ))}
         </div>
       )}
+      </div>
+
+      <PageTour
+        pageKey="routines"
+        steps={[
+          { target: '[data-tour="generate-routine"]', title: 'Generar Rutina', description: 'Crea una rutina personalizada con inteligencia artificial.', position: 'bottom' },
+          { target: '[data-tour="routine-list"]', title: 'Tus Rutinas', description: 'Aqui aparecen todas tus rutinas creadas.', position: 'top' },
+        ]}
+      />
     </div>
   )
 }

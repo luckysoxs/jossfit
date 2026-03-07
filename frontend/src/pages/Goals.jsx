@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import api from '../services/api'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
+import PageTour from '../components/ui/PageTour'
 import { Target, Plus, Trash2 } from 'lucide-react'
 
 const goalLabels = {
@@ -42,7 +43,7 @@ export default function Goals() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Objetivos</h1>
-        <button onClick={() => setShowForm(!showForm)} className="btn-primary flex items-center gap-2 text-sm py-2 px-4">
+        <button data-tour="add-goal" onClick={() => setShowForm(!showForm)} className="btn-primary flex items-center gap-2 text-sm py-2 px-4">
           <Plus size={18} /> Nuevo
         </button>
       </div>
@@ -101,6 +102,13 @@ export default function Goals() {
           ))}
         </div>
       )}
+
+      <PageTour
+        pageKey="goals"
+        steps={[
+          { target: '[data-tour="add-goal"]', title: 'Nuevo Objetivo', description: 'Crea metas de entrenamiento y dales seguimiento.', position: 'bottom' },
+        ]}
+      />
     </div>
   )
 }

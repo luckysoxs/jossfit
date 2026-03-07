@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import api from '../services/api'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
+import PageTour from '../components/ui/PageTour'
 import { Plus, UtensilsCrossed, Trash2 } from 'lucide-react'
 
 export default function Nutrition() {
@@ -52,7 +53,7 @@ export default function Nutrition() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Nutrición</h1>
-        <button onClick={() => setShowForm(!showForm)} className="btn-primary flex items-center gap-2 text-sm py-2 px-4">
+        <button data-tour="log-food" onClick={() => setShowForm(!showForm)} className="btn-primary flex items-center gap-2 text-sm py-2 px-4">
           <Plus size={18} /> Agregar
         </button>
       </div>
@@ -99,6 +100,7 @@ export default function Nutrition() {
       )}
 
       {/* Meals List */}
+      <div data-tour="nutrition-history">
       {loading ? <LoadingSpinner /> : (
         summary?.meals?.length > 0 ? (
           <div className="space-y-2">
@@ -120,6 +122,15 @@ export default function Nutrition() {
           </div>
         )
       )}
+      </div>
+
+      <PageTour
+        pageKey="nutrition"
+        steps={[
+          { target: '[data-tour="log-food"]', title: 'Registrar Comida', description: 'Registra lo que comes para llevar tu control nutricional.', position: 'bottom' },
+          { target: '[data-tour="nutrition-history"]', title: 'Historial Nutricional', description: 'Tu registro diario de alimentacion.', position: 'top' },
+        ]}
+      />
     </div>
   )
 }

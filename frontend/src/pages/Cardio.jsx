@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, HeartPulse } from 'lucide-react'
 import { CARDIO_TYPES, EQUIPMENT, DURATIONS, LEVELS, LISS_BPM_ZONES, LISS_EQUIPMENT_GUIDANCE, generateHIITIntervals, generateSteadyIntervals, generateLISSIntervals } from '../data/cardioProtocols'
 import CardioSession from '../components/cardio/CardioSession'
+import PageTour from '../components/ui/PageTour'
 
 export default function Cardio() {
   const navigate = useNavigate()
@@ -59,7 +60,7 @@ export default function Cardio() {
             <h1 className="text-2xl font-bold">Entrenamiento Cardio</h1>
             <p className="text-gray-400 text-sm mt-1">Elige tu tipo de cardio</p>
           </div>
-          <div className="space-y-3">
+          <div data-tour="cardio-types" className="space-y-3">
             {CARDIO_TYPES.map(t => (
               <button
                 key={t.id}
@@ -175,6 +176,13 @@ export default function Cardio() {
           </div>
         </>
       )}
+
+      <PageTour
+        pageKey="cardio"
+        steps={[
+          { target: '[data-tour="cardio-types"]', title: 'Tipos de Cardio', description: 'HIIT, LISS y Steady State con diferentes equipos.', position: 'top' },
+        ]}
+      />
 
       {/* Step progress */}
       <div className="flex gap-2 justify-center pt-2">
