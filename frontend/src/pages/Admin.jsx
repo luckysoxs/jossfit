@@ -434,6 +434,9 @@ function PartnersSection() {
   const [showModal, setShowModal] = useState(false)
   const [editPartner, setEditPartner] = useState(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState(null)
+  const [partnerStats, setPartnerStats] = useState({})
+  const [expandedPartner, setExpandedPartner] = useState(null)
+  const [partnerDetail, setPartnerDetail] = useState(null)
 
   const fetchPartners = async () => {
     try {
@@ -446,7 +449,27 @@ function PartnersSection() {
     }
   }
 
-  useEffect(() => { fetchPartners() }, [])
+  const fetchPartnerStats = async () => {
+    try {
+      const res = await api.get('/benefits/partners/all-stats')
+      setPartnerStats(res.data)
+    } catch {}
+  }
+
+  const fetchPartnerDetail = async (partnerId) => {
+    if (expandedPartner === partnerId) {
+      setExpandedPartner(null)
+      setPartnerDetail(null)
+      return
+    }
+    try {
+      const res = await api.get(`/benefits/partners/${partnerId}/stats`)
+      setPartnerDetail(res.data)
+      setExpandedPartner(partnerId)
+    } catch {}
+  }
+
+  useEffect(() => { fetchPartners(); fetchPartnerStats() }, [])
 
   const handleSave = async (form, id) => {
     if (id) {
@@ -520,99 +543,138 @@ function PartnersSection() {
         </div>
       ) : (
         <div className="space-y-3">
-          {partners.map((p, idx) => (
-            <div key={p.id} className="card flex items-center gap-3">
-              {/* Reorder arrows */}
-              <div className="flex flex-col gap-0.5 shrink-0">
-                <button
-                  onClick={() => movePartner(idx, -1)}
-                  disabled={idx === 0}
-                  className="p-1 rounded text-gray-400 hover:text-brand-500 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
-                  title="Subir"
-                >
-                  <ChevronUp size={14} />
-                </button>
-                <button
-                  onClick={() => movePartner(idx, 1)}
-                  disabled={idx === partners.length - 1}
-                  className="p-1 rounded text-gray-400 hover:text-brand-500 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
-                  title="Bajar"
-                >
-                  <ChevronDown size={14} />
-                </button>
-              </div>
+          {partners.map((p, idx) => {
+            const pStats = partnerStats[String(p.id)]
+            return (
+              <div key={p.id} className="card">
+                <div className="flex items-center gap-3">
+                  {/* Reorder arrows */}
+                  <div className="flex flex-col gap-0.5 shrink-0">
+                    <button
+                      onClick={() => movePartner(idx, -1)}
+                      disabled={idx === 0}
+                      className="p-1 rounded text-gray-400 hover:text-brand-500 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                      title="Subir"
+                    >
+                      <ChevronUp size={14} />
+                    </button>
+                    <button
+                      onClick={() => movePartner(idx, 1)}
+                      disabled={idx === partners.length - 1}
+                      className="p-1 rounded text-gray-400 hover:text-brand-500 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                      title="Bajar"
+                    >
+                      <ChevronDown size={14} />
+                    </button>
+                  </div>
 
-              {/* Image */}
-              <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 flex items-center justify-center shrink-0">
-                {p.image_url ? (
-                  <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling && (e.target.nextSibling.style.display = 'flex') }} />
-                ) : (
-                  <Award size={20} className="text-gray-400" />
-                )}
-              </div>
+                  {/* Image */}
+                  <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 flex items-center justify-center shrink-0">
+                    {p.image_url ? (
+                      <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling && (e.target.nextSibling.style.display = 'flex') }} />
+                    ) : (
+                      <Award size={20} className="text-gray-400" />
+                    )}
+                  </div>
 
-              {/* Partner Info */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <h4 className="font-semibold text-sm truncate">{p.name}</h4>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                    p.active ? 'bg-green-50 dark:bg-green-500/10 text-green-600' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'
-                  }`}>
-                    {p.active ? 'Activo' : 'Inactivo'}
-                  </span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-brand-50 dark:bg-brand-500/10 text-brand-500 font-medium">
-                    {categoryLabel(p.category)}
-                  </span>
+                  {/* Partner Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h4 className="font-semibold text-sm truncate">{p.name}</h4>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                        p.active ? 'bg-green-50 dark:bg-green-500/10 text-green-600' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'
+                      }`}>
+                        {p.active ? 'Activo' : 'Inactivo'}
+                      </span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-brand-50 dark:bg-brand-500/10 text-brand-500 font-medium">
+                        {categoryLabel(p.category)}
+                      </span>
+                    </div>
+                    {p.description && <p className="text-xs text-gray-500 truncate">{p.description}</p>}
+                    <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-400">
+                      {p.promo_code && (
+                        <span className="flex items-center gap-1"><Tag size={12} /> {p.promo_code}</span>
+                      )}
+                      {p.discount_text && (
+                        <span className="flex items-center gap-1"><Percent size={12} /> {p.discount_text}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => toggleActive(p)}
+                      className={`p-2 rounded-lg transition-colors ${
+                        p.active ? 'text-green-500 hover:bg-green-50 dark:hover:bg-green-500/10' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                      }`}
+                      title={p.active ? 'Desactivar' : 'Activar'}
+                    >
+                      {p.active ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
+                    </button>
+                    <button
+                      onClick={() => { setEditPartner(p); setShowModal(true) }}
+                      className="p-2 rounded-lg text-gray-400 hover:text-brand-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                      title="Editar"
+                    >
+                      <Edit3 size={16} />
+                    </button>
+                    {confirmDeleteId === p.id ? (
+                      <button
+                        onClick={() => handleDelete(p.id)}
+                        className="p-2 rounded-lg text-white bg-red-500 hover:bg-red-600 transition-colors text-xs font-medium"
+                        title="Confirmar eliminar"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmDeleteId(p.id)}
+                        className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                        title="Eliminar"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
                 </div>
-                {p.description && <p className="text-xs text-gray-500 truncate">{p.description}</p>}
-                <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-400">
-                  {p.promo_code && (
-                    <span className="flex items-center gap-1"><Tag size={12} /> {p.promo_code}</span>
-                  )}
-                  {p.discount_text && (
-                    <span className="flex items-center gap-1"><Percent size={12} /> {p.discount_text}</span>
+
+                {/* Stats bar */}
+                <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                  <button
+                    onClick={() => fetchPartnerDetail(p.id)}
+                    className="flex items-center gap-3 text-[11px] text-gray-500 dark:text-gray-400 hover:text-brand-500 transition-colors w-full"
+                  >
+                    <span className="flex items-center gap-1">
+                      <Eye size={12} /> {pStats?.unique_users || 0} usuarios
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <ExternalLink size={12} /> {pStats?.total_clicks || 0} clicks
+                    </span>
+                  </button>
+
+                  {/* Expanded user details */}
+                  {expandedPartner === p.id && partnerDetail && (
+                    <div className="mt-2 space-y-1">
+                      {partnerDetail.users.length === 0 ? (
+                        <p className="text-[10px] text-gray-400 italic">Nadie ha hecho click en este enlace aún</p>
+                      ) : (
+                        partnerDetail.users.map(u => (
+                          <div key={u.user_id} className="flex items-center justify-between text-[10px] bg-gray-50 dark:bg-gray-800/50 rounded-lg px-2.5 py-1.5">
+                            <span className="font-medium text-gray-600 dark:text-gray-300">{u.user_name}</span>
+                            <div className="flex items-center gap-3 text-gray-400">
+                              <span>{u.clicks} {u.clicks === 1 ? 'click' : 'clicks'}</span>
+                              <span>{new Date(u.last_click).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}</span>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
-
-              {/* Actions */}
-              <div className="flex items-center gap-1 shrink-0">
-                <button
-                  onClick={() => toggleActive(p)}
-                  className={`p-2 rounded-lg transition-colors ${
-                    p.active ? 'text-green-500 hover:bg-green-50 dark:hover:bg-green-500/10' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-                  }`}
-                  title={p.active ? 'Desactivar' : 'Activar'}
-                >
-                  {p.active ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
-                </button>
-                <button
-                  onClick={() => { setEditPartner(p); setShowModal(true) }}
-                  className="p-2 rounded-lg text-gray-400 hover:text-brand-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                  title="Editar"
-                >
-                  <Edit3 size={16} />
-                </button>
-                {confirmDeleteId === p.id ? (
-                  <button
-                    onClick={() => handleDelete(p.id)}
-                    className="p-2 rounded-lg text-white bg-red-500 hover:bg-red-600 transition-colors text-xs font-medium"
-                    title="Confirmar eliminar"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => setConfirmDeleteId(p.id)}
-                    className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
-                    title="Eliminar"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 

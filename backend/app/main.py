@@ -103,6 +103,15 @@ def run_migrations():
         )""",
         "CREATE INDEX IF NOT EXISTS idx_note_views_note_id ON note_views(note_id)",
         "CREATE INDEX IF NOT EXISTS idx_note_views_user_id ON note_views(user_id)",
+        # Partner click analytics
+        """CREATE TABLE IF NOT EXISTS partner_clicks (
+            id SERIAL PRIMARY KEY,
+            partner_brand_id INTEGER REFERENCES partner_brands(id) ON DELETE CASCADE,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            clicked_at TIMESTAMP DEFAULT NOW()
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_partner_clicks_brand ON partner_clicks(partner_brand_id)",
+        "CREATE INDEX IF NOT EXISTS idx_partner_clicks_user ON partner_clicks(user_id)",
     ]
     with engine.connect() as conn:
         for sql in migrations:

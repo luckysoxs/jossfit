@@ -11,6 +11,12 @@ export default function Benefits() {
     api.get('/benefits/brands').then((r) => setBrands(r.data)).finally(() => setLoading(false))
   }, [])
 
+  const handleClick = (brand) => {
+    // Record click then open link
+    api.post(`/benefits/brands/${brand.id}/click`).catch(() => {})
+    window.open(brand.external_url, '_blank', 'noopener,noreferrer')
+  }
+
   if (loading) return <LoadingSpinner />
 
   return (
@@ -59,14 +65,12 @@ export default function Benefits() {
                     </div>
                   )}
 
-                  <a
-                    href={b.external_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    onClick={() => handleClick(b)}
                     className="mt-3 inline-flex items-center gap-2 text-brand-500 text-sm font-medium hover:underline"
                   >
                     Visitar tienda <ExternalLink size={14} />
-                  </a>
+                  </button>
                 </div>
               </div>
             </div>

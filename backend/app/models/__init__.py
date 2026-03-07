@@ -9,6 +9,7 @@ from app.models.supplement import Supplement
 from app.models.goal import Goal
 from app.models.one_rep_max import OneRepMax
 from app.models.partner_brand import PartnerBrand
+from app.models.partner_click import PartnerClick
 from app.models.progression import ProgressionLog
 from app.models.cardio_session import CardioSession
 from app.models.push_subscription import PushSubscription
@@ -21,7 +22,7 @@ from app.models.admin_chat import AdminChat, AdminChatMember, AdminChatMessage
 __all__ = [
     "User", "Exercise", "Routine", "RoutineDay", "RoutineExercise",
     "Workout", "WorkoutSet", "BodyMetric", "NutritionLog", "SleepLog",
-    "Supplement", "Goal", "OneRepMax", "PartnerBrand", "ProgressionLog",
+    "Supplement", "Goal", "OneRepMax", "PartnerBrand", "PartnerClick", "ProgressionLog",
     "CardioSession", "PushSubscription", "SupportMessage",
     "Note", "NoteView", "Notification",
     "AdminChat", "AdminChatMember", "AdminChatMessage",
