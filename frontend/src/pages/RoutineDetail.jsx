@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import { cacheSet, cacheGet, queueAction } from '../services/offlineCache'
@@ -6,7 +6,7 @@ import useOnlineStatus from '../hooks/useOnlineStatus'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import OneRMCalculator from '../components/routines/OneRMCalculator'
 import AIRoutineView from '../components/routines/AIRoutineView'
-import { ArrowLeft, Play, Check, ChevronRight, Calculator, RefreshCw, X, Zap, Trash2, Plus, Trophy, Dumbbell, GripVertical, ChevronUp, ChevronDown, Search, Settings2, WifiOff, TrendingUp, Calendar, Moon } from 'lucide-react'
+import { ArrowLeft, Play, Check, ChevronRight, Calculator, RefreshCw, X, Zap, Trash2, Plus, Trophy, Dumbbell, GripVertical, ChevronUp, ChevronDown, Search, Settings2, WifiOff, TrendingUp, Calendar, Moon, Timer, Pause } from 'lucide-react'
 
 const MUSCLE_LABELS = {
   chest: 'Pecho', back: 'Espalda', shoulders: 'Hombros', biceps: 'Bíceps',
@@ -94,6 +94,18 @@ export default function RoutineDetail() {
   const [personalBests, setPersonalBests] = useState({})
   const [showAIView, setShowAIView] = useState(false)
   const [showSchedule, setShowSchedule] = useState(false)
+
+  // Rest timer state
+  const [timerSeconds, setTimerSeconds] = useState(0)
+  const [timerRunning, setTimerRunning] = useState(false)
+  const timerRef = useRef(null)
+
+  // Drag reorder state for day cards
+  const [dragIdx, setDragIdx] = useState(null)
+  const [dragOverIdx, setDragOverIdx] = useState(null)
+  const touchStartY = useRef(null)
+  const touchStartIdx = useRef(null)
+  const dayCardsRef = useRef([])
 
   // Exercise picker modals
   const [swapExercise, setSwapExercise] = useState(null)
@@ -255,30 +267,85 @@ export default function RoutineDetail() {
     cacheSet(`routine_${id}`, r.data)
   })
 
+  // ─── Rest Timer ───
+  const startTimer = useCallback((seconds) => {
+    if (timerRef.current) clearInterval(timerRef.current)
+    setTimerSeconds(seconds)
+    setTimerRunning(true)
+    timerRef.current = setInterval(() => {
+      setTimerSeconds(prev => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current)
+          timerRef.current = null
+          setTimerRunning(false)
+          // Vibrate when done
+          if (navigator.vibrate) navigator.vibrate([200, 100, 200])
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+  }, [])
+
+  const stopTimer = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current)
+    timerRef.current = null
+    setTimerRunning(false)
+    setTimerSeconds(0)
+  }, [])
+
+  useEffect(() => {
+    return () => { if (timerRef.current) clearInterval(timerRef.current) }
+  }, [])
+
+  // ─── Drag-and-drop for day cards ───
+  const handleDragDayStart = (idx) => { setDragIdx(idx) }
+  const handleDragDayOver = (e, idx) => { e.preventDefault(); setDragOverIdx(idx) }
+  const handleDragDayEnd = async () => {
+    if (dragIdx !== null && dragOverIdx !== null && dragIdx !== dragOverIdx && !reordering) {
+      setReordering(true)
+      const items = [...sortedTrainingDays]
+      const [moved] = items.splice(dragIdx, 1)
+      items.splice(dragOverIdx, 0, moved)
+      try {
+        await api.put('/routines/reorder-days', { routine_id: routine.id, day_order: items.map(d => d.id) })
+        await reloadRoutine()
+      } catch {}
+      setReordering(false)
+    }
+    setDragIdx(null)
+    setDragOverIdx(null)
+  }
+
+  // Touch drag for mobile
+  const handleTouchStart = (e, idx) => {
+    touchStartY.current = e.touches[0].clientY
+    touchStartIdx.current = idx
+    setDragIdx(idx)
+  }
+  const handleTouchMove = (e, currentIdx) => {
+    if (touchStartY.current === null) return
+    const touchY = e.touches[0].clientY
+    // Find which card we're over
+    for (let i = 0; i < dayCardsRef.current.length; i++) {
+      const card = dayCardsRef.current[i]
+      if (!card) continue
+      const rect = card.getBoundingClientRect()
+      if (touchY >= rect.top && touchY <= rect.bottom) {
+        setDragOverIdx(i)
+        break
+      }
+    }
+  }
+  const handleTouchEnd = async () => {
+    await handleDragDayEnd()
+    touchStartY.current = null
+    touchStartIdx.current = null
+  }
+
   const deleteExercise = async (exId) => {
     await api.delete(`/routines/exercises/${exId}`)
     await reloadRoutine()
-  }
-
-  // --- Move day up/down ---
-  const moveDayUp = async (idx, sortedDays) => {
-    if (idx === 0 || reordering) return
-    setReordering(true)
-    const items = [...sortedDays]
-    ;[items[idx - 1], items[idx]] = [items[idx], items[idx - 1]]
-    await api.put('/routines/reorder-days', { routine_id: routine.id, day_order: items.map(d => d.id) })
-    await reloadRoutine()
-    setReordering(false)
-  }
-
-  const moveDayDown = async (idx, sortedDays) => {
-    if (idx >= sortedDays.length - 1 || reordering) return
-    setReordering(true)
-    const items = [...sortedDays]
-    ;[items[idx], items[idx + 1]] = [items[idx + 1], items[idx]]
-    await api.put('/routines/reorder-days', { routine_id: routine.id, day_order: items.map(d => d.id) })
-    await reloadRoutine()
-    setReordering(false)
   }
 
   // --- Move exercise up/down ---
@@ -348,6 +415,38 @@ export default function RoutineDetail() {
             </div>
             <span className="text-xs text-gray-400">{done}/{total}</span>
           </div>
+        </div>
+
+        {/* Rest Timer */}
+        <div className="card">
+          {timerRunning ? (
+            <div className="text-center space-y-2">
+              <div className="flex items-center justify-center gap-2">
+                <Timer size={18} className="text-brand-500" />
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Descanso</span>
+              </div>
+              <p className={`text-4xl font-bold tabular-nums ${timerSeconds <= 5 ? 'text-red-500 animate-pulse' : 'text-brand-500'}`}>
+                {Math.floor(timerSeconds / 60)}:{String(timerSeconds % 60).padStart(2, '0')}
+              </p>
+              <button onClick={stopTimer}
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-red-500 transition-colors">
+                <Pause size={14} /> Cancelar
+              </button>
+            </div>
+          ) : timerSeconds === 0 && !timerRunning ? (
+            <div className="flex items-center gap-2">
+              <Timer size={16} className="text-gray-400 flex-shrink-0" />
+              <span className="text-xs text-gray-400 flex-shrink-0">Descanso:</span>
+              <div className="flex gap-1.5 flex-1">
+                {[60, 120, 180].map(s => (
+                  <button key={s} onClick={() => startTimer(s)}
+                    className="flex-1 py-1.5 rounded-lg text-xs font-bold bg-brand-50 dark:bg-brand-500/10 text-brand-500 hover:bg-brand-100 dark:hover:bg-brand-500/20 active:scale-95 transition-all">
+                    {s / 60} min
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
 
         {sortedExercises.map((ex, exIdx) => (
@@ -579,6 +678,8 @@ export default function RoutineDetail() {
     const wb = weekdayMap[b.day_number] ?? b.day_number
     return wa - wb
   })
+  // Training days only (for drag reorder)
+  const sortedTrainingDays = sortedDays
 
   const todayWeekday = (new Date().getDay() + 6) % 7 // Monday=0
 
@@ -625,7 +726,7 @@ export default function RoutineDetail() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-sm shadow-2xl border border-gray-100 dark:border-gray-800 animate-in">
             <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center">
-              <h3 className="font-bold">Días de descanso</h3>
+              <h3 className="font-bold">{routine.days_per_week >= 6 ? 'Elegir día de descanso' : 'Elegir días de descanso'}</h3>
               <button onClick={() => setShowSchedule(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><X size={20} /></button>
             </div>
             <div className="p-4 space-y-3">
@@ -703,10 +804,10 @@ export default function RoutineDetail() {
           {(() => {
             // Build full week view: training days + rest days
             const weekCards = []
+            let trainingIdx = 0
             for (let wd = 0; wd < 7; wd++) {
               const isRest = restWeekdays.includes(wd)
               if (isRest) {
-                const nextDate = getNextTrainingDate(wd)
                 const isToday = wd === todayWeekday
                 weekCards.push(
                   <div key={`rest-${wd}`}
@@ -729,41 +830,57 @@ export default function RoutineDetail() {
                 const dayEntry = sortedDays.find(d => weekdayMap[d.day_number] === wd)
                 if (!dayEntry) continue
 
+                const currentTrainingIdx = trainingIdx
+                trainingIdx++
+
                 const dayExIds = dayEntry.exercises?.map(e => e.id) || []
                 const dayDone = dayExIds.filter(eId => checked[eId]).length
                 const dayAllDone = dayExIds.length > 0 && dayDone === dayExIds.length
                 const isToday = wd === todayWeekday
                 const nextDate = getNextTrainingDate(wd)
                 const nextDateStr = nextDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
+                const isDragging = dragIdx === currentTrainingIdx
+                const isDragOver = dragOverIdx === currentTrainingIdx
 
                 weekCards.push(
                   <div key={dayEntry.id}
-                    className={`card hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all ${dayAllDone ? 'border border-green-500/30' : ''} ${isToday ? 'ring-2 ring-brand-500/40' : ''}`}>
-                    <button onClick={() => setSelectedDay(dayEntry.day_number)} className="w-full text-left">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isToday ? 'bg-brand-500 text-white' : 'bg-brand-50 dark:bg-brand-500/10 text-brand-500'}`}>
-                            <Dumbbell size={16} />
-                          </div>
-                          <div>
-                            <h3 className="font-semibold">{WEEKDAY_NAMES[wd]} - {dayEntry.name}</h3>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              {isToday ? (
-                                <span className="text-[11px] text-brand-500 font-semibold">Hoy · {dayExIds.length} ejercicios</span>
-                              ) : (
-                                <span className="text-[11px] text-gray-400">Próx: {nextDateStr} · {dayExIds.length} ejercicios</span>
-                              )}
+                    ref={el => dayCardsRef.current[currentTrainingIdx] = el}
+                    draggable
+                    onDragStart={() => handleDragDayStart(currentTrainingIdx)}
+                    onDragOver={(e) => handleDragDayOver(e, currentTrainingIdx)}
+                    onDragEnd={handleDragDayEnd}
+                    onTouchStart={(e) => handleTouchStart(e, currentTrainingIdx)}
+                    onTouchMove={(e) => handleTouchMove(e, currentTrainingIdx)}
+                    onTouchEnd={handleTouchEnd}
+                    className={`card hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all cursor-grab active:cursor-grabbing ${dayAllDone ? 'border border-green-500/30' : ''} ${isToday ? 'ring-2 ring-brand-500/40' : ''} ${isDragging ? 'opacity-50 scale-95' : ''} ${isDragOver ? 'border-2 border-brand-500 border-dashed' : ''}`}>
+                    <div className="flex items-center gap-2">
+                      <GripVertical size={16} className="text-gray-300 dark:text-gray-600 flex-shrink-0 touch-none" />
+                      <button onClick={() => setSelectedDay(dayEntry.day_number)} className="flex-1 text-left">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isToday ? 'bg-brand-500 text-white' : 'bg-brand-50 dark:bg-brand-500/10 text-brand-500'}`}>
+                              <Dumbbell size={16} />
+                            </div>
+                            <div>
+                              <h3 className="font-semibold">{WEEKDAY_NAMES[wd]} - {dayEntry.name}</h3>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                {isToday ? (
+                                  <span className="text-[11px] text-brand-500 font-semibold">Hoy · {dayExIds.length} ejercicios</span>
+                                ) : (
+                                  <span className="text-[11px] text-gray-400">Próx: {nextDateStr} · {dayExIds.length} ejercicios</span>
+                                )}
+                              </div>
                             </div>
                           </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-sm font-medium ${dayAllDone ? 'text-green-500' : 'text-gray-400'}`}>
+                              {dayDone}/{dayExIds.length}
+                            </span>
+                            <ChevronRight size={18} className="text-gray-400" />
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className={`text-sm font-medium ${dayAllDone ? 'text-green-500' : 'text-gray-400'}`}>
-                            {dayDone}/{dayExIds.length}
-                          </span>
-                          <ChevronRight size={18} className="text-gray-400" />
-                        </div>
-                      </div>
-                    </button>
+                      </button>
+                    </div>
                   </div>
                 )
               }
