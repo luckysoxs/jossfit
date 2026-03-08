@@ -229,29 +229,3 @@ def health_check():
     return {"status": "healthy", "app": settings.APP_NAME}
 
 
-@app.get("/debug/db-check")
-def debug_db_check():
-    """Temporary diagnostic endpoint — check DB schema."""
-    try:
-        with engine.connect() as conn:
-            cols = conn.execute(text(
-                "SELECT column_name FROM information_schema.columns "
-                "WHERE table_name='notes' ORDER BY ordinal_position"
-            ))
-            notes_cols = [r[0] for r in cols]
-
-            nv_cols = conn.execute(text(
-                "SELECT column_name FROM information_schema.columns "
-                "WHERE table_name='note_views' ORDER BY ordinal_position"
-            ))
-            note_views_cols = [r[0] for r in nv_cols]
-
-            count = conn.execute(text("SELECT COUNT(*) FROM notes")).scalar()
-
-            return {
-                "notes_columns": notes_cols,
-                "note_views_columns": note_views_cols,
-                "notes_count": count,
-            }
-    except Exception as e:
-        return {"error": str(e)}

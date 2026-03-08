@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -16,7 +18,7 @@ class NotificationResponse(BaseModel):
     body: str
     url: str
     is_read: bool
-    created_at: str
+    created_at: datetime
 
     model_config = {"from_attributes": True}
 

@@ -33,11 +33,11 @@ class NoteResponse(BaseModel):
     title: str
     content: str
     category: str
-    scheduled_at: str | None = None
+    scheduled_at: datetime | None = None
     published: bool = False
     send_push: bool = True
-    updated_at: str | None = None
-    created_at: str
+    updated_at: datetime | None = None
+    created_at: datetime
 
     model_config = {"from_attributes": True}
 
