@@ -70,7 +70,7 @@ export default function Dashboard() {
 
   const quickLinks = [
     d.active_routine_id
-      ? { to: `/routines/${d.active_routine_id}`, icon: Dumbbell, label: 'Mi Rutina', color: 'bg-brand-500', tour: 'link-rutina' }
+      ? { to: '/routines', icon: Dumbbell, label: 'Mis Rutinas', color: 'bg-brand-500', tour: 'link-rutina' }
       : { to: '/routines/generate', icon: Dumbbell, label: 'Crear Rutina', color: 'bg-brand-500', tour: 'link-rutina' },
     { to: '/cardio', icon: HeartPulse, label: 'Cardio', color: 'bg-red-500', tour: 'link-cardio' },
     { to: '/goals', icon: Target, label: 'Objetivos', color: 'bg-green-500' },
