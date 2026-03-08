@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
@@ -51,6 +52,17 @@ export default function RichTextEditor({ content, onChange }) {
       },
     },
   })
+
+  // Sync content from outside (e.g. when clicking "edit" on a different note)
+  useEffect(() => {
+    if (editor && content !== undefined) {
+      const currentHTML = editor.getHTML()
+      // Only update if the content actually changed from outside
+      if (content !== currentHTML) {
+        editor.commands.setContent(content || '')
+      }
+    }
+  }, [content, editor])
 
   if (!editor) return null
 
