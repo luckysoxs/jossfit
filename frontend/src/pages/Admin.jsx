@@ -1002,6 +1002,14 @@ function ChatSection() {
 }
 
 const NOTE_CATEGORIES = ['general', 'nutricion', 'entrenamiento', 'suplementos', 'salud', 'motivacion']
+const NOTE_CAT_LABELS = {
+  general: 'General',
+  nutricion: 'Nutrición',
+  entrenamiento: 'Entrenamiento',
+  suplementos: 'Suplementos',
+  salud: 'Salud',
+  motivacion: 'Motivación',
+}
 
 function formatReadTime(seconds) {
   if (!seconds || seconds === 0) return '0s'
@@ -1129,7 +1137,7 @@ function NotesSection() {
         <h3 className="font-bold text-sm">{editing ? 'Editar Nota' : 'Nueva Nota'}</h3>
         <input className="input" placeholder="Título de la nota" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
         <select className="input" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
-          {NOTE_CATEGORIES.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
+          {NOTE_CATEGORIES.map(c => <option key={c} value={c}>{NOTE_CAT_LABELS[c] || c}</option>)}
         </select>
         <textarea className="input min-h-[120px]" placeholder="Contenido de la nota..." value={form.content} onChange={e => setForm({ ...form, content: e.target.value })} />
         <div>
@@ -1184,7 +1192,7 @@ function NotesSection() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <h4 className="font-semibold text-sm">{note.title}</h4>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-500">{note.category}</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-500">{NOTE_CAT_LABELS[note.category] || note.category}</span>
                     {isPending && (
                       <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center gap-1">
                         <Calendar size={10} /> Programada
