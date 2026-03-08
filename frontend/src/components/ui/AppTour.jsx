@@ -8,9 +8,9 @@ const TOUR_STEPS = [
     position: 'bottom',
   },
   {
-    target: '[data-tour="link-rutina"]',
-    title: 'Mi Rutina',
-    description: 'Tu rutina dividida en dias. Cada ejercicio tiene calculador 1RM y opcion de reemplazo.',
+    target: '[data-tour="link-entreno"]',
+    title: 'Registrar Entreno',
+    description: 'Registra tus entrenamientos con ejercicios, series y repeticiones.',
     position: 'bottom',
   },
   {
@@ -26,9 +26,9 @@ const TOUR_STEPS = [
     position: 'bottom',
   },
   {
-    target: '[data-tour="nav-entreno"]',
-    title: 'Registrar Entreno',
-    description: 'Registra tus entrenamientos y lleva control de tu progreso.',
+    target: '[data-tour="nav-rutinas"]',
+    title: 'Mis Rutinas',
+    description: 'Accede a todas tus rutinas de entrenamiento.',
     position: 'top',
   },
   {

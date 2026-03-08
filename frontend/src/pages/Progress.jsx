@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import api from '../services/api'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import PageTour from '../components/ui/PageTour'
-import { TrendingUp, AlertTriangle, Shield, Activity } from 'lucide-react'
+import { TrendingUp, AlertTriangle, Shield, Activity, Flame } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
 
 export default function Progress() {
@@ -11,15 +11,27 @@ export default function Progress() {
   const [selectedEx, setSelectedEx] = useState(null)
   const [orm, setOrm] = useState(null)
   const [progression, setProgression] = useState(null)
+  const [fatigueData, setFatigueData] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     Promise.all([
       api.get('/ai/training-analysis'),
       api.get('/exercises'),
-    ]).then(([a, e]) => {
+      api.get('/workouts/history'),
+    ]).then(([a, e, w]) => {
       setAnalysis(a.data)
       setExercises(e.data)
+      // Extract fatigue data from workout history
+      const fData = (w.data || [])
+        .filter(wk => wk.fatigue_level != null)
+        .slice(0, 20)
+        .reverse()
+        .map(wk => ({
+          date: new Date(wk.date).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' }),
+          fatigue: wk.fatigue_level,
+        }))
+      setFatigueData(fData)
     }).finally(() => setLoading(false))
   }, [])
 
@@ -97,6 +109,28 @@ export default function Progress() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Fatigue Trend */}
+      {fatigueData.length > 0 && (
+        <div className="card">
+          <h3 className="font-semibold mb-1 flex items-center gap-2">
+            <Flame size={18} className="text-orange-500" /> Fatiga Reciente
+          </h3>
+          <div className="flex items-center gap-3 mb-3 text-xs text-gray-400">
+            <span>Promedio: <span className="font-semibold text-gray-600 dark:text-gray-300">{(fatigueData.reduce((s, d) => s + d.fatigue, 0) / fatigueData.length).toFixed(1)}/10</span></span>
+            <span>Último: <span className="font-semibold text-gray-600 dark:text-gray-300">{fatigueData[fatigueData.length - 1]?.fatigue}/10</span></span>
+          </div>
+          <ResponsiveContainer width="100%" height={180}>
+            <LineChart data={fatigueData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
+              <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+              <YAxis domain={[0, 10]} tick={{ fontSize: 11 }} />
+              <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '12px', color: '#fff' }} />
+              <Line type="monotone" dataKey="fatigue" stroke="#f97316" strokeWidth={2} dot={{ r: 4, fill: '#f97316' }} />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
       )}
 

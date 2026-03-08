@@ -10,7 +10,7 @@ import AppTour from '../components/ui/AppTour'
 import { requestNotificationPermission, subscribeToPush, isPushSubscribed } from '../services/pushNotifications'
 import {
   Dumbbell, Flame, Timer, TrendingUp, Heart, Moon, Scale, Zap,
-  ChevronRight, Target, HeartPulse, Award, BookOpen, Shield,
+  ChevronRight, HeartPulse, Award, BookOpen, Shield,
 } from 'lucide-react'
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -49,7 +49,7 @@ export default function Dashboard() {
   }, [])
 
   useEffect(() => {
-    if (!localStorage.getItem('tour_completed')) setShowTour(true)
+    if (!localStorage.getItem('tour_v2_completed')) setShowTour(true)
   }, [])
 
   // Auto-subscribe to push notifications by default
@@ -69,11 +69,9 @@ export default function Dashboard() {
   const d = data || {}
 
   const quickLinks = [
-    d.active_routine_id
-      ? { to: '/routines', icon: Dumbbell, label: 'Mis Rutinas', color: 'bg-brand-500', tour: 'link-rutina' }
-      : { to: '/routines/generate', icon: Dumbbell, label: 'Crear Rutina', color: 'bg-brand-500', tour: 'link-rutina' },
+    { to: '/workouts', icon: Dumbbell, label: 'Entreno', color: 'bg-brand-500', tour: 'link-entreno' },
     { to: '/cardio', icon: HeartPulse, label: 'Cardio', color: 'bg-red-500', tour: 'link-cardio' },
-    { to: '/goals', icon: Target, label: 'Objetivos', color: 'bg-green-500' },
+    { to: '/progress', icon: TrendingUp, label: 'Progreso', color: 'bg-green-500' },
     { to: '/benefits', icon: Award, label: 'Beneficios', color: 'bg-purple-500' },
     { to: '/notes', icon: BookOpen, label: 'Notas', color: 'bg-amber-500', badge: unreadNotes },
   ]
@@ -304,7 +302,7 @@ export default function Dashboard() {
         <AppTour
           onComplete={() => {
             setShowTour(false)
-            localStorage.setItem('tour_completed', 'true')
+            localStorage.setItem('tour_v2_completed', 'true')
           }}
         />
       )}

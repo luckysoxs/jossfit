@@ -359,7 +359,7 @@ export default function Profile() {
       <div className="text-center">
         <button
           onClick={() => {
-            localStorage.removeItem('tour_completed')
+            localStorage.removeItem('tour_v2_completed')
             navigate('/')
           }}
           className="text-sm text-brand-500 hover:underline"

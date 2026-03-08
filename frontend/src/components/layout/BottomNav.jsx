@@ -13,7 +13,7 @@ export default function BottomNav() {
 
   const navItems = [
     { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/workouts', icon: Dumbbell, label: 'Entreno', tour: 'nav-entreno' },
+    { to: '/routines', icon: Dumbbell, label: 'Rutinas', tour: 'nav-rutinas' },
     { to: '/notifications', icon: Bell, label: 'Alertas', badge: notifications },
     { to: '/support', icon: MessageCircle, label: 'Ayuda', badge: support },
     { to: '/profile', icon: User, label: 'Perfil', tour: 'nav-perfil' },

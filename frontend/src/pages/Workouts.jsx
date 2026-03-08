@@ -23,7 +23,6 @@ export default function Workouts() {
   const [form, setForm] = useState({
     date: new Date().toISOString().split('T')[0],
     duration_minutes: '',
-    fatigue_level: 5,
     notes: '',
   })
 
@@ -31,7 +30,9 @@ export default function Workouts() {
   const [showAddExtra, setShowAddExtra] = useState(false)
   const [extraExerciseId, setExtraExerciseId] = useState('')
 
-  // Post-workout summary
+  // Post-workout fatigue survey + summary
+  const [showFatigueSurvey, setShowFatigueSurvey] = useState(false)
+  const [pendingWorkoutData, setPendingWorkoutData] = useState(null)
   const [showSummary, setShowSummary] = useState(false)
   const [summaryData, setSummaryData] = useState(null)
 
@@ -61,7 +62,6 @@ export default function Workouts() {
     setForm({
       date: new Date().toISOString().split('T')[0],
       duration_minutes: '',
-      fatigue_level: 5,
       notes: '',
     })
   }
@@ -136,7 +136,7 @@ export default function Workouts() {
   const totalCompletedSets = Object.values(exerciseSets).flat().filter((s) => s.completed).length
   const totalSets = Object.values(exerciseSets).flat().length
 
-  const saveWorkout = async () => {
+  const saveWorkout = () => {
     // Collect all completed sets
     const allSets = []
     let setNumber = 1
@@ -156,36 +156,49 @@ export default function Workouts() {
     })
 
     if (allSets.length === 0) return
+
+    // Store pending data and show fatigue survey
+    setPendingWorkoutData({
+      date: form.date,
+      duration_minutes: form.duration_minutes ? parseInt(form.duration_minutes) : null,
+      notes: form.notes,
+      sets: allSets,
+      dayName: selectedDay?.name || 'Entrenamiento',
+    })
+    setShowFatigueSurvey(true)
+  }
+
+  const submitWithFatigue = async (fatigueLevel) => {
+    if (!pendingWorkoutData) return
     setSaving(true)
     try {
       const payload = {
-        date: form.date,
-        duration_minutes: form.duration_minutes ? parseInt(form.duration_minutes) : null,
-        fatigue_level: parseInt(form.fatigue_level),
-        notes: form.notes,
-        sets: allSets,
+        ...pendingWorkoutData,
+        fatigue_level: fatigueLevel,
       }
+      delete payload.dayName
       await api.post('/workouts', payload)
       const { data } = await api.get('/workouts/history')
       setWorkouts(data)
 
-      // Show summary popup
-      const exercisesWorked = new Set(allSets.map((s) => s.exercise_id)).size
-      const totalVolume = allSets.reduce((acc, s) => acc + s.reps * s.weight_kg, 0)
+      const exercisesWorked = new Set(pendingWorkoutData.sets.map((s) => s.exercise_id)).size
+      const totalVolume = pendingWorkoutData.sets.reduce((acc, s) => acc + s.reps * s.weight_kg, 0)
       setSummaryData({
-        totalSets: allSets.length,
+        totalSets: pendingWorkoutData.sets.length,
         exercisesWorked,
         totalVolume: Math.round(totalVolume),
-        duration: form.duration_minutes || null,
-        fatigue: form.fatigue_level,
-        dayName: selectedDay?.name || 'Entrenamiento',
+        duration: pendingWorkoutData.duration_minutes,
+        fatigue: fatigueLevel,
+        dayName: pendingWorkoutData.dayName,
       })
-      setShowSummary(true)
 
+      setShowFatigueSurvey(false)
+      setPendingWorkoutData(null)
+      setShowSummary(true)
       setShowForm(false)
       setSelectedDay(null)
       setExerciseSets({})
-      setForm({ date: new Date().toISOString().split('T')[0], duration_minutes: '', fatigue_level: 5, notes: '' })
+      setForm({ date: new Date().toISOString().split('T')[0], duration_minutes: '', notes: '' })
     } catch (err) {
       alert(err.response?.data?.detail || 'Error al guardar')
     } finally {
@@ -447,27 +460,10 @@ export default function Workouts() {
                 </div>
               )}
 
-              {/* Fatigue & Notes */}
-              <div className="card space-y-3">
-                <div>
-                  <label className="label">Fatiga (1-10): {form.fatigue_level} {getFatigueEmoji(form.fatigue_level)}</label>
-                  <input
-                    type="range"
-                    min="1"
-                    max="10"
-                    className="w-full accent-brand-500"
-                    value={form.fatigue_level}
-                    onChange={(e) => setForm({ ...form, fatigue_level: e.target.value })}
-                  />
-                  <div className="flex justify-between text-xs text-gray-400 mt-1">
-                    <span>Ligero</span>
-                    <span>Al límite</span>
-                  </div>
-                </div>
-                <div>
-                  <label className="label">Notas</label>
-                  <textarea className="input" rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="¿Cómo te sentiste?" />
-                </div>
+              {/* Notes */}
+              <div className="card">
+                <label className="label">Notas</label>
+                <textarea className="input" rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="¿Cómo te sentiste?" />
               </div>
 
               {/* Save */}
@@ -545,6 +541,49 @@ export default function Workouts() {
           { target: '[data-tour="workout-history"]', title: 'Historial', description: 'Aqui puedes ver todos tus entrenamientos anteriores.', position: 'top' },
         ]}
       />
+
+      {/* Fatigue Survey Modal */}
+      {showFatigueSurvey && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center space-y-5 border border-gray-100 dark:border-gray-800 animate-in">
+            <div className="w-16 h-16 bg-orange-50 dark:bg-orange-500/10 rounded-full flex items-center justify-center mx-auto">
+              <Flame size={32} className="text-orange-500" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold">¿Qué tan cansado estás?</h2>
+              <p className="text-sm text-gray-500 mt-1">Selecciona tu nivel de fatiga</p>
+            </div>
+            <div className="space-y-2">
+              {[
+                { range: [1, 2], emoji: '😊', label: 'Ligero', color: 'bg-green-50 dark:bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-500/20' },
+                { range: [3, 4], emoji: '💪', label: 'Moderado', color: 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/20' },
+                { range: [5, 6], emoji: '😤', label: 'Intenso', color: 'bg-yellow-50 dark:bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-100 dark:hover:bg-yellow-500/20' },
+                { range: [7, 8], emoji: '😓', label: 'Muy intenso', color: 'bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-500/20' },
+                { range: [9, 10], emoji: '💀', label: 'Al límite', color: 'bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20' },
+              ].map(({ range, emoji, label, color }) => (
+                <button
+                  key={range[0]}
+                  onClick={() => submitWithFatigue(range[1])}
+                  disabled={saving}
+                  className={`w-full flex items-center gap-4 p-4 rounded-xl transition-all ${color} ${saving ? 'opacity-50' : ''}`}
+                >
+                  <span className="text-2xl">{emoji}</span>
+                  <div className="text-left flex-1">
+                    <p className="font-semibold">{label}</p>
+                    <p className="text-xs opacity-70">{range[0]}-{range[1]} / 10</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+            {saving && (
+              <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
+                <div className="animate-spin w-4 h-4 border-2 border-brand-500 border-t-transparent rounded-full" />
+                Guardando...
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Post-Workout Summary Popup */}
       {showSummary && summaryData && (
