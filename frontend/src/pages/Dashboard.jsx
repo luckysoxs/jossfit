@@ -69,7 +69,7 @@ export default function Dashboard() {
   const d = data || {}
 
   const quickLinks = [
-    { to: '/workouts', icon: Dumbbell, label: 'Entreno', color: 'bg-brand-500', tour: 'link-entreno' },
+    { to: '/routines', icon: Dumbbell, label: 'Mis Rutinas', color: 'bg-brand-500', tour: 'link-rutinas' },
     { to: '/cardio', icon: HeartPulse, label: 'Cardio', color: 'bg-red-500', tour: 'link-cardio' },
     { to: '/progress', icon: TrendingUp, label: 'Progreso', color: 'bg-green-500' },
     { to: '/benefits', icon: Award, label: 'Beneficios', color: 'bg-purple-500' },

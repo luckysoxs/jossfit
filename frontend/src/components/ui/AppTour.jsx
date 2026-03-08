@@ -8,9 +8,9 @@ const TOUR_STEPS = [
     position: 'bottom',
   },
   {
-    target: '[data-tour="link-entreno"]',
-    title: 'Registrar Entreno',
-    description: 'Registra tus entrenamientos con ejercicios, series y repeticiones.',
+    target: '[data-tour="link-rutinas"]',
+    title: 'Mis Rutinas',
+    description: 'Tu rutina dividida en días. Cada ejercicio tiene calculador 1RM y opción de reemplazo.',
     position: 'bottom',
   },
   {
