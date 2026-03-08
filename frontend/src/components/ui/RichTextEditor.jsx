@@ -155,6 +155,7 @@ export default function RichTextEditor({ content, onChange }) {
         .ProseMirror blockquote { border-left: 3px solid #3b82f6; padding-left: 1rem; margin: 0.5rem 0; color: #6b7280; font-style: italic; }
         .ProseMirror a { color: #3b82f6; text-decoration: underline; }
         .ProseMirror mark { background-color: #fde68a; padding: 0.1rem 0.2rem; border-radius: 0.2rem; }
+        .ProseMirror { word-break: break-word; overflow-wrap: break-word; }
         .ProseMirror:focus { outline: none; }
         .ProseMirror p.is-editor-empty:first-child::before {
           content: 'Escribe el contenido de la nota...';

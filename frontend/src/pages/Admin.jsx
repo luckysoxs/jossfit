@@ -1135,20 +1135,22 @@ function NotesSection() {
   return (
     <div className="space-y-4">
       {/* Create/Edit form */}
-      <div className="card space-y-3">
+      <div className="card space-y-3 overflow-hidden">
         <h3 className="font-bold text-sm">{editing ? 'Editar Nota' : 'Nueva Nota'}</h3>
         <input className="input" placeholder="Título de la nota" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
         <select className="input" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
           {NOTE_CATEGORIES.map(c => <option key={c} value={c}>{NOTE_CAT_LABELS[c] || c}</option>)}
         </select>
-        <RichTextEditor content={form.content} onChange={val => setForm(prev => ({ ...prev, content: val }))} />
+        <div className="overflow-hidden rounded-xl">
+          <RichTextEditor content={form.content} onChange={val => setForm(prev => ({ ...prev, content: val }))} />
+        </div>
         <div>
           <label className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
             <Calendar size={14} /> Programar publicación (opcional)
           </label>
           <input
             type="datetime-local"
-            className="input text-sm"
+            className="input text-sm max-w-full"
             value={form.scheduled_at}
             onChange={e => setForm({ ...form, scheduled_at: e.target.value })}
           />
