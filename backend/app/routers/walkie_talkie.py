@@ -121,6 +121,52 @@ def send_talk_alert(
         raise HTTPException(500, f"Error enviando alerta: {str(e)}")
 
 
+# ─── POST /chats/{chat_id}/alert ──────────────────────────────
+
+@router.post("/chats/{chat_id}/alert")
+def send_chat_alert(
+    chat_id: int,
+    admin: User = Depends(get_admin_user),
+    db: Session = Depends(get_db),
+):
+    """Send a 'want to talk' alert to members of a specific chat."""
+    membership = (
+        db.query(AdminChatMember)
+        .filter(
+            AdminChatMember.chat_id == chat_id,
+            AdminChatMember.user_id == admin.id,
+        )
+        .first()
+    )
+    if not membership:
+        raise HTTPException(403, "Not a member of this chat")
+
+    try:
+        from app.services.push_service import send_push_to_user
+
+        other_members = (
+            db.query(AdminChatMember.user_id)
+            .filter(
+                AdminChatMember.chat_id == chat_id,
+                AdminChatMember.user_id != admin.id,
+            )
+            .all()
+        )
+        chat = db.query(AdminChat).filter(AdminChat.id == chat_id).first()
+        title = f"📻 {admin.name} quiere hablar"
+        if chat and chat.is_group and chat.name:
+            title = f"📻 {chat.name}: {admin.name} quiere hablar"
+
+        for (uid,) in other_members:
+            send_push_to_user(
+                db, uid, title, "Abre el Walkie-Talkie para conectar",
+                "/admin/walkie-talkie",
+            )
+        return {"ok": True, "alerted": len(other_members)}
+    except Exception as e:
+        raise HTTPException(500, f"Error enviando alerta: {str(e)}")
+
+
 # ─── GET /chats ─────────────────────────────────────────────
 
 @router.get("/chats", response_model=list[ChatListItem])

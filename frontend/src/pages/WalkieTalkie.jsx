@@ -46,7 +46,7 @@ export default function WalkieTalkie() {
   const audioRef = useRef(null)
 
   // ─── Auto-play tracking ────────────────────────────────────
-  const lastPlayedIdRef = useRef(0) // Track highest auto-played message ID
+  const lastPlayedIdRef = useRef(null) // null = not initialized, number = highest played ID
   const autoPlayEnabledRef = useRef(true)
 
   // ─── Fetch chat list ─────────────────────────────────────
@@ -83,7 +83,15 @@ export default function WalkieTalkie() {
   useEffect(() => {
     if (!activeChat || messages.length === 0 || !autoPlayEnabledRef.current) return
 
-    // Find new voice messages from OTHER users
+    const maxId = Math.max(...messages.map((m) => m.id))
+
+    // First load: initialize lastPlayedId to max existing ID (don't replay old)
+    if (lastPlayedIdRef.current === null) {
+      lastPlayedIdRef.current = maxId
+      return
+    }
+
+    // Find new voice messages from OTHER users since last check
     const newVoiceMessages = messages.filter(
       (msg) =>
         msg.message_type === 'voice' &&
@@ -92,14 +100,13 @@ export default function WalkieTalkie() {
     )
 
     if (newVoiceMessages.length > 0) {
-      // Auto-play the latest incoming voice message
+      // Only auto-play the LAST one
       const latest = newVoiceMessages[newVoiceMessages.length - 1]
       lastPlayedIdRef.current = latest.id
 
       // Don't auto-play if user is currently recording
       if (isRecording) return
 
-      // Auto-play it
       togglePlayAudio(latest.id, latest.audio_url)
     }
   }, [messages, activeChat, user.id, isRecording])
@@ -120,12 +127,12 @@ export default function WalkieTalkie() {
     }
   }, [])
 
-  // ─── Send alert ──────────────────────────────────────────
+  // ─── Send alert (per-chat) ──────────────────────────────────
   const sendAlert = async () => {
-    if (alertSending) return
+    if (alertSending || !activeChat) return
     setAlertSending(true)
     try {
-      await api.post('/admin/walkie-talkie/alert')
+      await api.post(`/admin/walkie-talkie/chats/${activeChat.id}/alert`)
       setAlertSent(true)
       setTimeout(() => setAlertSent(false), 3000)
     } catch (err) {
@@ -310,8 +317,7 @@ export default function WalkieTalkie() {
   const openChat = (chat) => {
     setActiveChat(chat)
     setMessages([])
-    // Initialize lastPlayedId to avoid replaying old messages
-    lastPlayedIdRef.current = 0
+    lastPlayedIdRef.current = null // Will initialize on first message load
   }
 
   const goBack = () => {
@@ -323,7 +329,7 @@ export default function WalkieTalkie() {
     setPlayingId(null)
     setActiveChat(null)
     setMessages([])
-    lastPlayedIdRef.current = 0
+    lastPlayedIdRef.current = null
     fetchChats()
   }
 
@@ -388,6 +394,24 @@ export default function WalkieTalkie() {
               </div>
             </div>
           </div>
+          <button
+            onClick={sendAlert}
+            disabled={alertSending || alertSent}
+            className={`px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors ${
+              alertSent
+                ? 'bg-green-50 dark:bg-green-500/10 text-green-500'
+                : 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/20'
+            }`}
+            title="Alertar que quieres hablar"
+          >
+            {alertSent ? (
+              <>✓</>
+            ) : alertSending ? (
+              <div className="animate-spin w-3 h-3 border-2 border-amber-500 border-t-transparent rounded-full" />
+            ) : (
+              <><AlertTriangle size={14} /> Alerta</>
+            )}
+          </button>
         </div>
 
         {/* Messages */}
@@ -492,78 +516,72 @@ export default function WalkieTalkie() {
           <div ref={bottomRef} />
         </div>
 
-        {/* Recording overlay */}
-        {isRecording && (
-          <div className="card p-4 bg-red-500/5 border-red-500/20 flex items-center gap-4">
-            <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-red-500">Transmitiendo...</p>
-              <p className="text-xs text-gray-500">{formatDuration(recordingDuration)}</p>
-            </div>
-            <button
-              onClick={cancelRecording}
-              className="p-2 rounded-lg hover:bg-red-500/10 text-red-500"
-              title="Cancelar"
-            >
-              <X size={18} />
-            </button>
-            <button
-              onClick={stopRecording}
-              className="p-2 rounded-lg bg-red-500 text-white hover:bg-red-600"
-              title="Enviar"
-            >
-              <Send size={18} />
-            </button>
-          </div>
-        )}
-
-        {/* Input area */}
-        {!isRecording && (
-          <div className="flex gap-2">
-            <form onSubmit={handleSend} className="flex-1 flex gap-2">
-              <input
-                className="input flex-1"
-                placeholder="Escribe o mantén el mic..."
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                maxLength={2000}
-              />
-              {input.trim() ? (
-                <button
-                  type="submit"
-                  className="btn-primary px-4 flex items-center gap-2"
-                  disabled={sending}
-                >
-                  <Send size={18} />
+        {/* Input area — mic button stays at same DOM position for touch events */}
+        <div className="flex gap-2 items-end">
+          <div className="flex-1 flex gap-2">
+            {isRecording ? (
+              <div className="flex-1 flex items-center gap-3 px-4 py-3 rounded-xl bg-red-500/5 border border-red-500/20">
+                <button type="button" onClick={cancelRecording} className="text-red-400 hover:text-red-500">
+                  <X size={16} />
                 </button>
-              ) : (
-                <button
-                  type="button"
-                  onMouseDown={(e) => {
-                    e.preventDefault()
-                    startRecording()
-                  }}
-                  onMouseUp={stopRecording}
-                  onMouseLeave={() => {
-                    if (isRecording) stopRecording()
-                  }}
-                  onTouchStart={(e) => {
-                    e.preventDefault()
-                    startRecording()
-                  }}
-                  onTouchEnd={(e) => {
-                    e.preventDefault()
-                    stopRecording()
-                  }}
-                  className="btn-primary px-4 flex items-center gap-2 select-none"
-                  disabled={sending}
-                >
-                  <Mic size={18} />
-                </button>
-              )}
-            </form>
+                <div className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
+                <span className="text-sm font-semibold text-red-500">Grabando</span>
+                <span className="text-xs text-gray-500 ml-auto">{formatDuration(recordingDuration)}</span>
+              </div>
+            ) : (
+              <form onSubmit={handleSend} className="flex-1 flex gap-2">
+                <input
+                  className="input flex-1"
+                  placeholder="Escribe o mantén el mic..."
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  maxLength={2000}
+                />
+                {input.trim() && (
+                  <button
+                    type="submit"
+                    className="btn-primary px-4 flex items-center gap-2"
+                    disabled={sending}
+                  >
+                    <Send size={18} />
+                  </button>
+                )}
+              </form>
+            )}
           </div>
-        )}
+          {/* Mic button — ALWAYS at same position in DOM tree */}
+          {(!input.trim() || isRecording) && (
+            <button
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault()
+                if (!isRecording) startRecording()
+              }}
+              onMouseUp={() => {
+                if (isRecording) stopRecording()
+              }}
+              onMouseLeave={() => {
+                if (isRecording) stopRecording()
+              }}
+              onTouchStart={(e) => {
+                e.preventDefault()
+                if (!isRecording) startRecording()
+              }}
+              onTouchEnd={(e) => {
+                e.preventDefault()
+                if (isRecording) stopRecording()
+              }}
+              className={`px-4 py-3 rounded-xl flex items-center gap-2 select-none transition-colors ${
+                isRecording
+                  ? 'bg-red-500 text-white animate-pulse'
+                  : 'btn-primary'
+              }`}
+              disabled={sending}
+            >
+              <Mic size={18} />
+            </button>
+          )}
+        </div>
       </div>
     )
   }
@@ -584,32 +602,12 @@ export default function WalkieTalkie() {
             </p>
           </div>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={sendAlert}
-            disabled={alertSending || alertSent}
-            className={`px-3 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition-colors ${
-              alertSent
-                ? 'bg-green-50 dark:bg-green-500/10 text-green-500'
-                : 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/20'
-            }`}
-            title="Alertar que quieres hablar"
-          >
-            {alertSent ? (
-              <>✓ Enviado</>
-            ) : alertSending ? (
-              <div className="animate-spin w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full" />
-            ) : (
-              <><AlertTriangle size={16} /> Alerta</>
-            )}
-          </button>
-          <button
-            onClick={() => setShowNewChat(true)}
-            className="btn-primary px-3 py-2 flex items-center gap-2 text-sm"
-          >
-            <Plus size={16} /> Nuevo
-          </button>
-        </div>
+        <button
+          onClick={() => setShowNewChat(true)}
+          className="btn-primary px-3 py-2 flex items-center gap-2 text-sm"
+        >
+          <Plus size={16} /> Nuevo
+        </button>
       </div>
 
       {/* Info banner */}
