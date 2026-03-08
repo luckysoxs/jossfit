@@ -114,6 +114,13 @@ def run_migrations():
         "CREATE INDEX IF NOT EXISTS idx_partner_clicks_user ON partner_clicks(user_id)",
         # Note push preference
         "ALTER TABLE notes ADD COLUMN IF NOT EXISTS send_push BOOLEAN DEFAULT TRUE",
+        # Clean up duplicate note notifications — keep only the oldest per (user_id, url)
+        """DELETE FROM notifications
+           WHERE id NOT IN (
+               SELECT MIN(id) FROM notifications
+               WHERE url LIKE '/notes/%%'
+               GROUP BY user_id, url
+           ) AND url LIKE '/notes/%%'""",
     ]
     # Each migration runs in its own transaction so a failure in one
     # doesn't abort all subsequent migrations (PostgreSQL behaviour).
@@ -148,15 +155,21 @@ async def publish_scheduled_notes():
                 .all()
             )
             for note in pending:
-                # Create in-app notifications for all users
+                # Create in-app notifications for all users (skip duplicates)
+                note_url = f"/notes/{note.id}"
                 all_users = db.query(User.id).all()
                 for (uid,) in all_users:
-                    db.add(Notification(
-                        user_id=uid,
-                        title=note.title,
-                        body=f"Nueva nota: {note.title}",
-                        url=f"/notes/{note.id}",
-                    ))
+                    exists = db.query(Notification.id).filter(
+                        Notification.user_id == uid,
+                        Notification.url == note_url,
+                    ).first()
+                    if not exists:
+                        db.add(Notification(
+                            user_id=uid,
+                            title=note.title,
+                            body=f"Nueva nota: {note.title}",
+                            url=note_url,
+                        ))
                 note.published = True
                 db.commit()
                 # Send push notification (only if enabled)

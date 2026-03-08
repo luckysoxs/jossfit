@@ -250,14 +250,21 @@ def create_note(
 
     # Only notify immediately if not scheduled for the future
     if is_immediate:
+        note_url = f"/notes/{note.id}"
         all_users = db.query(User.id).all()
         for (uid,) in all_users:
-            db.add(Notification(
-                user_id=uid,
-                title=data.title,
-                body=f"Nueva nota: {data.title}",
-                url=f"/notes/{note.id}",
-            ))
+            # Prevent duplicate notifications for the same note+user
+            exists = db.query(Notification.id).filter(
+                Notification.user_id == uid,
+                Notification.url == note_url,
+            ).first()
+            if not exists:
+                db.add(Notification(
+                    user_id=uid,
+                    title=data.title,
+                    body=f"Nueva nota: {data.title}",
+                    url=note_url,
+                ))
         db.commit()
         db.refresh(note)
 
