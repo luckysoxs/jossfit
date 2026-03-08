@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import String, Integer, ForeignKey, DateTime, Text, Boolean, func
+from sqlalchemy import String, Integer, ForeignKey, DateTime, Text, Boolean, func, text as sa_text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -16,7 +16,7 @@ class Note(Base):
     category: Mapped[str] = mapped_column(String(50), default="general")
     scheduled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     published: Mapped[bool] = mapped_column(Boolean, default=False)
-    send_push: Mapped[bool] = mapped_column(Boolean, default=True)
+    send_push: Mapped[bool] = mapped_column(Boolean, server_default=sa_text("true"), default=True)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
