@@ -12,6 +12,7 @@ import Routines from './pages/Routines'
 import RoutineDetail from './pages/RoutineDetail'
 import GenerateRoutine from './pages/GenerateRoutine'
 import CreateRoutine from './pages/CreateRoutine'
+import RoutineDayDetail from './pages/RoutineDayDetail'
 import Progress from './pages/Progress'
 import BodyMetrics from './pages/BodyMetrics'
 import Nutrition from './pages/Nutrition'
@@ -58,6 +59,7 @@ export default function App() {
       <Route path="/routines/generate" element={<ProtectedRoute><GenerateRoutine /></ProtectedRoute>} />
       <Route path="/routines/create" element={<ProtectedRoute><CreateRoutine /></ProtectedRoute>} />
       <Route path="/routines/:id" element={<ProtectedRoute><RoutineDetail /></ProtectedRoute>} />
+      <Route path="/routines/:id/day/:dayId" element={<ProtectedRoute><RoutineDayDetail /></ProtectedRoute>} />
       <Route path="/progress" element={<ProtectedRoute><Progress /></ProtectedRoute>} />
       <Route path="/body" element={<ProtectedRoute><BodyMetrics /></ProtectedRoute>} />
       <Route path="/nutrition" element={<ProtectedRoute><Nutrition /></ProtectedRoute>} />

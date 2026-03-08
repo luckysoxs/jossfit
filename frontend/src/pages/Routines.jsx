@@ -4,19 +4,21 @@ import api from '../services/api'
 import { cacheSet, cacheGet } from '../services/offlineCache'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import PageTour from '../components/ui/PageTour'
-import { Plus, Zap, Calendar, ChevronRight, Trash2, Dumbbell, Clock } from 'lucide-react'
+import { Plus, Zap, Calendar, ChevronRight, Trash2, Dumbbell, Clock, Pencil } from 'lucide-react'
 
 const OBJECTIVE_LABELS = {
   hypertrophy: 'Hipertrofia',
   strength: 'Fuerza',
-  fat_loss: 'Pérdida de grasa',
-  recomposition: 'Recomposición',
+  fat_loss: 'Perdida de grasa',
+  recomposition: 'Recomposicion',
   endurance: 'Resistencia',
 }
 
 export default function Routines() {
   const [routines, setRoutines] = useState([])
   const [loading, setLoading] = useState(true)
+  const [editingId, setEditingId] = useState(null)
+  const [editName, setEditName] = useState('')
 
   useEffect(() => {
     api.get('/routines')
@@ -32,9 +34,18 @@ export default function Routines() {
   }, [])
 
   const deleteRoutine = async (id) => {
-    if (!confirm('¿Eliminar esta rutina?')) return
+    if (!confirm('Eliminar esta rutina?')) return
     await api.delete(`/routines/${id}`)
     setRoutines(routines.filter((r) => r.id !== id))
+  }
+
+  const saveRename = async (id) => {
+    if (!editName.trim()) { setEditingId(null); return }
+    try {
+      await api.put(`/routines/${id}`, { name: editName.trim() })
+      setRoutines(prev => prev.map(r => r.id === id ? { ...r, name: editName.trim() } : r))
+    } catch {}
+    setEditingId(null)
   }
 
   const fmtDate = (dateStr) => {
@@ -68,7 +79,7 @@ export default function Routines() {
         <div className="card text-center py-12">
           <Dumbbell size={48} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
           <p className="text-gray-500 font-medium">No tienes rutinas creadas</p>
-          <p className="text-gray-400 text-sm mt-1">Genera tu primera rutina con IA o créala manualmente</p>
+          <p className="text-gray-400 text-sm mt-1">Genera tu primera rutina con IA o creala manualmente</p>
           <div className="flex gap-3 justify-center mt-4">
             <Link to="/routines/generate" className="btn-primary flex items-center gap-1.5 text-sm py-2 px-4">
               <Zap size={14} /> Generar con IA
@@ -86,13 +97,35 @@ export default function Routines() {
               <Link key={r.id} to={`/routines/${r.id}`} className="card block hover:ring-1 hover:ring-brand-500/30 transition-all">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-base truncate">{r.name}</h3>
+                    {editingId === r.id ? (
+                      <form onSubmit={(e) => { e.preventDefault(); saveRename(r.id) }}
+                        onClick={(e) => e.preventDefault()}>
+                        <input
+                          autoFocus
+                          className="input text-base font-bold py-1 w-full"
+                          value={editName}
+                          onChange={e => setEditName(e.target.value)}
+                          onBlur={() => saveRename(r.id)}
+                          onKeyDown={e => e.key === 'Escape' && setEditingId(null)}
+                        />
+                      </form>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-base truncate">{r.name}</h3>
+                        <button
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setEditName(r.name); setEditingId(r.id) }}
+                          className="p-1 text-gray-300 hover:text-brand-500 transition-colors flex-shrink-0"
+                        >
+                          <Pencil size={12} />
+                        </button>
+                      </div>
+                    )}
                     <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                       <span className="bg-brand-50 dark:bg-brand-500/10 text-brand-500 px-2 py-0.5 rounded-full text-[11px] font-medium">
                         {r.split_type}
                       </span>
                       <span className="text-[11px] text-gray-400 flex items-center gap-1">
-                        <Calendar size={10} /> {r.days_per_week} días/sem
+                        <Calendar size={10} /> {r.days_per_week} dias/sem
                       </span>
                       {r.objective && (
                         <span className="text-[11px] text-gray-400">
