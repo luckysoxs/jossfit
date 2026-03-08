@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
+import RichTextEditor from '../components/ui/RichTextEditor'
 import {
   Shield, Users, Activity, UserPlus, Dumbbell, Search,
   ChevronLeft, ChevronRight, X, Trash2, ShieldCheck, ShieldOff,
@@ -1139,7 +1140,7 @@ function NotesSection() {
         <select className="input" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
           {NOTE_CATEGORIES.map(c => <option key={c} value={c}>{NOTE_CAT_LABELS[c] || c}</option>)}
         </select>
-        <textarea className="input min-h-[120px]" placeholder="Contenido de la nota..." value={form.content} onChange={e => setForm({ ...form, content: e.target.value })} />
+        <RichTextEditor content={form.content} onChange={val => setForm(prev => ({ ...prev, content: val }))} />
         <div>
           <label className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
             <Calendar size={14} /> Programar publicación (opcional)

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import DOMPurify from 'dompurify'
 import api from '../services/api'
 import { BookOpen, ArrowLeft, Calendar, Clock } from 'lucide-react'
 
@@ -98,9 +99,10 @@ function NoteDetail({ note, onBack }) {
 
         <h1 className="text-xl font-bold">{note.title}</h1>
 
-        <div className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
-          {note.content}
-        </div>
+        <div
+          className="note-content text-sm text-gray-600 dark:text-gray-300 leading-relaxed"
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(note.content) }}
+        />
       </div>
     </div>
   )
@@ -186,7 +188,9 @@ export default function Notes() {
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-sm">{note.title}</h3>
-                  <p className="text-xs text-gray-400 mt-1 line-clamp-2">{note.content}</p>
+                  <p className="text-xs text-gray-400 mt-1 line-clamp-2">
+                    {note.content.replace(/<[^>]*>/g, '')}
+                  </p>
                 </div>
                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0 ${CATEGORY_COLORS[note.category] || CATEGORY_COLORS.general}`}>
                   {CATEGORY_LABELS[note.category] || note.category}
@@ -205,6 +209,28 @@ export default function Notes() {
           ))}
         </div>
       )}
+
+      {/* Styles for rendered HTML content */}
+      <style>{`
+        .note-content h2 { font-size: 1.25rem; font-weight: 700; margin: 0.75rem 0 0.5rem; }
+        .note-content h3 { font-size: 1.1rem; font-weight: 600; margin: 0.5rem 0 0.25rem; }
+        .note-content p { margin: 0.35rem 0; }
+        .note-content ul { list-style: disc; padding-left: 1.5rem; margin: 0.5rem 0; }
+        .note-content ol { list-style: decimal; padding-left: 1.5rem; margin: 0.5rem 0; }
+        .note-content li { margin: 0.15rem 0; }
+        .note-content blockquote {
+          border-left: 3px solid #3b82f6;
+          padding-left: 1rem;
+          margin: 0.5rem 0;
+          color: #6b7280;
+          font-style: italic;
+        }
+        .note-content a { color: #3b82f6; text-decoration: underline; }
+        .note-content strong { font-weight: 700; }
+        .note-content em { font-style: italic; }
+        .note-content u { text-decoration: underline; }
+        .note-content mark { background-color: #fde68a; padding: 0.1rem 0.2rem; border-radius: 0.2rem; }
+      `}</style>
     </div>
   )
 }
