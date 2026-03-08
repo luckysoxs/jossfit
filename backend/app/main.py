@@ -36,6 +36,7 @@ from app.routers import (
     notes,
     notification_center,
     walkie_talkie,
+    suggestions,
 )
 
 
@@ -114,6 +115,17 @@ def run_migrations():
         "CREATE INDEX IF NOT EXISTS idx_partner_clicks_user ON partner_clicks(user_id)",
         # Note push preference
         "ALTER TABLE notes ADD COLUMN IF NOT EXISTS send_push BOOLEAN DEFAULT TRUE",
+        # Suggestions table
+        """CREATE TABLE IF NOT EXISTS suggestions (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            category VARCHAR(20) NOT NULL,
+            content TEXT NOT NULL,
+            status VARCHAR(20) DEFAULT 'pendiente',
+            admin_reply TEXT,
+            created_at TIMESTAMP DEFAULT NOW()
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_suggestions_user_id ON suggestions(user_id)",
         # Clean up duplicate note notifications — keep only the oldest per (user_id, url)
         """DELETE FROM notifications
            WHERE id NOT IN (
@@ -235,6 +247,7 @@ app.include_router(support.router)
 app.include_router(notes.router)
 app.include_router(notification_center.router)
 app.include_router(walkie_talkie.router)
+app.include_router(suggestions.router)
 
 
 @app.get("/health")

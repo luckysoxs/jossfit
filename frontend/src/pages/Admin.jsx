@@ -8,6 +8,7 @@ import {
   Ruler, Weight, Brain, Moon, Pill, Trophy, BarChart3,
   Award, Plus, Edit3, ToggleLeft, ToggleRight, ExternalLink, Tag, Percent,
   Bell, Send, MessageCircle, ChevronUp, ChevronDown, GripVertical, BookOpen, Clock,
+  Lightbulb, Wrench, Bug, HelpCircle, CheckCircle2, MessageSquare,
 } from 'lucide-react'
 
 function StatCard({ icon: Icon, label, value, color = 'brand' }) {
@@ -1560,12 +1561,197 @@ function ExercisesSection() {
   )
 }
 
+/* ──────────────────────────────────────────────────────────────────
+   SUGGESTIONS SECTION
+   ────────────────────────────────────────────────────────────────── */
+
+const SUGGESTION_CATS = {
+  mejora: { label: 'Mejora', icon: Wrench, color: 'bg-blue-500' },
+  idea: { label: 'Idea', icon: Lightbulb, color: 'bg-yellow-500' },
+  bug: { label: 'Bug', icon: Bug, color: 'bg-red-500' },
+  otro: { label: 'Otro', icon: HelpCircle, color: 'bg-gray-500' },
+}
+const SUGGESTION_STATUS = {
+  pendiente: { label: 'Pendiente', color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400' },
+  visto: { label: 'Visto', color: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400' },
+  implementado: { label: 'Implementado', color: 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400' },
+}
+
+function SuggestionsSection() {
+  const [suggestions, setSuggestions] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState('all')
+  const [replyingId, setReplyingId] = useState(null)
+  const [replyText, setReplyText] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const fetchSuggestions = async () => {
+    try {
+      const params = filter !== 'all' ? { status: filter } : {}
+      const res = await api.get('/admin/suggestions', { params })
+      setSuggestions(res.data)
+    } catch (err) {
+      console.error('Error fetching suggestions:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    setLoading(true)
+    fetchSuggestions()
+  }, [filter])
+
+  const updateStatus = async (id, status) => {
+    try {
+      await api.put(`/admin/suggestions/${id}`, { status })
+      fetchSuggestions()
+    } catch (err) {
+      alert('Error al actualizar')
+    }
+  }
+
+  const sendReply = async (id) => {
+    if (!replyText.trim() || saving) return
+    setSaving(true)
+    try {
+      await api.put(`/admin/suggestions/${id}`, { admin_reply: replyText.trim(), status: 'visto' })
+      setReplyingId(null)
+      setReplyText('')
+      fetchSuggestions()
+    } catch (err) {
+      alert('Error al responder')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Filter */}
+      <div className="flex gap-2 flex-wrap">
+        {[
+          { id: 'all', label: 'Todas' },
+          { id: 'pendiente', label: 'Pendientes' },
+          { id: 'visto', label: 'Vistas' },
+          { id: 'implementado', label: 'Implementadas' },
+        ].map(f => (
+          <button
+            key={f.id}
+            onClick={() => setFilter(f.id)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              filter === f.id
+                ? 'bg-brand-500 text-white'
+                : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+        <span className="ml-auto text-xs text-gray-400 self-center">{suggestions.length} sugerencias</span>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-8">
+          <div className="animate-spin w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full" />
+        </div>
+      ) : suggestions.length === 0 ? (
+        <div className="card p-8 text-center">
+          <Lightbulb size={40} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+          <p className="text-gray-500">No hay sugerencias {filter !== 'all' ? 'con este filtro' : 'aún'}</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {suggestions.map(s => {
+            const cat = SUGGESTION_CATS[s.category] || SUGGESTION_CATS.otro
+            const statusCfg = SUGGESTION_STATUS[s.status] || SUGGESTION_STATUS.pendiente
+            const CatIcon = cat.icon
+            return (
+              <div key={s.id} className="card p-4 space-y-3">
+                {/* Header */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-7 h-7 rounded-lg ${cat.color} flex items-center justify-center`}>
+                      <CatIcon size={14} className="text-white" />
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium">{s.user_name}</span>
+                      <span className="text-xs text-gray-400 ml-2">{cat.label}</span>
+                    </div>
+                  </div>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusCfg.color}`}>
+                    {statusCfg.label}
+                  </span>
+                </div>
+
+                {/* Content */}
+                <p className="text-sm text-gray-700 dark:text-gray-300">{s.content}</p>
+                <p className="text-xs text-gray-400">
+                  {new Date(s.created_at).toLocaleDateString('es-MX', {
+                    day: '2-digit', month: 'short', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit',
+                  })}
+                </p>
+
+                {/* Admin reply (if exists) */}
+                {s.admin_reply && (
+                  <div className="p-3 rounded-xl bg-brand-50 dark:bg-brand-500/10 border border-brand-100 dark:border-brand-500/20">
+                    <p className="text-xs font-medium text-brand-600 dark:text-brand-400 mb-1">Tu respuesta:</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300">{s.admin_reply}</p>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {s.status === 'pendiente' && (
+                    <button onClick={() => updateStatus(s.id, 'visto')}
+                      className="text-xs px-3 py-1 rounded-lg bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-500/30 transition-colors flex items-center gap-1">
+                      <Eye size={12} /> Marcar visto
+                    </button>
+                  )}
+                  {s.status !== 'implementado' && (
+                    <button onClick={() => updateStatus(s.id, 'implementado')}
+                      className="text-xs px-3 py-1 rounded-lg bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-500/30 transition-colors flex items-center gap-1">
+                      <CheckCircle2 size={12} /> Implementado
+                    </button>
+                  )}
+                  <button onClick={() => { setReplyingId(replyingId === s.id ? null : s.id); setReplyText(s.admin_reply || '') }}
+                    className="text-xs px-3 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex items-center gap-1">
+                    <MessageSquare size={12} /> {s.admin_reply ? 'Editar respuesta' : 'Responder'}
+                  </button>
+                </div>
+
+                {/* Reply form */}
+                {replyingId === s.id && (
+                  <div className="flex gap-2">
+                    <textarea
+                      value={replyText}
+                      onChange={e => setReplyText(e.target.value)}
+                      placeholder="Escribe tu respuesta..."
+                      rows={2}
+                      className="input flex-1 text-sm resize-none"
+                    />
+                    <button onClick={() => sendReply(s.id)} disabled={!replyText.trim() || saving}
+                      className="btn-primary px-3 self-end">
+                      {saving ? <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" /> : <Send size={16} />}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Admin() {
   const { user } = useAuth()
   const [mainTab, setMainTab] = useState(() => {
     const params = new URLSearchParams(window.location.search)
     const tab = params.get('tab')
-    return ['users', 'partners', 'notifications', 'chat', 'notes', 'exercises'].includes(tab) ? tab : 'users'
+    return ['users', 'partners', 'notifications', 'chat', 'notes', 'exercises', 'suggestions'].includes(tab) ? tab : 'users'
   })
   const [stats, setStats] = useState(null)
   const [users, setUsers] = useState([])
@@ -1652,7 +1838,7 @@ export default function Admin() {
       </div>
 
       {/* Main Tabs */}
-      <div className="grid grid-cols-3 sm:grid-cols-6 gap-1 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl p-1">
+      <div className="grid grid-cols-4 sm:grid-cols-7 gap-1 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl p-1">
         {[
           { id: 'users', label: 'Usuarios', icon: Users },
           { id: 'partners', label: 'Partners', icon: Award },
@@ -1660,6 +1846,7 @@ export default function Admin() {
           { id: 'notifications', label: 'Push', icon: Bell },
           { id: 'chat', label: 'Chat', icon: MessageCircle },
           { id: 'exercises', label: 'Ejercicios', icon: Dumbbell },
+          { id: 'suggestions', label: 'Ideas', icon: Lightbulb },
         ].map(({ id, label, icon: TabIcon }) => (
           <button
             key={id}
@@ -1689,6 +1876,9 @@ export default function Admin() {
 
       {/* Exercises Tab */}
       {mainTab === 'exercises' && <ExercisesSection />}
+
+      {/* Suggestions Tab */}
+      {mainTab === 'suggestions' && <SuggestionsSection />}
 
       {/* Users Tab */}
       {mainTab === 'users' && stats && (
