@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import api from '../../services/api'
 import { cacheSet, cacheGet } from '../../services/offlineCache'
-import { MUSCLE_LABELS, MUSCLE_COLORS } from '../../utils/routineConstants'
+import { MUSCLE_LABELS } from '../../utils/routineConstants'
 import { ArrowLeft, X, Search, Plus, Settings2 } from 'lucide-react'
 
 const EQUIPMENT_OPTIONS = ['Barbell', 'Dumbbells', 'Cable', 'Machine', 'Bodyweight', 'Smith Machine', 'Kettlebell', 'Bands']

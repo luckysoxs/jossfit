@@ -19,6 +19,7 @@ export default function Routines() {
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState(null)
   const [editName, setEditName] = useState('')
+  const cancellingRef = { current: false }
 
   useEffect(() => {
     api.get('/routines')
@@ -105,8 +106,8 @@ export default function Routines() {
                           className="input text-base font-bold py-1 w-full"
                           value={editName}
                           onChange={e => setEditName(e.target.value)}
-                          onBlur={() => saveRename(r.id)}
-                          onKeyDown={e => e.key === 'Escape' && setEditingId(null)}
+                          onBlur={() => { if (!cancellingRef.current) saveRename(r.id); else cancellingRef.current = false }}
+                          onKeyDown={e => { if (e.key === 'Escape') { cancellingRef.current = true; setEditingId(null) } }}
                         />
                       </form>
                     ) : (

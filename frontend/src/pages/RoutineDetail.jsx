@@ -22,6 +22,7 @@ export default function RoutineDetail() {
   const [showSchedule, setShowSchedule] = useState(false)
   const [editingName, setEditingName] = useState(false)
   const [nameInput, setNameInput] = useState('')
+  const cancellingNameRef = useRef(false)
 
   const todayDate = new Date().toISOString().split('T')[0]
   const [checked, setChecked] = useState(() => {
@@ -197,8 +198,16 @@ export default function RoutineDetail() {
                     className="input text-lg font-bold py-1 flex-1"
                     value={nameInput}
                     onChange={e => setNameInput(e.target.value)}
-                    onBlur={() => setEditingName(false)}
-                    onKeyDown={e => e.key === 'Escape' && setEditingName(false)}
+                    onBlur={async () => {
+                      if (cancellingNameRef.current) { cancellingNameRef.current = false; setEditingName(false); return }
+                      if (!nameInput.trim()) { setEditingName(false); return }
+                      try {
+                        await api.put(`/routines/${id}`, { name: nameInput.trim() })
+                        setRoutine(r => ({ ...r, name: nameInput.trim() }))
+                      } catch {}
+                      setEditingName(false)
+                    }}
+                    onKeyDown={e => { if (e.key === 'Escape') { cancellingNameRef.current = true; setEditingName(false) } }}
                   />
                 </form>
               ) : (
