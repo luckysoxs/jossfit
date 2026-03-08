@@ -257,25 +257,25 @@ export default function CreateRoutine() {
                       </button>
                     </div>
                   </div>
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-4 gap-1.5">
                     <div>
                       <label className="text-[10px] text-gray-500">Series</label>
-                      <input type="number" className="input text-sm py-1" value={ex.sets}
+                      <input type="number" className="input text-xs py-1 px-1.5" value={ex.sets}
                         onChange={e => updateExercise(activeDayIndex, exIdx, 'sets', e.target.value)} inputMode="numeric" />
                     </div>
                     <div>
                       <label className="text-[10px] text-gray-500">Rep Min</label>
-                      <input type="number" className="input text-sm py-1" value={ex.reps_min}
+                      <input type="number" className="input text-xs py-1 px-1.5" value={ex.reps_min}
                         onChange={e => updateExercise(activeDayIndex, exIdx, 'reps_min', e.target.value)} inputMode="numeric" />
                     </div>
                     <div>
                       <label className="text-[10px] text-gray-500">Rep Max</label>
-                      <input type="number" className="input text-sm py-1" value={ex.reps_max}
+                      <input type="number" className="input text-xs py-1 px-1.5" value={ex.reps_max}
                         onChange={e => updateExercise(activeDayIndex, exIdx, 'reps_max', e.target.value)} inputMode="numeric" />
                     </div>
                     <div>
                       <label className="text-[10px] text-gray-500">Desc (s)</label>
-                      <input type="number" className="input text-sm py-1" value={ex.rest_seconds}
+                      <input type="number" className="input text-xs py-1 px-1.5" value={ex.rest_seconds}
                         onChange={e => updateExercise(activeDayIndex, exIdx, 'rest_seconds', e.target.value)} inputMode="numeric" />
                     </div>
                   </div>

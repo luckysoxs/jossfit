@@ -13,6 +13,7 @@ class GenerateRoutineRequest(BaseModel):
     priority_muscles: list[str] = []
     split_preference: str | None = None
     custom_days: list[CustomDayConfig] | None = None
+    name: str | None = None  # Optional custom name for the routine
 
 
 class OneRepMaxResponse(BaseModel):

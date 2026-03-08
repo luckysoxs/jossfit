@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
-import { Zap, Loader2, ShieldAlert, Plus, X, Pencil } from 'lucide-react'
+import { Zap, Loader2, ShieldAlert, Plus, X, Pencil, Save } from 'lucide-react'
 import PageTour from '../components/ui/PageTour'
 
 const MUSCLES = ['chest', 'back', 'shoulders', 'quadriceps', 'hamstrings', 'glutes', 'biceps', 'triceps', 'abs', 'calves']
@@ -16,6 +16,7 @@ export default function GenerateRoutine() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
+  const [routineName, setRoutineName] = useState('')
   const [form, setForm] = useState({
     objective: user?.fitness_goal || 'hypertrophy',
     days_per_week: 4,
@@ -76,6 +77,9 @@ export default function GenerateRoutine() {
         payload.custom_days = customDays
         payload.days_per_week = customDays.length
       }
+      if (routineName.trim()) {
+        payload.name = routineName.trim()
+      }
       const { data } = await api.post('/ai/generate-routine', payload)
       navigate(`/routines/${data.id}`)
     } catch (err) {
@@ -86,7 +90,7 @@ export default function GenerateRoutine() {
   }
 
   return (
-    <div className="space-y-6 max-w-lg mx-auto">
+    <div className="space-y-6 max-w-lg mx-auto overflow-hidden">
       <div className="text-center">
         <Zap size={40} className="text-purple-500 mx-auto mb-2" />
         <h1 className="text-2xl font-bold">Generar Rutina</h1>
@@ -113,6 +117,17 @@ export default function GenerateRoutine() {
       )}
 
       <div data-tour="gen-form" className="card space-y-5">
+        <div>
+          <label className="label">Nombre de la rutina (opcional)</label>
+          <input
+            className="input"
+            value={routineName}
+            onChange={e => setRoutineName(e.target.value)}
+            placeholder="ej: Mi rutina de fuerza"
+          />
+          <p className="text-[11px] text-gray-400 mt-1">Si lo dejas vacío, se generará un nombre automático</p>
+        </div>
+
         <div>
           <label className="label">Objetivo</label>
           <select className="input" value={form.objective} onChange={(e) => setForm({ ...form, objective: e.target.value })}>

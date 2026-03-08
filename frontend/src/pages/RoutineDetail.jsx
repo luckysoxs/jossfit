@@ -6,7 +6,7 @@ import useOnlineStatus from '../hooks/useOnlineStatus'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import OneRMCalculator from '../components/routines/OneRMCalculator'
 import AIRoutineView from '../components/routines/AIRoutineView'
-import { ArrowLeft, Play, Check, ChevronRight, Calculator, RefreshCw, X, Zap, Trash2, Plus, Trophy, Dumbbell, GripVertical, ChevronUp, ChevronDown, Search, Settings2, WifiOff, TrendingUp, Calendar, Moon, Timer, Pause } from 'lucide-react'
+import { ArrowLeft, Play, Check, ChevronRight, Calculator, RefreshCw, X, Zap, Trash2, Plus, Trophy, Dumbbell, GripVertical, ChevronUp, ChevronDown, Search, Settings2, WifiOff, TrendingUp, Calendar, Moon, Timer, Pause, Pencil } from 'lucide-react'
 
 const MUSCLE_LABELS = {
   chest: 'Pecho', back: 'Espalda', shoulders: 'Hombros', biceps: 'Bíceps',
@@ -94,6 +94,8 @@ export default function RoutineDetail() {
   const [personalBests, setPersonalBests] = useState({})
   const [showAIView, setShowAIView] = useState(false)
   const [showSchedule, setShowSchedule] = useState(false)
+  const [editingName, setEditingName] = useState(false)
+  const [nameInput, setNameInput] = useState('')
 
   // Rest timer state
   const [timerSeconds, setTimerSeconds] = useState(0)
@@ -740,24 +742,53 @@ export default function RoutineDetail() {
       </button>
 
       <div className="card">
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-xl font-bold">{routine.name}</h1>
-            <div className="flex gap-3 text-sm text-gray-400 mt-1">
-              <span className="bg-brand-50 dark:bg-brand-500/10 text-brand-500 px-2 py-0.5 rounded-full">{routine.split_type}</span>
-              <span>{routine.days_per_week} días/semana</span>
-              {routine.generation_type === 'adaptativo' && (
-                <span className="bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full">Adaptativo</span>
+        <div className="space-y-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              {editingName ? (
+                <form onSubmit={async (e) => {
+                  e.preventDefault()
+                  if (!nameInput.trim()) { setEditingName(false); return }
+                  try {
+                    await api.put(`/routines/${id}`, { name: nameInput.trim() })
+                    setRoutine(r => ({ ...r, name: nameInput.trim() }))
+                  } catch {}
+                  setEditingName(false)
+                }} className="flex items-center gap-2">
+                  <input
+                    autoFocus
+                    className="input text-lg font-bold py-1 flex-1"
+                    value={nameInput}
+                    onChange={e => setNameInput(e.target.value)}
+                    onBlur={() => setEditingName(false)}
+                    onKeyDown={e => e.key === 'Escape' && setEditingName(false)}
+                  />
+                </form>
+              ) : (
+                <button
+                  onClick={() => { setNameInput(routine.name); setEditingName(true) }}
+                  className="flex items-center gap-2 text-left group"
+                >
+                  <h1 className="text-xl font-bold truncate">{routine.name}</h1>
+                  <Pencil size={14} className="text-gray-400 opacity-0 group-hover:opacity-100 flex-shrink-0 transition-opacity" />
+                </button>
               )}
+              <div className="flex flex-wrap gap-2 text-sm text-gray-400 mt-1">
+                <span className="bg-brand-50 dark:bg-brand-500/10 text-brand-500 px-2 py-0.5 rounded-full text-xs">{routine.split_type}</span>
+                <span className="text-xs">{routine.days_per_week} días/semana</span>
+                {routine.generation_type === 'adaptativo' && (
+                  <span className="bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full text-xs">Adaptativo</span>
+                )}
+              </div>
             </div>
           </div>
-          <div className="flex gap-1.5">
+          <div className="flex gap-2">
             <button onClick={() => setShowSchedule(true)}
-              className="flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-brand-500 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-xl transition-colors">
+              className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-gray-400 hover:text-brand-500 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-xl transition-colors">
               <Calendar size={14} /> Descansos
             </button>
             <button onClick={() => navigate('/routines/generate')}
-              className="flex items-center gap-1.5 text-xs font-medium text-brand-500 hover:text-brand-400 bg-brand-50 dark:bg-brand-500/10 px-3 py-2 rounded-xl transition-colors">
+              className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-brand-500 hover:text-brand-400 bg-brand-50 dark:bg-brand-500/10 px-3 py-2 rounded-xl transition-colors">
               <Zap size={14} /> Nueva
             </button>
           </div>

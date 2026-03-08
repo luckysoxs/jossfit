@@ -33,14 +33,14 @@ export default function Routines() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Mis Rutinas</h1>
-        <div className="flex gap-2">
-          <Link data-tour="generate-routine" to="/routines/generate" className="btn-primary flex items-center gap-2 text-sm py-2 px-4">
-            <Zap size={16} /> Generar
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-xl sm:text-2xl font-bold truncate">Mis Rutinas</h1>
+        <div className="flex gap-2 flex-shrink-0">
+          <Link data-tour="generate-routine" to="/routines/generate" className="btn-primary flex items-center gap-1.5 text-xs sm:text-sm py-2 px-3 sm:px-4">
+            <Zap size={14} /> Generar
           </Link>
-          <Link to="/routines/create" className="btn-secondary flex items-center gap-2 text-sm py-2 px-4">
-            <Plus size={16} /> Manual
+          <Link to="/routines/create" className="btn-secondary flex items-center gap-1.5 text-xs sm:text-sm py-2 px-3 sm:px-4">
+            <Plus size={14} /> Manual
           </Link>
         </div>
       </div>

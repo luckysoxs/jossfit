@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
+from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
@@ -8,6 +9,10 @@ from app.schemas.routine import RoutineCreate, RoutineExerciseCreate, RoutineRes
 from app.auth.security import get_current_user
 
 router = APIRouter(prefix="/routines", tags=["Routines"])
+
+
+class RoutineUpdate(BaseModel):
+    name: str | None = None
 
 
 @router.post("", response_model=RoutineResponse, status_code=201)
@@ -113,6 +118,22 @@ def update_schedule(
     routine.rest_weekdays = rest_weekdays
     db.commit()
     return {"ok": True, "rest_weekdays": rest_weekdays}
+
+
+@router.put("/{routine_id}", response_model=RoutineResponse)
+def update_routine(
+    routine_id: int,
+    data: RoutineUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    routine = db.query(Routine).filter(Routine.id == routine_id, Routine.user_id == user.id).first()
+    if not routine:
+        raise HTTPException(status_code=404, detail="Routine not found")
+    if data.name and data.name.strip():
+        routine.name = data.name.strip()
+    db.commit()
+    return _load_full_routine(db, routine.id)
 
 
 @router.get("/{routine_id}", response_model=RoutineResponse)

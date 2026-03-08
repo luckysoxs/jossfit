@@ -54,10 +54,10 @@ def generate_smart_routine(
         custom_days=[d.model_dump() for d in req.custom_days] if req.custom_days else None,
     )
 
-    # Save to database
+    # Save to database — use custom name if provided, otherwise the generated one
     routine = Routine(
         user_id=user.id,
-        name=routine_data["name"],
+        name=req.name.strip() if req.name and req.name.strip() else routine_data["name"],
         split_type=routine_data["split_type"],
         objective=routine_data["objective"],
         days_per_week=routine_data["days_per_week"],
