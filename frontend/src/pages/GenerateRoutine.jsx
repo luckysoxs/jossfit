@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
-import { Zap, Loader2, ShieldAlert, Plus, X, Pencil, Save } from 'lucide-react'
+import { Zap, Loader2, ShieldAlert, Plus, X, Pencil, Save, CheckCircle2 } from 'lucide-react'
 import PageTour from '../components/ui/PageTour'
 
 const MUSCLES = ['chest', 'back', 'shoulders', 'quadriceps', 'hamstrings', 'glutes', 'biceps', 'triceps', 'abs', 'calves']
@@ -69,24 +69,60 @@ export default function GenerateRoutine() {
 
   const isCustom = form.split_preference === 'custom'
 
+  const [success, setSuccess] = useState(null) // { id, name }
+
   const generate = async () => {
+    if (!routineName.trim()) {
+      alert('Dale un nombre a tu rutina')
+      return
+    }
     setLoading(true)
     try {
-      const payload = { ...form }
+      const payload = { ...form, name: routineName.trim() }
       if (isCustom) {
         payload.custom_days = customDays
         payload.days_per_week = customDays.length
       }
-      if (routineName.trim()) {
-        payload.name = routineName.trim()
-      }
       const { data } = await api.post('/ai/generate-routine', payload)
-      navigate(`/routines/${data.id}`)
+      setSuccess({ id: data.id, name: data.name })
     } catch (err) {
       alert(err.response?.data?.detail || 'Error al generar')
     } finally {
       setLoading(false)
     }
+  }
+
+  // ── Success screen ──
+  if (success) {
+    return (
+      <div className="space-y-6 max-w-lg mx-auto text-center py-12">
+        <CheckCircle2 size={56} className="text-green-500 mx-auto" />
+        <div>
+          <h1 className="text-2xl font-bold">Rutina Guardada</h1>
+          <p className="text-gray-400 mt-1">{success.name}</p>
+        </div>
+        <div className="flex flex-col gap-3">
+          <button
+            onClick={() => navigate(`/routines/${success.id}`, { replace: true })}
+            className="btn-primary w-full flex items-center justify-center gap-2"
+          >
+            <Zap size={18} /> Ver Rutina
+          </button>
+          <button
+            onClick={() => navigate('/routines', { replace: true })}
+            className="btn-secondary w-full"
+          >
+            Ir a Mis Rutinas
+          </button>
+          <button
+            onClick={() => { setSuccess(null); setRoutineName('') }}
+            className="text-sm text-gray-400 hover:text-gray-300"
+          >
+            Generar otra rutina
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -118,14 +154,14 @@ export default function GenerateRoutine() {
 
       <div data-tour="gen-form" className="card space-y-5">
         <div>
-          <label className="label">Nombre de la rutina (opcional)</label>
+          <label className="label">Nombre de la rutina *</label>
           <input
             className="input"
             value={routineName}
             onChange={e => setRoutineName(e.target.value)}
             placeholder="ej: Mi rutina de fuerza"
           />
-          <p className="text-[11px] text-gray-400 mt-1">Si lo dejas vacío, se generará un nombre automático</p>
+          <p className="text-[11px] text-gray-400 mt-1">Ponle un nombre para encontrarla fácilmente</p>
         </div>
 
         <div>
@@ -253,7 +289,7 @@ export default function GenerateRoutine() {
         <button
           onClick={generate}
           className="btn-primary w-full flex items-center justify-center gap-2"
-          disabled={loading || (isCustom && customDays.some(d => d.muscles.length === 0))}
+          disabled={loading || !routineName.trim() || (isCustom && customDays.some(d => d.muscles.length === 0))}
         >
           {loading ? (
             <><Loader2 size={18} className="animate-spin" /> Generando...</>

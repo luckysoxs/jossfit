@@ -130,7 +130,7 @@ export default function CreateRoutine() {
         })),
       }
       await api.post('/routines', payload)
-      navigate('/routines')
+      navigate('/routines', { replace: true })
     } catch (err) {
       const msg = err.response?.data?.detail || 'Error al crear rutina'
       alert(msg)
