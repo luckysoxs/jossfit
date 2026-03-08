@@ -101,14 +101,14 @@ def get_global_stats(
 
     avg_per_user = round(total_workouts / total_users, 1) if total_users > 0 else 0.0
 
-    # Distributions
+    # Distributions — use .value for enums to get clean keys like "beginner", "male"
     level_dist = {}
     for level, count in db.query(User.training_level, sqlfunc.count(User.id)).group_by(User.training_level).all():
-        level_dist[str(level)] = count
+        level_dist[level.value if hasattr(level, 'value') else str(level)] = count
 
     sex_dist = {}
     for sex, count in db.query(User.sex, sqlfunc.count(User.id)).group_by(User.sex).all():
-        sex_dist[str(sex)] = count
+        sex_dist[sex.value if hasattr(sex, 'value') else str(sex)] = count
 
     goal_dist = {}
     for goal, count in (
@@ -117,7 +117,7 @@ def get_global_stats(
         .group_by(User.fitness_goal)
         .all()
     ):
-        goal_dist[str(goal)] = count
+        goal_dist[goal.value if hasattr(goal, 'value') else str(goal)] = count
 
     return GlobalStats(
         total_users=total_users,
@@ -132,6 +132,41 @@ def get_global_stats(
         sex_distribution=sex_dist,
         goal_distribution=goal_dist,
     )
+
+
+# ─── GET /admin/users/growth ────────────────────────────────────────
+@router.get("/users/growth")
+def users_growth(
+    period: str = Query("30d", regex="^(7d|30d|90d|6m|1y)$"),
+    admin: User = Depends(get_admin_user),
+    db: Session = Depends(get_db),
+):
+    """Return daily new-user counts for the given period."""
+    days_map = {"7d": 7, "30d": 30, "90d": 90, "6m": 180, "1y": 365}
+    days = days_map.get(period, 30)
+    start = date.today() - timedelta(days=days)
+
+    rows = (
+        db.query(
+            sqlfunc.date(User.created_at).label("day"),
+            sqlfunc.count(User.id).label("count"),
+        )
+        .filter(sqlfunc.date(User.created_at) >= start)
+        .group_by(sqlfunc.date(User.created_at))
+        .order_by(sqlfunc.date(User.created_at))
+        .all()
+    )
+
+    data_map = {str(r.day): r.count for r in rows}
+    result = []
+    current = start
+    today = date.today()
+    while current <= today:
+        d = str(current)
+        result.append({"date": d, "count": data_map.get(d, 0)})
+        current += timedelta(days=1)
+
+    return result
 
 
 # ─── GET /admin/users ───────────────────────────────────────────────

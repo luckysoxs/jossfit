@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
 import RichTextEditor from '../components/ui/RichTextEditor'
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid } from 'recharts'
 import {
   Shield, Users, Activity, UserPlus, Dumbbell, Search,
   ChevronLeft, ChevronRight, X, Trash2, ShieldCheck, ShieldOff,
@@ -1770,6 +1771,17 @@ export default function Admin() {
   const [selectedUserId, setSelectedUserId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [searchTimeout, setSearchTimeout] = useState(null)
+  const [growthData, setGrowthData] = useState([])
+  const [growthPeriod, setGrowthPeriod] = useState('30d')
+
+  const fetchGrowth = async (period = '30d') => {
+    try {
+      const res = await api.get('/admin/users/growth', { params: { period } })
+      setGrowthData(res.data)
+    } catch (err) {
+      console.error('Growth error:', err)
+    }
+  }
 
   const fetchStats = async () => {
     try {
@@ -1801,7 +1813,7 @@ export default function Admin() {
   useEffect(() => {
     const init = async () => {
       setLoading(true)
-      await Promise.all([fetchStats(), fetchUsers()])
+      await Promise.all([fetchStats(), fetchUsers(), fetchGrowth('30d')])
       setLoading(false)
     }
     init()
@@ -1901,36 +1913,112 @@ export default function Admin() {
         </div>
       )}
 
-      {/* Distributions */}
-      {mainTab === 'users' && stats && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      {/* Distribution Charts */}
+      {mainTab === 'users' && stats && (() => {
+        const PIE_COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899']
+        const SEX_LABELS = { male: 'Masculino', female: 'Femenino' }
+
+        const levelData = Object.entries(stats.training_level_distribution).map(([k, v]) => ({
+          name: LEVEL_LABELS[k] || k, value: v,
+        }))
+        const sexData = Object.entries(stats.sex_distribution).map(([k, v]) => ({
+          name: SEX_LABELS[k] || k, value: v,
+        }))
+        const goalData = Object.entries(stats.goal_distribution).map(([k, v]) => ({
+          name: GOAL_LABELS[k] || k, value: v,
+        }))
+
+        const renderPie = (data, title) => (
           <div className="card p-4">
-            <h3 className="text-sm font-semibold mb-2">Nivel de Entrenamiento</h3>
-            {Object.entries(stats.training_level_distribution).map(([level, count]) => (
-              <div key={level} className="flex items-center justify-between text-sm py-1">
-                <span className="text-gray-600 dark:text-gray-400 capitalize">{LEVEL_LABELS[level] || level}</span>
-                <span className="font-semibold">{count}</span>
-              </div>
-            ))}
+            <h3 className="text-sm font-semibold mb-3">{title}</h3>
+            <ResponsiveContainer width="100%" height={180}>
+              <PieChart>
+                <Pie data={data} cx="50%" cy="50%" innerRadius={40} outerRadius={70} paddingAngle={3} dataKey="value">
+                  {data.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                </Pie>
+                <Tooltip formatter={(value) => [value, 'Usuarios']} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="flex flex-wrap gap-2 justify-center mt-2">
+              {data.map((d, i) => (
+                <span key={d.name} className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }} />
+                  {d.name} ({d.value})
+                </span>
+              ))}
+            </div>
           </div>
-          <div className="card p-4">
-            <h3 className="text-sm font-semibold mb-2">Distribución por Sexo</h3>
-            {Object.entries(stats.sex_distribution).map(([sex, count]) => (
-              <div key={sex} className="flex items-center justify-between text-sm py-1">
-                <span className="text-gray-600 dark:text-gray-400">{sex === 'male' ? 'Masculino' : 'Femenino'}</span>
-                <span className="font-semibold">{count}</span>
-              </div>
-            ))}
+        )
+
+        return (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {renderPie(levelData, 'Nivel de Entrenamiento')}
+            {renderPie(sexData, 'Distribución por Sexo')}
+            {renderPie(goalData, 'Objetivos')}
           </div>
-          <div className="card p-4">
-            <h3 className="text-sm font-semibold mb-2">Objetivos</h3>
-            {Object.entries(stats.goal_distribution).map(([goal, count]) => (
-              <div key={goal} className="flex items-center justify-between text-sm py-1">
-                <span className="text-gray-600 dark:text-gray-400">{GOAL_LABELS[goal] || goal}</span>
-                <span className="font-semibold">{count}</span>
-              </div>
-            ))}
+        )
+      })()}
+
+      {/* Users Growth Chart */}
+      {mainTab === 'users' && (
+        <div className="card p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold">Usuarios Nuevos</h3>
+            <div className="flex gap-1">
+              {[
+                { id: '7d', label: '7D' },
+                { id: '30d', label: '30D' },
+                { id: '90d', label: '90D' },
+                { id: '6m', label: '6M' },
+                { id: '1y', label: '1A' },
+              ].map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => { setGrowthPeriod(p.id); fetchGrowth(p.id) }}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+                    growthPeriod === p.id
+                      ? 'bg-brand-500 text-white'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
           </div>
+          <ResponsiveContainer width="100%" height={220}>
+            <AreaChart data={growthData}>
+              <defs>
+                <linearGradient id="growthGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.3} />
+                  <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.2} />
+              <XAxis
+                dataKey="date"
+                tick={{ fontSize: 10, fill: '#9ca3af' }}
+                tickFormatter={d => {
+                  const dt = new Date(d + 'T00:00:00')
+                  return dt.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })
+                }}
+                interval={growthPeriod === '7d' ? 0 : growthPeriod === '30d' ? 4 : growthPeriod === '90d' ? 13 : 29}
+              />
+              <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} allowDecimals={false} width={30} />
+              <Tooltip
+                labelFormatter={d => new Date(d + 'T00:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' })}
+                formatter={(v) => [v, 'Nuevos']}
+                contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '0.5rem', fontSize: '12px' }}
+                labelStyle={{ color: '#9ca3af' }}
+              />
+              <Area type="monotone" dataKey="count" stroke="#3b82f6" strokeWidth={2} fill="url(#growthGrad)" />
+            </AreaChart>
+          </ResponsiveContainer>
+          {growthData.length > 0 && (
+            <p className="text-xs text-gray-400 text-center mt-2">
+              Total: {growthData.reduce((sum, d) => sum + d.count, 0)} nuevos usuarios en este período
+            </p>
+          )}
         </div>
       )}
 
