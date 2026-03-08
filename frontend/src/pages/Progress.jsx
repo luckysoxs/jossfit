@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import api from '../services/api'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import PageTour from '../components/ui/PageTour'
-import { TrendingUp, AlertTriangle, Shield, Activity, Flame } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { TrendingUp, AlertTriangle, Shield, Activity, Flame, Dumbbell, Calendar, Clock, ChevronRight } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
 
 export default function Progress() {
@@ -12,6 +13,7 @@ export default function Progress() {
   const [orm, setOrm] = useState(null)
   const [progression, setProgression] = useState(null)
   const [fatigueData, setFatigueData] = useState([])
+  const [workoutHistory, setWorkoutHistory] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -32,6 +34,7 @@ export default function Progress() {
           fatigue: wk.fatigue_level,
         }))
       setFatigueData(fData)
+      setWorkoutHistory(w.data || [])
     }).finally(() => setLoading(false))
   }, [])
 
@@ -175,6 +178,62 @@ export default function Progress() {
               : {progression.recommended_weight} kg
             </p>
             <p className="text-xs mt-1 opacity-75">{progression.reason}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Historial de Entrenos */}
+      <div className="card">
+        <h3 className="font-semibold mb-3 flex items-center gap-2">
+          <Dumbbell size={18} className="text-brand-500" /> Historial de Entrenos
+        </h3>
+        {workoutHistory.length === 0 ? (
+          <div className="text-center py-6">
+            <Dumbbell size={32} className="mx-auto text-gray-300 dark:text-gray-600 mb-2" />
+            <p className="text-sm text-gray-500">No hay entrenamientos registrados</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {workoutHistory.map((w) => {
+              const getFatigueEmoji = (level) => {
+                if (!level) return ''
+                if (level <= 2) return '😊'
+                if (level <= 4) return '💪'
+                if (level <= 6) return '😤'
+                if (level <= 8) return '😓'
+                return '💀'
+              }
+              return (
+                <Link
+                  key={w.id}
+                  to={`/workouts/${w.id}`}
+                  className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-brand-50 dark:bg-brand-500/10 text-brand-500">
+                      <Dumbbell size={16} />
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">{w.sets?.length || 0} series</p>
+                      <div className="flex items-center gap-2 text-xs text-gray-400">
+                        <span className="flex items-center gap-1">
+                          <Calendar size={11} /> {new Date(w.date).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}
+                        </span>
+                        {w.duration_minutes && (
+                          <span className="flex items-center gap-1">
+                            <Clock size={11} /> {w.duration_minutes}min
+                          </span>
+                        )}
+                        {w.fatigue_level && (
+                          <span>{getFatigueEmoji(w.fatigue_level)} {w.fatigue_level}/10</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <ChevronRight size={16} className="text-gray-400" />
+                </Link>
+              )
+            })}
           </div>
         )}
       </div>
