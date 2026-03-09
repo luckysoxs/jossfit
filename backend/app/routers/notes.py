@@ -13,8 +13,15 @@ from app.models.note_view import NoteView
 from app.models.notification import Notification
 from app.auth.security import get_current_user
 from app.services.push_service import send_push_to_all
+import re
 
 logger = logging.getLogger(__name__)
+
+def strip_tags(html: str) -> str:
+    """Remove HTML tags and decode entities for clean push notification text."""
+    text = re.sub(r'<[^>]+>', ' ', html)
+    text = text.replace('&nbsp;', ' ').replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>').replace('&quot;', '"').replace('&#39;', "'")  
+    return re.sub(r'\s+', ' ', text).strip()
 
 router = APIRouter(prefix="/notes", tags=["Notes"])
 
@@ -271,7 +278,7 @@ def create_note(
         # Send push only if enabled — wrapped in try-catch to prevent 500 errors
         if data.send_push:
             try:
-                send_push_to_all(db, f"Nueva nota: {data.title}", data.content[:100], f"/notes/{note.id}")
+                send_push_to_all(db, f"Nueva nota: {data.title}", strip_tags(data.content)[:100], f"/notes/{note.id}")
             except Exception as e:
                 logger.warning(f"Push notification failed for note #{note.id}: {e}")
     else:

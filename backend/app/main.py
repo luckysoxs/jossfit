@@ -151,6 +151,12 @@ async def publish_scheduled_notes():
     from app.models.notification import Notification
     from app.models.user import User
     from app.services.push_service import send_push_to_all
+    import re
+
+    def strip_tags(html):
+        text = re.sub(r'<[^>]+>', ' ', html)
+        text = text.replace('&nbsp;', ' ').replace('&amp;', '&')
+        return re.sub(r'\s+', ' ', text).strip()
 
     while True:
         await asyncio.sleep(60)
@@ -187,7 +193,7 @@ async def publish_scheduled_notes():
                 # Send push notification (only if enabled)
                 if note.send_push:
                     try:
-                        send_push_to_all(db, f"Nueva nota: {note.title}", note.content[:100], f"/notes/{note.id}")
+                        send_push_to_all(db, f"Nueva nota: {note.title}", strip_tags(note.content)[:100], f"/notes/{note.id}")
                     except Exception as push_err:
                         logger.warning(f"Push failed for note #{note.id}: {push_err}")
                 logger.info(f"Published scheduled note #{note.id}: {note.title}")
