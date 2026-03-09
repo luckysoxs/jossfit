@@ -15,6 +15,15 @@ class RoutineUpdate(BaseModel):
     name: str | None = None
 
 
+# ──────────────────────────────────────────────────────
+# IMPORTANT: Static / sub-path routes MUST come BEFORE
+# parameterised /{routine_id} routes, otherwise FastAPI
+# matches the literal path segment against {routine_id}
+# and returns 422 because e.g. "reorder-exercises" is
+# not a valid integer.
+# ──────────────────────────────────────────────────────
+
+
 @router.post("", response_model=RoutineResponse, status_code=201)
 def create_routine(
     data: RoutineCreate,
@@ -77,6 +86,8 @@ def list_routines(
     )
 
 
+# ─── Static PUT routes (before /{routine_id}) ───
+
 @router.put("/reorder-days", status_code=200)
 def reorder_days(
     routine_id: int = Body(...),
@@ -98,67 +109,6 @@ def reorder_days(
 
     db.commit()
     return {"ok": True}
-
-
-@router.put("/{routine_id}/schedule")
-def update_schedule(
-    routine_id: int,
-    rest_weekdays: list[int] = Body(..., embed=True),
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """Set rest weekdays for a routine. 0=Monday, 6=Sunday."""
-    routine = db.query(Routine).filter(Routine.id == routine_id, Routine.user_id == user.id).first()
-    if not routine:
-        raise HTTPException(status_code=404, detail="Routine not found")
-    # Validate: rest days should leave enough training days
-    training_days_available = 7 - len(rest_weekdays)
-    if training_days_available < routine.days_per_week:
-        raise HTTPException(status_code=400, detail="Demasiados días de descanso para tu rutina")
-    routine.rest_weekdays = rest_weekdays
-    db.commit()
-    return {"ok": True, "rest_weekdays": rest_weekdays}
-
-
-@router.put("/{routine_id}", response_model=RoutineResponse)
-def update_routine(
-    routine_id: int,
-    data: RoutineUpdate,
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    routine = db.query(Routine).filter(Routine.id == routine_id, Routine.user_id == user.id).first()
-    if not routine:
-        raise HTTPException(status_code=404, detail="Routine not found")
-    if data.name and data.name.strip():
-        routine.name = data.name.strip()
-    db.commit()
-    return _load_full_routine(db, routine.id)
-
-
-@router.get("/{routine_id}", response_model=RoutineResponse)
-def get_routine(
-    routine_id: int,
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    routine = _load_full_routine(db, routine_id)
-    if not routine or routine.user_id != user.id:
-        raise HTTPException(status_code=404, detail="Routine not found")
-    return routine
-
-
-@router.delete("/{routine_id}", status_code=204)
-def delete_routine(
-    routine_id: int,
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    routine = db.query(Routine).filter(Routine.id == routine_id, Routine.user_id == user.id).first()
-    if not routine:
-        raise HTTPException(status_code=404, detail="Routine not found")
-    db.delete(routine)
-    db.commit()
 
 
 @router.put("/reorder-exercises", status_code=200)
@@ -188,6 +138,8 @@ def reorder_exercises(
     db.commit()
     return {"ok": True}
 
+
+# ─── /exercises/ sub-path routes (before /{routine_id}) ───
 
 @router.put("/exercises/{routine_exercise_id}", status_code=200)
 def update_exercise(
@@ -306,6 +258,71 @@ def add_exercise(
     db.commit()
     return {"ok": True}
 
+
+# ─── Parameterised /{routine_id} routes (MUST be last) ───
+
+@router.put("/{routine_id}/schedule")
+def update_schedule(
+    routine_id: int,
+    rest_weekdays: list[int] = Body(..., embed=True),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Set rest weekdays for a routine. 0=Monday, 6=Sunday."""
+    routine = db.query(Routine).filter(Routine.id == routine_id, Routine.user_id == user.id).first()
+    if not routine:
+        raise HTTPException(status_code=404, detail="Routine not found")
+    # Validate: rest days should leave enough training days
+    training_days_available = 7 - len(rest_weekdays)
+    if training_days_available < routine.days_per_week:
+        raise HTTPException(status_code=400, detail="Demasiados días de descanso para tu rutina")
+    routine.rest_weekdays = rest_weekdays
+    db.commit()
+    return {"ok": True, "rest_weekdays": rest_weekdays}
+
+
+@router.put("/{routine_id}", response_model=RoutineResponse)
+def update_routine(
+    routine_id: int,
+    data: RoutineUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    routine = db.query(Routine).filter(Routine.id == routine_id, Routine.user_id == user.id).first()
+    if not routine:
+        raise HTTPException(status_code=404, detail="Routine not found")
+    if data.name and data.name.strip():
+        routine.name = data.name.strip()
+    db.commit()
+    return _load_full_routine(db, routine.id)
+
+
+@router.get("/{routine_id}", response_model=RoutineResponse)
+def get_routine(
+    routine_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    routine = _load_full_routine(db, routine_id)
+    if not routine or routine.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Routine not found")
+    return routine
+
+
+@router.delete("/{routine_id}", status_code=204)
+def delete_routine(
+    routine_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    routine = db.query(Routine).filter(Routine.id == routine_id, Routine.user_id == user.id).first()
+    if not routine:
+        raise HTTPException(status_code=404, detail="Routine not found")
+    db.delete(routine)
+    db.commit()
+
+
+# ─── Helper ───
 
 def _load_full_routine(db: Session, routine_id: int) -> Routine | None:
     return (
