@@ -1,16 +1,18 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Timer, X, RotateCcw, Play, Pause } from 'lucide-react'
+import { ensureNotificationPermission, scheduleSWNotification, cancelSWNotification } from '../../utils/backgroundTimer'
 
 /**
  * Rest Timer — appears after completing an exercise.
  * Optional: user can skip/dismiss at any time.
  * Vibrates + plays sound when done.
+ * Supports background: keeps counting when app is minimized and sends push notification.
  */
 export default function RestTimer({ seconds, exerciseName, onClose }) {
   const [timeLeft, setTimeLeft] = useState(seconds)
   const [running, setRunning] = useState(true)
   const intervalRef = useRef(null)
-  const audioRef = useRef(null)
+  const endTimeRef = useRef(Date.now() + seconds * 1000)
 
   const totalSeconds = seconds
   const progress = totalSeconds > 0 ? ((totalSeconds - timeLeft) / totalSeconds) * 100 : 100
@@ -22,8 +24,12 @@ export default function RestTimer({ seconds, exerciseName, onClose }) {
   const circumference = 2 * Math.PI * radius
   const strokeOffset = circumference - (progress / 100) * circumference
 
+  // Request notification permission on mount
+  useEffect(() => { ensureNotificationPermission() }, [])
+
   // Play finish sound + vibrate
   const onFinish = useCallback(() => {
+    cancelSWNotification()
     // Vibrate if supported
     if (navigator.vibrate) {
       navigator.vibrate([200, 100, 200, 100, 200])
@@ -52,30 +58,80 @@ export default function RestTimer({ seconds, exerciseName, onClose }) {
     } catch {}
   }, [])
 
+  // endTime-based interval: survives background correctly
   useEffect(() => {
     if (!running) return
 
     intervalRef.current = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          clearInterval(intervalRef.current)
-          setRunning(false)
-          onFinish()
-          return 0
-        }
-        return prev - 1
-      })
+      const remaining = Math.max(0, Math.ceil((endTimeRef.current - Date.now()) / 1000))
+      setTimeLeft(remaining)
+      if (remaining <= 0) {
+        clearInterval(intervalRef.current)
+        setRunning(false)
+        onFinish()
+      }
     }, 1000)
 
     return () => clearInterval(intervalRef.current)
   }, [running, onFinish])
 
-  const togglePause = () => setRunning(r => !r)
+  // Background/foreground sync
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (!endTimeRef.current) return
+
+      if (document.hidden) {
+        // Schedule SW notification when going to background
+        const remainingMs = endTimeRef.current - Date.now()
+        if (remainingMs > 0 && running) {
+          scheduleSWNotification(remainingMs)
+        }
+      } else {
+        // Returning to foreground
+        cancelSWNotification()
+        const remaining = Math.max(0, Math.ceil((endTimeRef.current - Date.now()) / 1000))
+        setTimeLeft(remaining)
+        if (remaining <= 0 && running) {
+          clearInterval(intervalRef.current)
+          setRunning(false)
+          onFinish()
+        }
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [running, onFinish])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => cancelSWNotification()
+  }, [])
+
+  const togglePause = () => {
+    setRunning(r => {
+      if (r) {
+        // Pausing — cancel any scheduled notification
+        cancelSWNotification()
+      } else {
+        // Resuming — recalculate endTime from current timeLeft
+        endTimeRef.current = Date.now() + timeLeft * 1000
+      }
+      return !r
+    })
+  }
 
   const restart = () => {
     clearInterval(intervalRef.current)
+    cancelSWNotification()
+    endTimeRef.current = Date.now() + totalSeconds * 1000
     setTimeLeft(totalSeconds)
     setRunning(true)
+  }
+
+  const handleClose = () => {
+    cancelSWNotification()
+    onClose()
   }
 
   const isFinished = timeLeft === 0
@@ -90,7 +146,7 @@ export default function RestTimer({ seconds, exerciseName, onClose }) {
             <span className="font-semibold text-sm">Descanso</span>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 transition-colors"
           >
             <X size={18} />
@@ -157,7 +213,7 @@ export default function RestTimer({ seconds, exerciseName, onClose }) {
               </button>
             )}
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className={`px-5 py-3 rounded-xl text-sm font-medium transition-colors ${
                 isFinished
                   ? 'bg-green-500 text-white hover:bg-green-600'

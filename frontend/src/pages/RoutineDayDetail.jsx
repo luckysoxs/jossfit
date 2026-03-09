@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import { cacheSet, cacheGet, queueAction } from '../services/offlineCache'
+import { ensureNotificationPermission, scheduleSWNotification, cancelSWNotification } from '../utils/backgroundTimer'
 import useOnlineStatus from '../hooks/useOnlineStatus'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import OneRMCalculator from '../components/routines/OneRMCalculator'
@@ -45,10 +46,11 @@ export default function RoutineDayDetail() {
     } catch { return {} }
   })
 
-  // Rest timer state
+  // Rest timer state (endTime-based for background support)
   const [timerSeconds, setTimerSeconds] = useState(0)
   const [timerRunning, setTimerRunning] = useState(false)
   const timerRef = useRef(null)
+  const endTimeRef = useRef(null)
 
   // Exercise picker modals
   const [swapExercise, setSwapExercise] = useState(null)
@@ -244,34 +246,79 @@ export default function RoutineDayDetail() {
     }
   }
 
-  // ─── Rest Timer ───
+  // ─── Rest Timer (background-aware) ───
   const startTimer = useCallback((seconds) => {
     if (timerRef.current) clearInterval(timerRef.current)
+    // Request notification permission on first use
+    ensureNotificationPermission()
+
+    const end = Date.now() + seconds * 1000
+    endTimeRef.current = end
     setTimerSeconds(seconds)
     setTimerRunning(true)
+
     timerRef.current = setInterval(() => {
-      setTimerSeconds(prev => {
-        if (prev <= 1) {
-          clearInterval(timerRef.current)
-          timerRef.current = null
-          setTimerRunning(false)
-          if (navigator.vibrate) navigator.vibrate([200, 100, 200])
-          return 0
-        }
-        return prev - 1
-      })
+      const remaining = Math.max(0, Math.ceil((endTimeRef.current - Date.now()) / 1000))
+      setTimerSeconds(remaining)
+      if (remaining <= 0) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+        endTimeRef.current = null
+        setTimerRunning(false)
+        cancelSWNotification()
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200])
+      }
     }, 1000)
   }, [])
 
   const stopTimer = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current)
     timerRef.current = null
+    endTimeRef.current = null
     setTimerRunning(false)
     setTimerSeconds(0)
+    cancelSWNotification()
   }, [])
 
+  // Cleanup on unmount
   useEffect(() => {
-    return () => { if (timerRef.current) clearInterval(timerRef.current) }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+      cancelSWNotification()
+    }
+  }, [])
+
+  // Background/foreground sync: schedule SW notification when app goes to background
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (!endTimeRef.current) return
+
+      if (document.hidden) {
+        // App going to background → schedule push notification via SW
+        const remainingMs = endTimeRef.current - Date.now()
+        if (remainingMs > 0) {
+          scheduleSWNotification(remainingMs)
+        }
+      } else {
+        // App returning to foreground → cancel SW notification, sync timer
+        cancelSWNotification()
+        const remaining = Math.max(0, Math.ceil((endTimeRef.current - Date.now()) / 1000))
+        if (remaining <= 0) {
+          // Timer finished while in background
+          if (timerRef.current) clearInterval(timerRef.current)
+          timerRef.current = null
+          endTimeRef.current = null
+          setTimerSeconds(0)
+          setTimerRunning(false)
+          if (navigator.vibrate) navigator.vibrate([200, 100, 200])
+        } else {
+          setTimerSeconds(remaining)
+        }
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [])
 
   // ─── Render ───
