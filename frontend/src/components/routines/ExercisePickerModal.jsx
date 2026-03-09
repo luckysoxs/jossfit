@@ -15,8 +15,16 @@ export default function ExercisePickerModal({ title, priorityMuscle, showCustomi
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedExercise, setSelectedExercise] = useState(null)
-  const [config, setConfig] = useState({ sets: 3, reps_min: 8, reps_max: 12, rest_seconds: 90 })
+  const [config, setConfig] = useState({ sets: '3', reps_min: '8', reps_max: '12', rest_seconds: '90' })
   const [submitting, setSubmitting] = useState(false)
+
+  // Parse config values for submission (convert strings to numbers with defaults)
+  const parsedConfig = {
+    sets: parseInt(config.sets) || 3,
+    reps_min: parseInt(config.reps_min) || 8,
+    reps_max: parseInt(config.reps_max) || 12,
+    rest_seconds: parseInt(config.rest_seconds) || 90,
+  }
   const [showCreate, setShowCreate] = useState(false)
   const [newEx, setNewEx] = useState({
     name: '', muscle_group: priorityMuscle || 'chest', category: 'compound', equipment: 'Barbell',
@@ -81,7 +89,7 @@ export default function ExercisePickerModal({ title, priorityMuscle, showCustomi
     if (!selectedExercise) return
     setSubmitting(true)
     try {
-      await onSelect(selectedExercise, config)
+      await onSelect(selectedExercise, parsedConfig)
     } catch (err) {
       console.error('Error adding exercise:', err)
       alert('Error al agregar ejercicio')
@@ -197,25 +205,33 @@ export default function ExercisePickerModal({ title, priorityMuscle, showCustomi
                 <label className="label">Series</label>
                 <input type="number" className="input text-center font-bold" value={config.sets}
                   onFocus={e => e.target.select()}
-                  onChange={e => setConfig({ ...config, sets: parseInt(e.target.value) || 1 })} min="1" max="20" inputMode="numeric" />
+                  onChange={e => setConfig({ ...config, sets: e.target.value })}
+                  onBlur={e => { if (!e.target.value) setConfig(c => ({ ...c, sets: '3' })) }}
+                  min="1" max="20" inputMode="numeric" />
               </div>
               <div>
                 <label className="label">Descanso (s)</label>
                 <input type="number" className="input text-center font-bold" value={config.rest_seconds}
                   onFocus={e => e.target.select()}
-                  onChange={e => setConfig({ ...config, rest_seconds: parseInt(e.target.value) || 30 })} min="10" max="600" step="10" inputMode="numeric" />
+                  onChange={e => setConfig({ ...config, rest_seconds: e.target.value })}
+                  onBlur={e => { if (!e.target.value) setConfig(c => ({ ...c, rest_seconds: '90' })) }}
+                  min="10" max="600" step="10" inputMode="numeric" />
               </div>
               <div>
                 <label className="label">Reps min</label>
                 <input type="number" className="input text-center font-bold" value={config.reps_min}
                   onFocus={e => e.target.select()}
-                  onChange={e => setConfig({ ...config, reps_min: parseInt(e.target.value) || 1 })} min="1" max="100" inputMode="numeric" />
+                  onChange={e => setConfig({ ...config, reps_min: e.target.value })}
+                  onBlur={e => { if (!e.target.value) setConfig(c => ({ ...c, reps_min: '8' })) }}
+                  min="1" max="100" inputMode="numeric" />
               </div>
               <div>
                 <label className="label">Reps max</label>
                 <input type="number" className="input text-center font-bold" value={config.reps_max}
                   onFocus={e => e.target.select()}
-                  onChange={e => setConfig({ ...config, reps_max: parseInt(e.target.value) || 1 })} min="1" max="100" inputMode="numeric" />
+                  onChange={e => setConfig({ ...config, reps_max: e.target.value })}
+                  onBlur={e => { if (!e.target.value) setConfig(c => ({ ...c, reps_max: '12' })) }}
+                  min="1" max="100" inputMode="numeric" />
               </div>
             </div>
             <button onClick={handleConfirmAdd} disabled={submitting}
@@ -223,7 +239,7 @@ export default function ExercisePickerModal({ title, priorityMuscle, showCustomi
               {submitting ? (
                 <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
               ) : (
-                <><Plus size={16} /> Agregar {config.sets} x {config.reps_min}-{config.reps_max}</>
+                <><Plus size={16} /> Agregar {parsedConfig.sets} x {parsedConfig.reps_min}-{parsedConfig.reps_max}</>
               )}
             </button>
           </div>

@@ -210,6 +210,7 @@ export default function RoutineDayDetail() {
       await reloadRoutine()
     } catch (err) {
       console.error('Error reordering:', err)
+      alert('Error al reordenar: ' + (err.response?.data?.detail || err.message))
     } finally {
       setReordering(false)
     }
@@ -225,6 +226,7 @@ export default function RoutineDayDetail() {
       await reloadRoutine()
     } catch (err) {
       console.error('Error reordering:', err)
+      alert('Error al reordenar: ' + (err.response?.data?.detail || err.message))
     } finally {
       setReordering(false)
     }
@@ -359,21 +361,21 @@ export default function RoutineDayDetail() {
         >
           <div className="flex items-center gap-2">
             {/* Move buttons */}
-            <div className="flex flex-col items-center flex-shrink-0 -my-1">
+            <div className="flex flex-col items-center flex-shrink-0">
               <button
                 onClick={() => moveExUp(exIdx, day.id, sortedExercises)}
                 disabled={exIdx === 0 || reordering}
-                className={`p-0.5 rounded transition-colors ${exIdx === 0 ? 'text-gray-300 dark:text-gray-700' : 'text-gray-400 hover:text-brand-500 active:text-brand-600'}`}
+                className={`p-2 rounded-lg transition-colors ${exIdx === 0 ? 'text-gray-300 dark:text-gray-700' : 'text-gray-400 hover:text-brand-500 active:bg-brand-50 dark:active:bg-brand-500/10 active:text-brand-600'}`}
               >
-                <ChevronUp size={14} />
+                <ChevronUp size={18} />
               </button>
-              <GripVertical size={12} className="text-gray-300 dark:text-gray-600" />
+              <GripVertical size={12} className="text-gray-300 dark:text-gray-600 -my-1" />
               <button
                 onClick={() => moveExDown(exIdx, day.id, sortedExercises)}
                 disabled={exIdx >= sortedExercises.length - 1 || reordering}
-                className={`p-0.5 rounded transition-colors ${exIdx >= sortedExercises.length - 1 ? 'text-gray-300 dark:text-gray-700' : 'text-gray-400 hover:text-brand-500 active:text-brand-600'}`}
+                className={`p-2 rounded-lg transition-colors ${exIdx >= sortedExercises.length - 1 ? 'text-gray-300 dark:text-gray-700' : 'text-gray-400 hover:text-brand-500 active:bg-brand-50 dark:active:bg-brand-500/10 active:text-brand-600'}`}
               >
-                <ChevronDown size={14} />
+                <ChevronDown size={18} />
               </button>
             </div>
             {/* Check button */}
