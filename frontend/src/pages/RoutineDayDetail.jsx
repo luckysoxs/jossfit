@@ -149,8 +149,24 @@ export default function RoutineDayDetail() {
       const reps = parseInt(quickSetForm.reps)
       const url = `/workouts/quick-set?exercise_id=${quickSetExercise.exerciseId}&weight_kg=${weight}&reps=${reps}`
 
+      let saved = false
       if (online) {
-        await api.post(url)
+        try {
+          await api.post(url)
+          saved = true
+        } catch (netErr) {
+          // Network failed even though navigator.onLine was true — queue it
+          const isNetworkError = !netErr.response // no server response = network issue
+          if (isNetworkError) {
+            queueAction({
+              method: 'post',
+              url,
+              description: `Quick set: ${quickSetExercise.name} ${weight}kg x ${reps}`,
+            })
+          } else {
+            throw netErr // real server error (4xx/5xx), re-throw
+          }
+        }
       } else {
         queueAction({
           method: 'post',
