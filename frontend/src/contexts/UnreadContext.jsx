@@ -21,7 +21,7 @@ export function UnreadProvider({ children }) {
   useSmartPolling(fetchCounts, 30000, { enabled: !!user })
 
   return (
-    <UnreadContext.Provider value={counts}>
+    <UnreadContext.Provider value={{ ...counts, refreshUnread: fetchCounts }}>
       {children}
     </UnreadContext.Provider>
   )

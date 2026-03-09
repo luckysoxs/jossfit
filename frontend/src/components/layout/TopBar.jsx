@@ -4,12 +4,14 @@ import { useTheme } from '../../contexts/ThemeContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { useUnread } from '../../contexts/UnreadContext'
 import { Sun, Moon, Shield, Radio, Lightbulb } from 'lucide-react'
+import WalkieTalkiePopup from '../walkie/WalkieTalkiePopup'
 
 export default function TopBar() {
   const { theme, toggleTheme } = useTheme()
   const { user } = useAuth()
   const { walkie } = useUnread()
   const [showTooltip, setShowTooltip] = useState(false)
+  const [showWalkie, setShowWalkie] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -40,8 +42,8 @@ export default function TopBar() {
         <div className="flex items-center gap-3">
           {user?.is_admin && (
             <>
-              <Link
-                to="/admin/walkie-talkie"
+              <button
+                onClick={() => setShowWalkie(!showWalkie)}
                 className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-brand-500"
                 aria-label="Walkie-Talkie"
               >
@@ -51,7 +53,7 @@ export default function TopBar() {
                     {walkie > 9 ? '9+' : walkie}
                   </span>
                 )}
-              </Link>
+              </button>
               <Link
                 to="/admin"
                 className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-brand-500"
@@ -98,6 +100,7 @@ export default function TopBar() {
           )}
         </div>
       </div>
+      {showWalkie && <WalkieTalkiePopup onClose={() => setShowWalkie(false)} />}
     </header>
   )
 }
