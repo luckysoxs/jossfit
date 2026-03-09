@@ -12,7 +12,7 @@ import { CARDIO_TYPES } from '../data/cardioProtocols'
 import {
   ArrowLeft, Play, Check, Calculator, RefreshCw, X, Trash2, Plus, Trophy,
   Dumbbell, GripVertical, ChevronUp, ChevronDown, WifiOff, TrendingUp,
-  Timer, Pause, HeartPulse,
+  Timer, Pause, HeartPulse, Music,
 } from 'lucide-react'
 
 const isCardioExercise = (exercise) =>
@@ -357,9 +357,17 @@ export default function RoutineDayDetail() {
 
   return (
     <div className="space-y-4">
-      <button onClick={() => navigate(`/routines/${id}`)} className="flex items-center gap-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
-        <ArrowLeft size={20} /> Volver a dias
-      </button>
+      <div className="flex items-center justify-between">
+        <button onClick={() => navigate(`/routines/${id}`)} className="flex items-center gap-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+          <ArrowLeft size={20} /> Volver a dias
+        </button>
+        <button
+          onClick={() => window.open('https://open.spotify.com', '_blank')}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1DB954] hover:bg-[#1ed760] rounded-full text-white text-sm font-medium transition-colors shadow-sm"
+        >
+          <Music size={16} /> Spotify
+        </button>
+      </div>
 
       <div className="card">
         <div className="flex items-center justify-between">
