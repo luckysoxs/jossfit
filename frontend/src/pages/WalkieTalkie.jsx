@@ -40,6 +40,10 @@ export default function WalkieTalkie() {
   const audioChunksRef = useRef([])
   const recordingTimerRef = useRef(null)
   const streamRef = useRef(null)
+  // Refs for synchronous checks (state updates are async → race conditions)
+  const isRecordingRef = useRef(false)
+  const pendingStopRef = useRef(false)
+  const recordingDurationRef = useRef(0)
 
   // ─── Audio playback state ──────────────────────────────────
   const [playingId, setPlayingId] = useState(null)
@@ -116,6 +120,21 @@ export default function WalkieTalkie() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // Listen for SW messages — when a walkie-talkie push arrives,
+  // the SW relays it here so we can fetch + auto-play even if tab is hidden
+  useEffect(() => {
+    if (!activeChat) return
+
+    const handleSWMessage = (event) => {
+      if (event.data?.type === 'WALKIE_VOICE_RECEIVED') {
+        fetchMessages()
+      }
+    }
+
+    navigator.serviceWorker?.addEventListener('message', handleSWMessage)
+    return () => navigator.serviceWorker?.removeEventListener('message', handleSWMessage)
+  }, [activeChat, fetchMessages])
+
   // Cleanup audio on unmount
   useEffect(() => {
     return () => {
@@ -161,9 +180,27 @@ export default function WalkieTalkie() {
 
   // ─── Voice recording ──────────────────────────────────────
   const startRecording = useCallback(async () => {
-    if (!activeChat || isRecording) return
+    if (!activeChat || isRecordingRef.current) return
+
+    // Set flags SYNCHRONOUSLY before the async getUserMedia call
+    // so that onTouchEnd can detect we're recording even if mic prompt is showing
+    isRecordingRef.current = true
+    pendingStopRef.current = false
+    recordingDurationRef.current = 0
+    setIsRecording(true)
+    setRecordingDuration(0)
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+
+      // User released button while waiting for mic permission
+      if (pendingStopRef.current) {
+        stream.getTracks().forEach((t) => t.stop())
+        isRecordingRef.current = false
+        setIsRecording(false)
+        return
+      }
+
       streamRef.current = stream
 
       const mediaRecorder = new MediaRecorder(stream, {
@@ -180,28 +217,27 @@ export default function WalkieTalkie() {
         }
       }
 
+      const chatId = activeChat.id // capture for onstop closure
       mediaRecorder.onstop = async () => {
-        // Stop all tracks
         stream.getTracks().forEach((t) => t.stop())
         streamRef.current = null
 
         const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
         if (blob.size < 500) {
-          // Too short, ignore
+          isRecordingRef.current = false
           setIsRecording(false)
           setRecordingDuration(0)
           return
         }
 
-        // Convert to base64 and send
         const reader = new FileReader()
         reader.onloadend = async () => {
           const base64 = reader.result.split(',')[1]
           setSending(true)
           try {
-            await api.post(`/admin/walkie-talkie/chats/${activeChat.id}/voice`, {
+            await api.post(`/admin/walkie-talkie/chats/${chatId}/voice`, {
               audio_base64: base64,
-              duration: recordingDuration,
+              duration: recordingDurationRef.current, // ref has live value, not stale closure
             })
             await fetchMessages()
             await fetchChats()
@@ -212,30 +248,31 @@ export default function WalkieTalkie() {
         }
         reader.readAsDataURL(blob)
 
+        isRecordingRef.current = false
         setIsRecording(false)
         setRecordingDuration(0)
       }
 
-      mediaRecorder.start(250) // collect data every 250ms
-      setIsRecording(true)
-      setRecordingDuration(0)
+      mediaRecorder.start(250)
 
       // Duration timer
       const startTime = Date.now()
       recordingTimerRef.current = setInterval(() => {
         const elapsed = (Date.now() - startTime) / 1000
+        recordingDurationRef.current = elapsed
         setRecordingDuration(elapsed)
-        if (elapsed >= 90) {
-          stopRecording()
-        }
+        if (elapsed >= 90) stopRecording()
       }, 100)
     } catch (err) {
       console.error('Mic error:', err)
       alert('No se pudo acceder al micrófono')
+      isRecordingRef.current = false
+      setIsRecording(false)
     }
-  }, [activeChat, isRecording, recordingDuration])
+  }, [activeChat])
 
   const stopRecording = useCallback(() => {
+    pendingStopRef.current = true
     if (recordingTimerRef.current) {
       clearInterval(recordingTimerRef.current)
       recordingTimerRef.current = null
@@ -250,11 +287,11 @@ export default function WalkieTalkie() {
   }, [])
 
   const cancelRecording = useCallback(() => {
+    pendingStopRef.current = true
     if (recordingTimerRef.current) {
       clearInterval(recordingTimerRef.current)
       recordingTimerRef.current = null
     }
-    // Stop without triggering onstop send
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current.ondataavailable = null
       mediaRecorderRef.current.onstop = null
@@ -267,6 +304,7 @@ export default function WalkieTalkie() {
       streamRef.current = null
     }
     audioChunksRef.current = []
+    isRecordingRef.current = false
     setIsRecording(false)
     setRecordingDuration(0)
   }, [])
@@ -555,21 +593,21 @@ export default function WalkieTalkie() {
               type="button"
               onMouseDown={(e) => {
                 e.preventDefault()
-                if (!isRecording) startRecording()
+                if (!isRecordingRef.current) startRecording()
               }}
               onMouseUp={() => {
-                if (isRecording) stopRecording()
+                if (isRecordingRef.current) stopRecording()
               }}
               onMouseLeave={() => {
-                if (isRecording) stopRecording()
+                if (isRecordingRef.current) stopRecording()
               }}
               onTouchStart={(e) => {
                 e.preventDefault()
-                if (!isRecording) startRecording()
+                if (!isRecordingRef.current) startRecording()
               }}
               onTouchEnd={(e) => {
                 e.preventDefault()
-                if (isRecording) stopRecording()
+                if (isRecordingRef.current) stopRecording()
               }}
               className={`px-4 py-3 rounded-xl flex items-center gap-2 select-none transition-colors ${
                 isRecording

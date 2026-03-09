@@ -57,13 +57,27 @@ self.addEventListener('message', (event) => {
 self.addEventListener('push', (event) => {
   const data = event.data?.json() || {}
   const title = data.title || 'JOSSFITness'
+  const url = data.url || '/'
   const options = {
     body: data.body || '',
     icon: '/icon-192x192.png',
     badge: '/icon-96x96.png',
-    data: { url: data.url || '/' },
+    data: { url },
   }
-  event.waitUntil(self.registration.showNotification(title, options))
+
+  event.waitUntil(
+    Promise.all([
+      self.registration.showNotification(title, options),
+      // If it's a walkie-talkie message, relay to any open tabs so they can auto-play
+      url.includes('walkie-talkie')
+        ? clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+            windowClients.forEach((client) => {
+              client.postMessage({ type: 'WALKIE_VOICE_RECEIVED' })
+            })
+          })
+        : Promise.resolve(),
+    ])
+  )
 })
 
 // Notification click handler
