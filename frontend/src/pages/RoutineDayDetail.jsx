@@ -12,7 +12,7 @@ import { CARDIO_TYPES } from '../data/cardioProtocols'
 import {
   ArrowLeft, Play, Check, Calculator, RefreshCw, X, Trash2, Plus, Trophy,
   Dumbbell, GripVertical, ChevronUp, ChevronDown, WifiOff, TrendingUp,
-  Timer, Pause, HeartPulse, Music,
+  Timer, Pause, HeartPulse, Music, Pencil, Save,
 } from 'lucide-react'
 
 const isCardioExercise = (exercise) =>
@@ -67,6 +67,11 @@ export default function RoutineDayDetail() {
 
   // 1RM calculator
   const [oneRMExercise, setOneRMExercise] = useState(null)
+
+  // Edit exercise state
+  const [editingExId, setEditingExId] = useState(null)
+  const [editForm, setEditForm] = useState({ sets: '', reps_min: '', reps_max: '', rest_seconds: '' })
+  const [editSaving, setEditSaving] = useState(false)
 
   // ─── Load data ───
   useEffect(() => {
@@ -235,6 +240,39 @@ export default function RoutineDayDetail() {
     if (typeof d === 'string') return d
     if (Array.isArray(d)) return d.map(e => e.msg || JSON.stringify(e)).join(', ')
     return err.message || 'Error desconocido'
+  }
+
+  const startEditing = (ex) => {
+    setEditingExId(ex.id)
+    setEditForm({
+      sets: ex.sets.toString(),
+      reps_min: ex.reps_min.toString(),
+      reps_max: ex.reps_max.toString(),
+      rest_seconds: ex.rest_seconds.toString(),
+    })
+  }
+
+  const cancelEditing = () => {
+    setEditingExId(null)
+    setEditForm({ sets: '', reps_min: '', reps_max: '', rest_seconds: '' })
+  }
+
+  const saveExerciseEdit = async (exId) => {
+    setEditSaving(true)
+    try {
+      await api.put(`/routines/exercises/${exId}`, {
+        sets: parseInt(editForm.sets, 10),
+        reps_min: parseInt(editForm.reps_min, 10),
+        reps_max: parseInt(editForm.reps_max, 10),
+        rest_seconds: parseInt(editForm.rest_seconds, 10),
+      })
+      await reloadRoutine()
+      setEditingExId(null)
+    } catch (err) {
+      alert('Error al guardar: ' + getErrMsg(err))
+    } finally {
+      setEditSaving(false)
+    }
   }
 
   const moveExUp = async (exIdx, dId, sortedExercises) => {
@@ -553,6 +591,53 @@ export default function RoutineDayDetail() {
                     <p className="text-xs text-gray-400">Descanso: {ex.rest_seconds}s</p>
                   </div>
                 </div>
+
+                {/* Inline edit form */}
+                {editingExId === ex.id && (
+                  <div className="mt-2 p-2.5 bg-gray-100 dark:bg-gray-700/50 rounded-xl space-y-2">
+                    <div className="grid grid-cols-4 gap-2">
+                      <div>
+                        <label className="text-[10px] text-gray-500 font-medium">Series</label>
+                        <input type="number" inputMode="numeric" value={editForm.sets}
+                          onChange={e => setEditForm(f => ({ ...f, sets: e.target.value }))}
+                          className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-gray-500 font-medium">Rep min</label>
+                        <input type="number" inputMode="numeric" value={editForm.reps_min}
+                          onChange={e => setEditForm(f => ({ ...f, reps_min: e.target.value }))}
+                          className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-gray-500 font-medium">Rep max</label>
+                        <input type="number" inputMode="numeric" value={editForm.reps_max}
+                          onChange={e => setEditForm(f => ({ ...f, reps_max: e.target.value }))}
+                          className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-gray-500 font-medium">Desc (s)</label>
+                        <input type="number" inputMode="numeric" value={editForm.rest_seconds}
+                          onChange={e => setEditForm(f => ({ ...f, rest_seconds: e.target.value }))}
+                          className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-end gap-2">
+                      <button onClick={cancelEditing}
+                        className="px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 rounded-lg transition-colors">
+                        Cancelar
+                      </button>
+                      <button onClick={() => saveExerciseEdit(ex.id)} disabled={editSaving}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50">
+                        <Save size={12} /> {editSaving ? 'Guardando...' : 'Guardar'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {personalBests[ex.exercise_id] && (
                   <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
                     <div className="flex items-center gap-1.5 bg-yellow-50 dark:bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 px-2 py-1 rounded-lg">
@@ -585,6 +670,10 @@ export default function RoutineDayDetail() {
                 <button onClick={() => setOneRMExercise(ex.exercise)}
                   className="inline-flex items-center gap-1.5 mt-1 ml-3 text-xs font-medium text-brand-500 hover:text-brand-400 transition-colors">
                   <Calculator size={14} /> 1RM
+                </button>
+                <button onClick={() => startEditing(ex)}
+                  className="inline-flex items-center gap-1.5 mt-1 ml-3 text-xs font-medium text-brand-500 hover:text-brand-400 transition-colors">
+                  <Pencil size={14} /> Editar
                 </button>
                 <button onClick={() => setSwapExercise(ex)}
                   className="inline-flex items-center gap-1.5 mt-1 ml-3 text-xs font-medium text-orange-500 hover:text-orange-400 transition-colors">

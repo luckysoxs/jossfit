@@ -15,6 +15,14 @@ class RoutineExerciseCreate(BaseModel):
     notes: str | None = None
 
 
+class RoutineExerciseUpdate(BaseModel):
+    sets: int | None = None
+    reps_min: int | None = None
+    reps_max: int | None = None
+    rest_seconds: int | None = None
+    notes: str | None = None
+
+
 class RoutineExerciseResponse(BaseModel):
     id: int
     exercise_id: int

@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app.models.user import User
 from app.models.routine import Routine, RoutineDay, RoutineExercise
-from app.schemas.routine import RoutineCreate, RoutineExerciseCreate, RoutineResponse
+from app.schemas.routine import RoutineCreate, RoutineExerciseCreate, RoutineExerciseUpdate, RoutineResponse
 from app.auth.security import get_current_user
 
 router = APIRouter(prefix="/routines", tags=["Routines"])
@@ -184,6 +184,33 @@ def reorder_exercises(
     for new_order, ex_id in enumerate(exercise_order, start=1):
         if ex_id in ex_map:
             ex_map[ex_id].order = new_order
+
+    db.commit()
+    return {"ok": True}
+
+
+@router.put("/exercises/{routine_exercise_id}", status_code=200)
+def update_exercise(
+    routine_exercise_id: int,
+    data: RoutineExerciseUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update sets, reps, rest_seconds for a routine exercise."""
+    routine_ex = (
+        db.query(RoutineExercise)
+        .join(RoutineDay)
+        .join(Routine)
+        .filter(RoutineExercise.id == routine_exercise_id, Routine.user_id == user.id)
+        .first()
+    )
+    if not routine_ex:
+        raise HTTPException(status_code=404, detail="Exercise not found")
+
+    for field in ("sets", "reps_min", "reps_max", "rest_seconds", "notes"):
+        val = getattr(data, field, None)
+        if val is not None:
+            setattr(routine_ex, field, val)
 
     db.commit()
     return {"ok": True}
