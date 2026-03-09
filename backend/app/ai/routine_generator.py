@@ -81,6 +81,41 @@ MAX_EXERCISES_PER_DAY = {
 # Muscles treated as accessories — 1 exercise each, outside the main budget
 ACCESSORY_MUSCLES = {"calves", "abs", "forearms", "traps"}
 
+# Exercise similarity groups — at most ONE exercise from each group per day
+# Keys are group names, values are sets of exercise names (English)
+SIMILAR_GROUPS = {
+    "flat_chest_press": {"Bench Press", "Dumbbell Bench Press", "Machine Chest Press", "Floor Press", "Squeeze Press"},
+    "incline_chest_press": {"Incline Bench Press", "Incline Dumbbell Press"},
+    "decline_chest_press": {"Decline Bench Press", "Decline Dumbbell Press"},
+    "chest_fly": {"Chest Fly", "Cable Crossover", "Pec Deck", "Machine Fly", "Low Cable Fly"},
+    "shoulder_press": {"Overhead Press", "Dumbbell Shoulder Press", "Arnold Press", "Machine Shoulder Press", "Smith Machine Overhead Press", "Push Press"},
+    "lateral_raise": {"Lateral Raise", "Cable Lateral Raise", "Machine Lateral Raise", "Lean-Away Lateral Raise", "Lu Raise"},
+    "front_raise": {"Front Raise", "Cable Front Raise", "Plate Front Raise"},
+    "rear_delt": {"Reverse Fly", "Rear Delt Cable Fly", "Rear Delt Machine", "Cable Rear Delt Row", "Band Pull Apart"},
+    "barbell_row": {"Barbell Row", "Pendlay Row", "T-Bar Row", "Smith Machine Row", "Landmine Row"},
+    "lat_pulldown": {"Lat Pulldown", "Close Grip Lat Pulldown", "Wide Grip Lat Pulldown"},
+    "pull_up": {"Pull-Up", "Chin-Up", "Neutral Grip Pull-Up"},
+    "barbell_squat": {"Barbell Squat", "Front Squat", "Smith Machine Squat"},
+    "machine_squat": {"Leg Press", "Hack Squat", "Pendulum Squat", "Belt Squat", "V Squat"},
+    "lunge": {"Bulgarian Split Squat", "Walking Lunge", "Reverse Lunge", "Barbell Lunge"},
+    "hip_hinge": {"Romanian Deadlift", "Stiff Leg Deadlift", "Dumbbell Romanian Deadlift", "Single Leg Romanian Deadlift"},
+    "leg_curl": {"Leg Curl", "Seated Leg Curl", "Single Leg Curl", "Slider Leg Curl", "Swiss Ball Leg Curl"},
+    "hip_thrust": {"Hip Thrust", "Single Leg Hip Thrust", "Smith Machine Hip Thrust", "Glute Bridge"},
+    "tricep_pushdown": {"Tricep Pushdown", "Rope Pushdown", "Single Arm Pushdown"},
+    "overhead_tricep": {"Overhead Tricep Extension", "Overhead Cable Extension", "French Press", "Skull Crusher"},
+    "barbell_curl": {"Barbell Curl", "EZ Bar Curl", "Drag Curl", "21s Curl"},
+    "dumbbell_curl": {"Dumbbell Curl", "Incline Dumbbell Curl", "Concentration Curl", "Cross Body Curl"},
+    "shrug": {"Barbell Shrug", "Dumbbell Shrug", "Cable Shrug", "Smith Machine Shrug", "Overhead Shrug", "Behind the Back Shrug"},
+    "calf_raise": {"Standing Calf Raise", "Seated Calf Raise", "Donkey Calf Raise", "Leg Press Calf Raise", "Smith Machine Calf Raise"},
+}
+
+# Build reverse lookup: exercise_name -> group_name
+_EXERCISE_TO_GROUP = {}
+for group_name, exercises in SIMILAR_GROUPS.items():
+    for ex_name in exercises:
+        _EXERCISE_TO_GROUP[ex_name] = group_name
+
+
 # Sets config by level
 SETS_CONFIG = {
     "beginner": {"compound": 3, "isolation": 2},
@@ -210,6 +245,7 @@ def generate_routine(
 
         exercises_for_day = []
         used_exercise_ids = set()  # Prevent duplicates within the same day
+        used_sim_groups = set()    # Prevent similar exercises (e.g. 3 shoulder presses)
         order = 1
 
         # ── Main muscles (within budget) ──
@@ -249,6 +285,10 @@ def generate_routine(
                     break
                 if ex.id in used_exercise_ids:
                     continue
+                # Skip if same similarity group already used this day
+                sim_group = _EXERCISE_TO_GROUP.get(ex.name)
+                if sim_group and sim_group in used_sim_groups:
+                    continue
                 base_rest = 120 if objective == "strength" else 90
                 exercises_for_day.append({
                     "exercise_id": ex.id,
@@ -262,6 +302,8 @@ def generate_routine(
                     "category": "compound",
                 })
                 used_exercise_ids.add(ex.id)
+                if sim_group:
+                    used_sim_groups.add(sim_group)
                 order += 1
                 added += 1
 
@@ -269,6 +311,10 @@ def generate_routine(
                 if added >= count:
                     break
                 if ex.id in used_exercise_ids:
+                    continue
+                # Skip if same similarity group already used this day
+                sim_group = _EXERCISE_TO_GROUP.get(ex.name)
+                if sim_group and sim_group in used_sim_groups:
                     continue
                 exercises_for_day.append({
                     "exercise_id": ex.id,
@@ -282,6 +328,8 @@ def generate_routine(
                     "category": "isolation",
                 })
                 used_exercise_ids.add(ex.id)
+                if sim_group:
+                    used_sim_groups.add(sim_group)
                 order += 1
                 added += 1
 

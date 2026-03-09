@@ -27,6 +27,11 @@ EXERCISES = [
     ("Low Cable Fly", "Aperturas con Cable Bajo", MuscleGroup.CHEST, None, ExerciseCategory.ISOLATION, "Cable"),
     ("Pec Deck", "Pec Deck", MuscleGroup.CHEST, None, ExerciseCategory.ISOLATION, "Machine"),
     ("Svend Press", "Press Svend", MuscleGroup.CHEST, None, ExerciseCategory.ISOLATION, "Plate"),
+    ("Floor Press", "Press en el Suelo", MuscleGroup.CHEST, "triceps", ExerciseCategory.COMPOUND, "Barbell"),
+    ("Squeeze Press", "Press de Apretar", MuscleGroup.CHEST, "triceps", ExerciseCategory.COMPOUND, "Dumbbells"),
+    ("Weighted Push-Up", "Lagartija con Peso", MuscleGroup.CHEST, "triceps,shoulders", ExerciseCategory.COMPOUND, "Bodyweight"),
+    ("Machine Fly", "Aperturas en Máquina", MuscleGroup.CHEST, None, ExerciseCategory.ISOLATION, "Machine"),
+    ("Dumbbell Pullover", "Pullover con Mancuerna", MuscleGroup.CHEST, "back", ExerciseCategory.ISOLATION, "Dumbbells"),
 
     # ── Back ──
     ("Deadlift", "Peso Muerto", MuscleGroup.BACK, "hamstrings,glutes,traps", ExerciseCategory.COMPOUND, "Barbell"),
@@ -48,6 +53,12 @@ EXERCISES = [
     ("Straight Arm Pulldown", "Jalón con Brazos Rectos", MuscleGroup.BACK, None, ExerciseCategory.ISOLATION, "Cable"),
     ("Cable Pullover", "Pullover con Cable", MuscleGroup.BACK, None, ExerciseCategory.ISOLATION, "Cable"),
     ("Hyperextension", "Hiperextensión", MuscleGroup.BACK, "glutes,hamstrings", ExerciseCategory.ISOLATION, "Bodyweight"),
+    ("Single Arm Cable Row", "Remo Unilateral con Cable", MuscleGroup.BACK, "biceps", ExerciseCategory.COMPOUND, "Cable"),
+    ("Wide Grip Lat Pulldown", "Jalón Agarre Ancho", MuscleGroup.BACK, "biceps", ExerciseCategory.COMPOUND, "Cable"),
+    ("Neutral Grip Pull-Up", "Dominada Agarre Neutro", MuscleGroup.BACK, "biceps,forearms", ExerciseCategory.COMPOUND, "Bodyweight"),
+    ("Smith Machine Row", "Remo en Smith", MuscleGroup.BACK, "biceps,traps", ExerciseCategory.COMPOUND, "Smith Machine"),
+    ("Landmine Row", "Remo Landmine", MuscleGroup.BACK, "biceps", ExerciseCategory.COMPOUND, "Barbell"),
+    ("Seal Row", "Remo Sello", MuscleGroup.BACK, "biceps", ExerciseCategory.COMPOUND, "Barbell"),
 
     # ── Shoulders ──
     ("Overhead Press", "Press Militar", MuscleGroup.SHOULDERS, "triceps", ExerciseCategory.COMPOUND, "Barbell"),
@@ -65,6 +76,13 @@ EXERCISES = [
     ("Upright Row", "Remo al Mentón", MuscleGroup.SHOULDERS, "traps", ExerciseCategory.ISOLATION, "Barbell"),
     ("Dumbbell Y-Raise", "Elevación en Y", MuscleGroup.SHOULDERS, None, ExerciseCategory.ISOLATION, "Dumbbells"),
     ("Rear Delt Machine", "Máquina de Deltoides Posterior", MuscleGroup.SHOULDERS, "traps", ExerciseCategory.ISOLATION, "Machine"),
+    ("Lu Raise", "Elevación Lu", MuscleGroup.SHOULDERS, None, ExerciseCategory.ISOLATION, "Dumbbells"),
+    ("Lean-Away Lateral Raise", "Elevación Lateral Inclinada", MuscleGroup.SHOULDERS, None, ExerciseCategory.ISOLATION, "Dumbbells"),
+    ("Cable Front Raise", "Elevación Frontal con Cable", MuscleGroup.SHOULDERS, None, ExerciseCategory.ISOLATION, "Cable"),
+    ("Plate Front Raise", "Elevación Frontal con Disco", MuscleGroup.SHOULDERS, None, ExerciseCategory.ISOLATION, "Plate"),
+    ("Band Pull Apart", "Separación con Banda", MuscleGroup.SHOULDERS, "traps", ExerciseCategory.ISOLATION, "Bands"),
+    ("Cable Rear Delt Row", "Remo Posterior con Cable", MuscleGroup.SHOULDERS, "traps", ExerciseCategory.ISOLATION, "Cable"),
+    ("Dumbbell Upright Row", "Remo al Mentón con Mancuernas", MuscleGroup.SHOULDERS, "traps", ExerciseCategory.ISOLATION, "Dumbbells"),
 
     # ── Biceps ──
     ("Barbell Curl", "Curl con Barra", MuscleGroup.BICEPS, "forearms", ExerciseCategory.ISOLATION, "Barbell"),
@@ -82,6 +100,9 @@ EXERCISES = [
     ("Machine Curl", "Curl en Máquina", MuscleGroup.BICEPS, None, ExerciseCategory.ISOLATION, "Machine"),
     ("Zottman Curl", "Curl Zottman", MuscleGroup.BICEPS, "forearms", ExerciseCategory.ISOLATION, "Dumbbells"),
     ("Bayesian Curl", "Curl Bayesiano", MuscleGroup.BICEPS, None, ExerciseCategory.ISOLATION, "Cable"),
+    ("Scott Curl Machine", "Curl Scott en Máquina", MuscleGroup.BICEPS, None, ExerciseCategory.ISOLATION, "Machine"),
+    ("Cross Body Curl", "Curl Cruzado", MuscleGroup.BICEPS, None, ExerciseCategory.ISOLATION, "Dumbbells"),
+    ("21s Curl", "Curl 21s", MuscleGroup.BICEPS, "forearms", ExerciseCategory.ISOLATION, "EZ Bar"),
 
     # ── Triceps ──
     ("Close Grip Bench Press", "Press Agarre Cerrado", MuscleGroup.TRICEPS, "chest", ExerciseCategory.COMPOUND, "Barbell"),
@@ -97,6 +118,9 @@ EXERCISES = [
     ("French Press", "Press Francés", MuscleGroup.TRICEPS, None, ExerciseCategory.ISOLATION, "EZ Bar"),
     ("Bench Dip", "Fondo en Banco", MuscleGroup.TRICEPS, "chest", ExerciseCategory.ISOLATION, "Bodyweight"),
     ("Tricep Machine", "Máquina de Tríceps", MuscleGroup.TRICEPS, None, ExerciseCategory.ISOLATION, "Machine"),
+    ("JM Press", "Press JM", MuscleGroup.TRICEPS, "chest", ExerciseCategory.COMPOUND, "Barbell"),
+    ("Tate Press", "Press Tate", MuscleGroup.TRICEPS, None, ExerciseCategory.ISOLATION, "Dumbbells"),
+    ("Dumbbell Kickback", "Patada de Tríceps con Mancuerna", MuscleGroup.TRICEPS, None, ExerciseCategory.ISOLATION, "Dumbbells"),
 
     # ── Quadriceps ──
     ("Barbell Squat", "Sentadilla con Barra", MuscleGroup.QUADRICEPS, "glutes,hamstrings", ExerciseCategory.COMPOUND, "Barbell"),
@@ -112,6 +136,12 @@ EXERCISES = [
     ("Step Up", "Step Up", MuscleGroup.QUADRICEPS, "glutes", ExerciseCategory.COMPOUND, "Dumbbells"),
     ("Sissy Squat", "Sentadilla Sissy", MuscleGroup.QUADRICEPS, None, ExerciseCategory.ISOLATION, "Bodyweight"),
     ("Leg Extension", "Extensión de Piernas", MuscleGroup.QUADRICEPS, None, ExerciseCategory.ISOLATION, "Machine"),
+    ("Reverse Lunge", "Zancada Inversa", MuscleGroup.QUADRICEPS, "glutes", ExerciseCategory.COMPOUND, "Dumbbells"),
+    ("Landmine Squat", "Sentadilla Landmine", MuscleGroup.QUADRICEPS, "glutes", ExerciseCategory.COMPOUND, "Barbell"),
+    ("V Squat", "Sentadilla en V", MuscleGroup.QUADRICEPS, "glutes", ExerciseCategory.COMPOUND, "Machine"),
+    ("Cyclist Squat", "Sentadilla Ciclista", MuscleGroup.QUADRICEPS, None, ExerciseCategory.COMPOUND, "Dumbbells"),
+    ("Barbell Lunge", "Zancada con Barra", MuscleGroup.QUADRICEPS, "glutes", ExerciseCategory.COMPOUND, "Barbell"),
+    ("Single Leg Extension", "Extensión Unilateral", MuscleGroup.QUADRICEPS, None, ExerciseCategory.ISOLATION, "Machine"),
 
     # ── Hamstrings ──
     ("Romanian Deadlift", "Peso Muerto Rumano", MuscleGroup.HAMSTRINGS, "glutes,back", ExerciseCategory.COMPOUND, "Barbell"),
@@ -124,6 +154,10 @@ EXERCISES = [
     ("Nordic Curl", "Curl Nórdico", MuscleGroup.HAMSTRINGS, None, ExerciseCategory.ISOLATION, "Bodyweight"),
     ("Single Leg Curl", "Curl de Pierna Individual", MuscleGroup.HAMSTRINGS, None, ExerciseCategory.ISOLATION, "Machine"),
     ("Cable Pull Through", "Pull Through con Cable", MuscleGroup.HAMSTRINGS, "glutes", ExerciseCategory.ISOLATION, "Cable"),
+    ("Single Leg Romanian Deadlift", "Peso Muerto Rumano a una Pierna", MuscleGroup.HAMSTRINGS, "glutes", ExerciseCategory.COMPOUND, "Dumbbells"),
+    ("Kettlebell Swing", "Swing con Pesa Rusa", MuscleGroup.HAMSTRINGS, "glutes,back", ExerciseCategory.COMPOUND, "Kettlebell"),
+    ("Slider Leg Curl", "Curl de Pierna con Deslizador", MuscleGroup.HAMSTRINGS, None, ExerciseCategory.ISOLATION, "Bodyweight"),
+    ("Swiss Ball Leg Curl", "Curl de Pierna con Pelota Suiza", MuscleGroup.HAMSTRINGS, None, ExerciseCategory.ISOLATION, "Swiss Ball"),
 
     # ── Glutes ──
     ("Hip Thrust", "Empuje de Cadera", MuscleGroup.GLUTES, "hamstrings", ExerciseCategory.COMPOUND, "Barbell"),
@@ -137,6 +171,9 @@ EXERCISES = [
     ("Cable Lateral Kick", "Patada Lateral en Polea", MuscleGroup.GLUTES, None, ExerciseCategory.ISOLATION, "Cable"),
     ("Banded Lateral Kick", "Patada Lateral con Polainas", MuscleGroup.GLUTES, None, ExerciseCategory.ISOLATION, "Bands"),
     ("Single Leg Glute Press", "Prensa Unilateral para Glúteos", MuscleGroup.GLUTES, "quadriceps,hamstrings", ExerciseCategory.COMPOUND, "Machine"),
+    ("Smith Machine Hip Thrust", "Empuje de Cadera en Smith", MuscleGroup.GLUTES, "hamstrings", ExerciseCategory.COMPOUND, "Smith Machine"),
+    ("Reverse Hyperextension", "Hiperextensión Inversa", MuscleGroup.GLUTES, "hamstrings", ExerciseCategory.ISOLATION, "Machine"),
+    ("Curtsy Lunge", "Zancada Cruzada", MuscleGroup.GLUTES, "quadriceps", ExerciseCategory.COMPOUND, "Dumbbells"),
 
     # ── Calves ──
     ("Standing Calf Raise", "Elevación de Pantorrilla de Pie", MuscleGroup.CALVES, None, ExerciseCategory.ISOLATION, "Machine"),
@@ -145,6 +182,8 @@ EXERCISES = [
     ("Leg Press Calf Raise", "Pantorrilla en Prensa", MuscleGroup.CALVES, None, ExerciseCategory.ISOLATION, "Machine"),
     ("Single Leg Calf Raise", "Pantorrilla a una Pierna", MuscleGroup.CALVES, None, ExerciseCategory.ISOLATION, "Dumbbells"),
     ("Smith Machine Calf Raise", "Pantorrilla en Smith", MuscleGroup.CALVES, None, ExerciseCategory.ISOLATION, "Smith Machine"),
+    ("Tibialis Raise", "Elevación de Tibial", MuscleGroup.CALVES, None, ExerciseCategory.ISOLATION, "Bodyweight"),
+    ("Jump Calf Raise", "Pantorrilla con Salto", MuscleGroup.CALVES, None, ExerciseCategory.ISOLATION, "Bodyweight"),
 
     # ── Abs ──
     ("Cable Crunch", "Crunch con Cable", MuscleGroup.ABS, None, ExerciseCategory.ISOLATION, "Cable"),
@@ -161,12 +200,19 @@ EXERCISES = [
     ("Woodchop", "Leñador", MuscleGroup.ABS, None, ExerciseCategory.ISOLATION, "Cable"),
     ("Mountain Climbers", "Escaladores", MuscleGroup.ABS, None, ExerciseCategory.ISOLATION, "Bodyweight"),
     ("Leg Raise", "Elevación de Piernas", MuscleGroup.ABS, None, ExerciseCategory.ISOLATION, "Bodyweight"),
+    ("Dragon Flag", "Bandera del Dragón", MuscleGroup.ABS, None, ExerciseCategory.ISOLATION, "Bench"),
+    ("Weighted Plank", "Plancha con Peso", MuscleGroup.ABS, None, ExerciseCategory.ISOLATION, "Plate"),
+    ("Hanging Knee Raise", "Elevación de Rodillas Colgado", MuscleGroup.ABS, None, ExerciseCategory.ISOLATION, "Bodyweight"),
+    ("Cable Woodchop High to Low", "Leñador con Cable Alto a Bajo", MuscleGroup.ABS, None, ExerciseCategory.ISOLATION, "Cable"),
+    ("Ab Crunch Machine", "Máquina de Abdominales", MuscleGroup.ABS, None, ExerciseCategory.ISOLATION, "Machine"),
 
     # ── Traps ──
     ("Barbell Shrug", "Encogimiento con Barra", MuscleGroup.TRAPS, None, ExerciseCategory.ISOLATION, "Barbell"),
     ("Dumbbell Shrug", "Encogimiento con Mancuernas", MuscleGroup.TRAPS, None, ExerciseCategory.ISOLATION, "Dumbbells"),
     ("Cable Shrug", "Encogimiento con Cable", MuscleGroup.TRAPS, None, ExerciseCategory.ISOLATION, "Cable"),
     ("Smith Machine Shrug", "Encogimiento en Smith", MuscleGroup.TRAPS, None, ExerciseCategory.ISOLATION, "Smith Machine"),
+    ("Overhead Shrug", "Encogimiento sobre Cabeza", MuscleGroup.TRAPS, None, ExerciseCategory.ISOLATION, "Barbell"),
+    ("Behind the Back Shrug", "Encogimiento por Detrás", MuscleGroup.TRAPS, None, ExerciseCategory.ISOLATION, "Barbell"),
 
     # ── Forearms ──
     ("Wrist Curl", "Curl de Muñeca", MuscleGroup.FOREARMS, None, ExerciseCategory.ISOLATION, "Barbell"),
@@ -174,6 +220,9 @@ EXERCISES = [
     ("Farmer's Walk", "Caminata del Granjero", MuscleGroup.FOREARMS, "traps", ExerciseCategory.COMPOUND, "Dumbbells"),
     ("Plate Pinch", "Pinza de Disco", MuscleGroup.FOREARMS, None, ExerciseCategory.ISOLATION, "Plate"),
     ("Behind the Back Wrist Curl", "Curl de Muñeca por Detrás", MuscleGroup.FOREARMS, None, ExerciseCategory.ISOLATION, "Barbell"),
+    ("Dead Hang", "Colgada Muerta", MuscleGroup.FOREARMS, "back", ExerciseCategory.ISOLATION, "Bodyweight"),
+    ("Wrist Roller", "Rodillo de Muñeca", MuscleGroup.FOREARMS, None, ExerciseCategory.ISOLATION, "Wrist Roller"),
+    ("Finger Curl", "Curl de Dedos", MuscleGroup.FOREARMS, None, ExerciseCategory.ISOLATION, "Barbell"),
 
     # ── Cardio ──
     ("Treadmill Run", "Correr en Caminadora", MuscleGroup.CARDIO, None, ExerciseCategory.CARDIO, "Treadmill"),
@@ -182,6 +231,10 @@ EXERCISES = [
     ("Jump Rope", "Saltar la Cuerda", MuscleGroup.CARDIO, "calves", ExerciseCategory.CARDIO, "Jump Rope"),
     ("Stair Climber", "Escaladora", MuscleGroup.CARDIO, "quadriceps,glutes", ExerciseCategory.CARDIO, "Machine"),
     ("Battle Ropes", "Cuerdas de Batalla", MuscleGroup.CARDIO, "shoulders,back", ExerciseCategory.CARDIO, "Battle Ropes"),
+    ("Elliptical", "Elíptica", MuscleGroup.CARDIO, None, ExerciseCategory.CARDIO, "Elliptical"),
+    ("Assault Bike", "Bicicleta de Asalto", MuscleGroup.CARDIO, "shoulders", ExerciseCategory.CARDIO, "Assault Bike"),
+    ("Sled Push", "Empuje de Trineo", MuscleGroup.CARDIO, "quadriceps,glutes", ExerciseCategory.CARDIO, "Sled"),
+    ("Box Jumps", "Saltos al Cajón", MuscleGroup.CARDIO, "quadriceps,calves", ExerciseCategory.CARDIO, "Box"),
 
     # ── Cardio Protocols (linked to /cardio wizard) ──
     ("HIIT Cardio", "Cardio HIIT", MuscleGroup.CARDIO, None, ExerciseCategory.CARDIO, "Any"),
