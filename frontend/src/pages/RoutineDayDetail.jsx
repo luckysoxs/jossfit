@@ -214,6 +214,13 @@ export default function RoutineDayDetail() {
   }
 
   // Move exercise up/down
+  const getErrMsg = (err) => {
+    const d = err.response?.data?.detail
+    if (typeof d === 'string') return d
+    if (Array.isArray(d)) return d.map(e => e.msg || JSON.stringify(e)).join(', ')
+    return err.message || 'Error desconocido'
+  }
+
   const moveExUp = async (exIdx, dId, sortedExercises) => {
     if (exIdx === 0 || reordering) return
     setReordering(true)
@@ -224,7 +231,7 @@ export default function RoutineDayDetail() {
       await reloadRoutine()
     } catch (err) {
       console.error('Error reordering:', err)
-      alert('Error al reordenar: ' + (err.response?.data?.detail || err.message))
+      alert('Error al reordenar: ' + getErrMsg(err))
     } finally {
       setReordering(false)
     }
@@ -240,7 +247,7 @@ export default function RoutineDayDetail() {
       await reloadRoutine()
     } catch (err) {
       console.error('Error reordering:', err)
-      alert('Error al reordenar: ' + (err.response?.data?.detail || err.message))
+      alert('Error al reordenar: ' + getErrMsg(err))
     } finally {
       setReordering(false)
     }
@@ -663,7 +670,7 @@ export default function RoutineDayDetail() {
               await reloadRoutine()
               setSwapExercise(null)
             } catch (err) {
-              alert(err.response?.data?.detail || 'Error al reemplazar ejercicio')
+              alert(getErrMsg(err))
             }
           }}
         />
@@ -689,7 +696,7 @@ export default function RoutineDayDetail() {
               await reloadRoutine()
               setAddingToDay(null)
             } catch (err) {
-              alert(err.response?.data?.detail || 'Error al agregar ejercicio')
+              alert(getErrMsg(err))
             }
           }}
         />
