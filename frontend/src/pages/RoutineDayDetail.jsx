@@ -385,7 +385,7 @@ export default function RoutineDayDetail() {
           <ArrowLeft size={20} /> Volver a dias
         </button>
         <button
-          onClick={() => window.open('https://open.spotify.com', '_blank')}
+          onClick={() => { const t = Date.now(); window.location.href = 'spotify://'; setTimeout(() => { if (Date.now() - t < 2500) window.open('https://open.spotify.com', '_blank') }, 1500) }}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1DB954] hover:bg-[#1ed760] rounded-full text-white text-sm font-medium transition-colors shadow-sm"
         >
           <Music size={16} /> Spotify

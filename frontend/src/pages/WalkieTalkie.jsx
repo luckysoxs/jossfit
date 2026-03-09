@@ -121,21 +121,15 @@ export default function WalkieTalkie() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Pre-warm mic permission once so the browser remembers the grant
-  // and doesn't prompt on every recording
+  // Check mic permission status without acquiring the mic (avoids pausing music).
+  // The actual getUserMedia call only happens when the user presses record.
   useEffect(() => {
     if (!activeChat) return
     if (localStorage.getItem('jf_mic_ok')) return
     ;(async () => {
       try {
-        // Check if already granted via Permissions API
         const p = await navigator.permissions?.query({ name: 'microphone' })
-        if (p?.state === 'granted') { localStorage.setItem('jf_mic_ok', '1'); return }
-      } catch {}
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-        stream.getTracks().forEach(t => t.stop())
-        localStorage.setItem('jf_mic_ok', '1')
+        if (p?.state === 'granted') localStorage.setItem('jf_mic_ok', '1')
       } catch {}
     })()
   }, [activeChat])

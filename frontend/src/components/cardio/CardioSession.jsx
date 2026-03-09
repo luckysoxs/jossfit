@@ -16,7 +16,11 @@ export default function CardioSession({ intervals, equipment, cardioType, level,
   }
 
   const openSpotify = () => {
-    window.open('https://open.spotify.com', '_blank')
+    const t = Date.now()
+    window.location.href = 'spotify://'
+    // If the app opened, JS was suspended — Date.now() - t will be >> 2500ms when it resumes.
+    // If the app wasn't installed, JS kept running — fall back to web.
+    setTimeout(() => { if (Date.now() - t < 2500) window.open('https://open.spotify.com', '_blank') }, 1500)
   }
 
   const saveSession = async () => {
