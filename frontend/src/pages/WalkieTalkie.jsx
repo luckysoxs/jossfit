@@ -48,6 +48,7 @@ export default function WalkieTalkie() {
   // ─── Audio playback state ──────────────────────────────────
   const [playingId, setPlayingId] = useState(null)
   const audioRef = useRef(null)
+  const [audioDurations, setAudioDurations] = useState({}) // detected durations {msgId: secs}
 
   // ─── Auto-play tracking ────────────────────────────────────
   const lastPlayedIdRef = useRef(null) // null = not initialized, number = highest played ID
@@ -119,6 +120,25 @@ export default function WalkieTalkie() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  // Pre-warm mic permission once so the browser remembers the grant
+  // and doesn't prompt on every recording
+  useEffect(() => {
+    if (!activeChat) return
+    if (localStorage.getItem('jf_mic_ok')) return
+    ;(async () => {
+      try {
+        // Check if already granted via Permissions API
+        const p = await navigator.permissions?.query({ name: 'microphone' })
+        if (p?.state === 'granted') { localStorage.setItem('jf_mic_ok', '1'); return }
+      } catch {}
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        stream.getTracks().forEach(t => t.stop())
+        localStorage.setItem('jf_mic_ok', '1')
+      } catch {}
+    })()
+  }, [activeChat])
 
   // Listen for SW messages — when a walkie-talkie push arrives,
   // the SW relays it here so we can fetch + auto-play even if tab is hidden
@@ -334,7 +354,18 @@ export default function WalkieTalkie() {
       audioRef.current = audio
       setPlayingId(msgId)
 
+      // Detect real duration from audio element (fixes old messages with duration=0)
+      audio.addEventListener('loadedmetadata', () => {
+        if (audio.duration && isFinite(audio.duration) && audio.duration > 0) {
+          setAudioDurations(prev => ({ ...prev, [msgId]: audio.duration }))
+        }
+      })
+
       audio.onended = () => {
+        // Fallback: use currentTime at end as duration
+        if (audio.currentTime > 0) {
+          setAudioDurations(prev => ({ ...prev, [msgId]: audio.currentTime }))
+        }
         setPlayingId(null)
         audioRef.current = null
         URL.revokeObjectURL(url)
@@ -529,7 +560,7 @@ export default function WalkieTalkie() {
                           ))}
                         </div>
                         <p className={`text-[10px] ${isMine ? 'text-white/60' : 'text-gray-400'}`}>
-                          {formatDuration(msg.audio_duration || 0)}
+                          {formatDuration(audioDurations[msg.id] || msg.audio_duration || 0)}
                         </p>
                       </div>
                     </div>
