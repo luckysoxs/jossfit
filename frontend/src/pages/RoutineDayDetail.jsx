@@ -7,11 +7,23 @@ import LoadingSpinner from '../components/ui/LoadingSpinner'
 import OneRMCalculator from '../components/routines/OneRMCalculator'
 import ExercisePickerModal from '../components/routines/ExercisePickerModal'
 import { MUSCLE_LABELS, MUSCLE_COLORS, WEEKDAY_NAMES, getWeekdayMap, exDisplayName, exSubtitle } from '../utils/routineConstants'
+import { CARDIO_TYPES } from '../data/cardioProtocols'
 import {
   ArrowLeft, Play, Check, Calculator, RefreshCw, X, Trash2, Plus, Trophy,
   Dumbbell, GripVertical, ChevronUp, ChevronDown, WifiOff, TrendingUp,
-  Timer, Pause,
+  Timer, Pause, HeartPulse,
 } from 'lucide-react'
+
+const isCardioExercise = (exercise) =>
+  exercise?.muscle_group === 'cardio' && exercise?.category === 'cardio'
+
+const getCardioTypeFromExercise = (exercise) => {
+  const name = (exercise?.name || '').toLowerCase()
+  if (name.includes('hiit')) return 'hiit'
+  if (name.includes('liss')) return 'liss'
+  if (name.includes('steady')) return 'steady'
+  return null
+}
 
 export default function RoutineDayDetail() {
   const { id, dayId } = useParams()
@@ -284,7 +296,8 @@ export default function RoutineDayDetail() {
   }
 
   const sortedExercises = [...(day.exercises || [])].sort((a, b) => a.order - b.order)
-  const dayExIds = sortedExercises.map(e => e.id)
+  const strengthExercises = sortedExercises.filter(e => !isCardioExercise(e.exercise))
+  const dayExIds = strengthExercises.map(e => e.id)
   const done = dayExIds.filter(eId => checked[eId]).length
   const total = dayExIds.length
   const progress = total > 0 ? (done / total) * 100 : 0
@@ -352,107 +365,162 @@ export default function RoutineDayDetail() {
       </div>
 
       {/* Exercise list */}
-      {sortedExercises.map((ex, exIdx) => (
-        <div
-          key={ex.id}
-          className={`card bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2.5 transition-all ${
-            checked[ex.id] ? 'opacity-40' : ''
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            {/* Move buttons */}
-            <div className="flex flex-col items-center flex-shrink-0">
-              <button
-                onClick={() => moveExUp(exIdx, day.id, sortedExercises)}
-                disabled={exIdx === 0 || reordering}
-                className={`p-2 rounded-lg transition-colors ${exIdx === 0 ? 'text-gray-300 dark:text-gray-700' : 'text-gray-400 hover:text-brand-500 active:bg-brand-50 dark:active:bg-brand-500/10 active:text-brand-600'}`}
-              >
-                <ChevronUp size={18} />
-              </button>
-              <GripVertical size={12} className="text-gray-300 dark:text-gray-600 -my-1" />
-              <button
-                onClick={() => moveExDown(exIdx, day.id, sortedExercises)}
-                disabled={exIdx >= sortedExercises.length - 1 || reordering}
-                className={`p-2 rounded-lg transition-colors ${exIdx >= sortedExercises.length - 1 ? 'text-gray-300 dark:text-gray-700' : 'text-gray-400 hover:text-brand-500 active:bg-brand-50 dark:active:bg-brand-500/10 active:text-brand-600'}`}
-              >
-                <ChevronDown size={18} />
-              </button>
-            </div>
-            {/* Check button */}
-            <button
-              onClick={() => handleExerciseCheck(ex.id, ex.exercise_id, exDisplayName(ex.exercise))}
-              className={`w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
-                checked[ex.id] ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 dark:border-gray-600'
-              }`}
-            >
-              {checked[ex.id] && <Check size={14} />}
-            </button>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between">
-                <div className="flex-1 min-w-0">
-                  <p className={`font-medium text-sm ${checked[ex.id] ? 'line-through text-gray-400' : ''}`}>
-                    {exDisplayName(ex.exercise)}
-                  </p>
-                  {exSubtitle(ex.exercise) && (
-                    <p className="text-[11px] text-gray-400 italic">{exSubtitle(ex.exercise)}</p>
-                  )}
-                  <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
-                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${MUSCLE_COLORS[ex.exercise?.muscle_group] || 'bg-gray-100 dark:bg-gray-700 text-gray-500'}`}>
-                      {MUSCLE_LABELS[ex.exercise?.muscle_group] || ex.exercise?.muscle_group}
-                    </span>
-                    <span className="text-[10px] text-gray-400">{ex.exercise?.equipment}</span>
-                  </div>
+      {sortedExercises.map((ex, exIdx) => {
+        const cardio = isCardioExercise(ex.exercise)
+        const cardioTypeId = cardio ? getCardioTypeFromExercise(ex.exercise) : null
+        const cardioInfo = cardio ? CARDIO_TYPES.find(t => t.id === cardioTypeId) : null
+
+        // ── Cardio exercise card ──
+        if (cardio) {
+          return (
+            <div key={ex.id} className="card bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2.5">
+              <div className="flex items-center gap-2">
+                {/* Move buttons */}
+                <div className="flex flex-col items-center flex-shrink-0">
+                  <button onClick={() => moveExUp(exIdx, day.id, sortedExercises)}
+                    disabled={exIdx === 0 || reordering}
+                    className={`p-2 rounded-lg transition-colors ${exIdx === 0 ? 'text-gray-300 dark:text-gray-700' : 'text-gray-400 hover:text-brand-500 active:bg-brand-50 dark:active:bg-brand-500/10 active:text-brand-600'}`}>
+                    <ChevronUp size={18} />
+                  </button>
+                  <GripVertical size={12} className="text-gray-300 dark:text-gray-600 -my-1" />
+                  <button onClick={() => moveExDown(exIdx, day.id, sortedExercises)}
+                    disabled={exIdx >= sortedExercises.length - 1 || reordering}
+                    className={`p-2 rounded-lg transition-colors ${exIdx >= sortedExercises.length - 1 ? 'text-gray-300 dark:text-gray-700' : 'text-gray-400 hover:text-brand-500 active:bg-brand-50 dark:active:bg-brand-500/10 active:text-brand-600'}`}>
+                    <ChevronDown size={18} />
+                  </button>
                 </div>
-                <div className="text-right text-sm ml-3">
-                  <p className="font-medium">{ex.sets} x {ex.reps_min}-{ex.reps_max}</p>
-                  <p className="text-xs text-gray-400">Descanso: {ex.rest_seconds}s</p>
+                {/* Cardio emoji */}
+                <span className="text-2xl flex-shrink-0">{cardioInfo?.emoji || '🏃'}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm">{cardioInfo?.label || exDisplayName(ex.exercise)}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{cardioInfo?.description || 'Cardio'}</p>
+                  <span className={`inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-semibold ${MUSCLE_COLORS.cardio}`}>
+                    Cardio
+                  </span>
+                  <button
+                    onClick={() => navigate('/cardio', { state: { preselectedType: cardioTypeId } })}
+                    className="mt-2 w-full py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white font-bold text-sm flex items-center justify-center gap-2 transition-colors">
+                    <HeartPulse size={16} /> Empezar Cardio
+                  </button>
+                  <div className="flex gap-3 mt-2">
+                    <button onClick={() => setSwapExercise(ex)}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-orange-500 hover:text-orange-400 transition-colors">
+                      <RefreshCw size={14} /> Reemplazar
+                    </button>
+                    <button onClick={() => { if (confirm('Eliminar este ejercicio?')) deleteExercise(ex.id) }}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-red-500 hover:text-red-400 transition-colors">
+                      <Trash2 size={14} /> Eliminar
+                    </button>
+                  </div>
                 </div>
               </div>
-              {personalBests[ex.exercise_id] && (
-                <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                  <div className="flex items-center gap-1.5 bg-yellow-50 dark:bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 px-2 py-1 rounded-lg">
-                    <Trophy size={12} />
-                    <span className="text-xs font-semibold">
-                      PR: {personalBests[ex.exercise_id].weight_kg} kg x {personalBests[ex.exercise_id].reps}
-                    </span>
+            </div>
+          )
+        }
+
+        // ── Regular strength exercise card ──
+        return (
+          <div
+            key={ex.id}
+            className={`card bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2.5 transition-all ${
+              checked[ex.id] ? 'opacity-40' : ''
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {/* Move buttons */}
+              <div className="flex flex-col items-center flex-shrink-0">
+                <button
+                  onClick={() => moveExUp(exIdx, day.id, sortedExercises)}
+                  disabled={exIdx === 0 || reordering}
+                  className={`p-2 rounded-lg transition-colors ${exIdx === 0 ? 'text-gray-300 dark:text-gray-700' : 'text-gray-400 hover:text-brand-500 active:bg-brand-50 dark:active:bg-brand-500/10 active:text-brand-600'}`}
+                >
+                  <ChevronUp size={18} />
+                </button>
+                <GripVertical size={12} className="text-gray-300 dark:text-gray-600 -my-1" />
+                <button
+                  onClick={() => moveExDown(exIdx, day.id, sortedExercises)}
+                  disabled={exIdx >= sortedExercises.length - 1 || reordering}
+                  className={`p-2 rounded-lg transition-colors ${exIdx >= sortedExercises.length - 1 ? 'text-gray-300 dark:text-gray-700' : 'text-gray-400 hover:text-brand-500 active:bg-brand-50 dark:active:bg-brand-500/10 active:text-brand-600'}`}
+                >
+                  <ChevronDown size={18} />
+                </button>
+              </div>
+              {/* Check button */}
+              <button
+                onClick={() => handleExerciseCheck(ex.id, ex.exercise_id, exDisplayName(ex.exercise))}
+                className={`w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                  checked[ex.id] ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 dark:border-gray-600'
+                }`}
+              >
+                {checked[ex.id] && <Check size={14} />}
+              </button>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-medium text-sm ${checked[ex.id] ? 'line-through text-gray-400' : ''}`}>
+                      {exDisplayName(ex.exercise)}
+                    </p>
+                    {exSubtitle(ex.exercise) && (
+                      <p className="text-[11px] text-gray-400 italic">{exSubtitle(ex.exercise)}</p>
+                    )}
+                    <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${MUSCLE_COLORS[ex.exercise?.muscle_group] || 'bg-gray-100 dark:bg-gray-700 text-gray-500'}`}>
+                        {MUSCLE_LABELS[ex.exercise?.muscle_group] || ex.exercise?.muscle_group}
+                      </span>
+                      <span className="text-[10px] text-gray-400">{ex.exercise?.equipment}</span>
+                    </div>
                   </div>
-                  {!checked[ex.id] && (() => {
-                    const pb = personalBests[ex.exercise_id]
-                    const suggestedWeight = pb.reps >= ex.reps_max ? pb.weight_kg + 2.5 : pb.weight_kg
-                    const suggestedReps = pb.reps >= ex.reps_max ? ex.reps_min : Math.min(pb.reps + 1, ex.reps_max)
-                    return (
-                      <div className="flex items-center gap-1.5 bg-brand-50 dark:bg-brand-500/10 text-brand-500 px-2 py-1 rounded-lg">
-                        <TrendingUp size={12} />
-                        <span className="text-xs font-semibold">
-                          Hoy: {suggestedWeight} kg x {suggestedReps}
-                        </span>
-                      </div>
-                    )
-                  })()}
+                  <div className="text-right text-sm ml-3">
+                    <p className="font-medium">{ex.sets} x {ex.reps_min}-{ex.reps_max}</p>
+                    <p className="text-xs text-gray-400">Descanso: {ex.rest_seconds}s</p>
+                  </div>
                 </div>
-              )}
-              {ex.exercise?.name && (
-                <a href={getYoutubeUrl(ex.exercise.name)} target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 mt-2 text-xs font-medium text-red-500 hover:text-red-400 transition-colors">
-                  <Play size={14} fill="currentColor" /> VER VIDEO
-                </a>
-              )}
-              <button onClick={() => setOneRMExercise(ex.exercise)}
-                className="inline-flex items-center gap-1.5 mt-1 ml-3 text-xs font-medium text-brand-500 hover:text-brand-400 transition-colors">
-                <Calculator size={14} /> 1RM
-              </button>
-              <button onClick={() => setSwapExercise(ex)}
-                className="inline-flex items-center gap-1.5 mt-1 ml-3 text-xs font-medium text-orange-500 hover:text-orange-400 transition-colors">
-                <RefreshCw size={14} /> Reemplazar
-              </button>
-              <button onClick={() => { if (confirm('Eliminar este ejercicio?')) deleteExercise(ex.id) }}
-                className="inline-flex items-center gap-1.5 mt-1 ml-3 text-xs font-medium text-red-500 hover:text-red-400 transition-colors">
-                <Trash2 size={14} /> Eliminar
-              </button>
+                {personalBests[ex.exercise_id] && (
+                  <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                    <div className="flex items-center gap-1.5 bg-yellow-50 dark:bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 px-2 py-1 rounded-lg">
+                      <Trophy size={12} />
+                      <span className="text-xs font-semibold">
+                        PR: {personalBests[ex.exercise_id].weight_kg} kg x {personalBests[ex.exercise_id].reps}
+                      </span>
+                    </div>
+                    {!checked[ex.id] && (() => {
+                      const pb = personalBests[ex.exercise_id]
+                      const suggestedWeight = pb.reps >= ex.reps_max ? pb.weight_kg + 2.5 : pb.weight_kg
+                      const suggestedReps = pb.reps >= ex.reps_max ? ex.reps_min : Math.min(pb.reps + 1, ex.reps_max)
+                      return (
+                        <div className="flex items-center gap-1.5 bg-brand-50 dark:bg-brand-500/10 text-brand-500 px-2 py-1 rounded-lg">
+                          <TrendingUp size={12} />
+                          <span className="text-xs font-semibold">
+                            Hoy: {suggestedWeight} kg x {suggestedReps}
+                          </span>
+                        </div>
+                      )
+                    })()}
+                  </div>
+                )}
+                {ex.exercise?.name && (
+                  <a href={getYoutubeUrl(ex.exercise.name)} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 mt-2 text-xs font-medium text-red-500 hover:text-red-400 transition-colors">
+                    <Play size={14} fill="currentColor" /> VER VIDEO
+                  </a>
+                )}
+                <button onClick={() => setOneRMExercise(ex.exercise)}
+                  className="inline-flex items-center gap-1.5 mt-1 ml-3 text-xs font-medium text-brand-500 hover:text-brand-400 transition-colors">
+                  <Calculator size={14} /> 1RM
+                </button>
+                <button onClick={() => setSwapExercise(ex)}
+                  className="inline-flex items-center gap-1.5 mt-1 ml-3 text-xs font-medium text-orange-500 hover:text-orange-400 transition-colors">
+                  <RefreshCw size={14} /> Reemplazar
+                </button>
+                <button onClick={() => { if (confirm('Eliminar este ejercicio?')) deleteExercise(ex.id) }}
+                  className="inline-flex items-center gap-1.5 mt-1 ml-3 text-xs font-medium text-red-500 hover:text-red-400 transition-colors">
+                  <Trash2 size={14} /> Eliminar
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      ))}
+        )
+      })}
 
       {/* Add exercise button */}
       <button onClick={() => setAddingToDay(day)}

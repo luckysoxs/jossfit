@@ -2,7 +2,15 @@ import { useState, useEffect } from 'react'
 import api from '../../services/api'
 import { cacheSet, cacheGet } from '../../services/offlineCache'
 import { MUSCLE_LABELS } from '../../utils/routineConstants'
+import { CARDIO_TYPES } from '../../data/cardioProtocols'
 import { ArrowLeft, X, Search, Plus, Settings2 } from 'lucide-react'
+
+// Map cardio type IDs to exercise names in DB
+const CARDIO_EXERCISE_NAMES = {
+  hiit: 'HIIT Cardio',
+  liss: 'LISS Cardio',
+  steady: 'Steady State Cardio',
+}
 
 const EQUIPMENT_OPTIONS = ['Barbell', 'Dumbbells', 'Cable', 'Machine', 'Bodyweight', 'Smith Machine', 'Kettlebell', 'Bands']
 const CATEGORY_OPTIONS = [
@@ -51,6 +59,19 @@ export default function ExercisePickerModal({ title, priorityMuscle, showCustomi
   }, [])
 
   const handleSelect = async (exercise) => {
+    // Cardio exercises skip customize — add with defaults directly
+    if (exercise.muscle_group === 'cardio' && exercise.category === 'cardio') {
+      setSubmitting(true)
+      try {
+        await onSelect(exercise, { sets: 1, reps_min: 1, reps_max: 1, rest_seconds: 0 })
+      } catch (err) {
+        console.error('Error adding cardio:', err)
+        alert('Error al agregar cardio')
+      } finally {
+        setSubmitting(false)
+      }
+      return
+    }
     if (showCustomize) {
       setSelectedExercise(exercise)
       return
@@ -274,14 +295,34 @@ export default function ExercisePickerModal({ title, priorityMuscle, showCustomi
                 <p className="text-xs font-semibold text-brand-500 uppercase tracking-wide py-2 sticky top-0 bg-white dark:bg-gray-900 z-10">
                   {MUSCLE_LABELS[group] || group}
                 </p>
-                {grouped[group].map(e => (
-                  <button key={e.id} onClick={() => handleSelect(e)} disabled={submitting}
-                    className="w-full text-left bg-gray-50 dark:bg-gray-800 rounded-xl p-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors mb-1.5">
-                    <p className="font-medium text-sm">{e.name_es || e.name}</p>
-                    {e.name_es && <p className="text-[11px] text-gray-400 italic">{e.name}</p>}
-                    <p className="text-xs text-gray-400">{e.category} · {e.equipment}</p>
-                  </button>
-                ))}
+                {group === 'cardio' ? (
+                  /* Special cardio rendering: show HIIT/LISS/Steady with emojis */
+                  CARDIO_TYPES.map(ct => {
+                    const matchingEx = exercises.find(e => e.name === CARDIO_EXERCISE_NAMES[ct.id])
+                    if (!matchingEx) return null
+                    return (
+                      <button key={ct.id} onClick={() => handleSelect(matchingEx)} disabled={submitting}
+                        className="w-full text-left bg-gray-50 dark:bg-gray-800 rounded-xl p-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors mb-1.5">
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl">{ct.emoji}</span>
+                          <div>
+                            <p className="font-medium text-sm">{ct.label}</p>
+                            <p className="text-xs text-gray-400">{ct.description}</p>
+                          </div>
+                        </div>
+                      </button>
+                    )
+                  })
+                ) : (
+                  grouped[group].map(e => (
+                    <button key={e.id} onClick={() => handleSelect(e)} disabled={submitting}
+                      className="w-full text-left bg-gray-50 dark:bg-gray-800 rounded-xl p-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors mb-1.5">
+                      <p className="font-medium text-sm">{e.name_es || e.name}</p>
+                      {e.name_es && <p className="text-[11px] text-gray-400 italic">{e.name}</p>}
+                      <p className="text-xs text-gray-400">{e.category} · {e.equipment}</p>
+                    </button>
+                  ))
+                )}
               </div>
             ))
           ) : (

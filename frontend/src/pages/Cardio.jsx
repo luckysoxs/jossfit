@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, HeartPulse } from 'lucide-react'
 import { CARDIO_TYPES, EQUIPMENT, DURATIONS, LEVELS, LISS_BPM_ZONES, LISS_EQUIPMENT_GUIDANCE, generateHIITIntervals, generateSteadyIntervals, generateLISSIntervals } from '../data/cardioProtocols'
 import CardioSession from '../components/cardio/CardioSession'
@@ -7,11 +7,25 @@ import PageTour from '../components/ui/PageTour'
 
 export default function Cardio() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const preselectedType = location.state?.preselectedType
   const [step, setStep] = useState(1)
   const [cardioType, setCardioType] = useState(null)
   const [equipment, setEquipment] = useState(null)
   const [duration, setDuration] = useState(null)
   const [level, setLevel] = useState(null)
+
+  // Auto-advance if coming from routine with preselected type
+  useEffect(() => {
+    if (preselectedType && CARDIO_TYPES.some(t => t.id === preselectedType)) {
+      setCardioType(preselectedType)
+      if (preselectedType === 'liss') {
+        setStep(3) // LISS skips equipment
+      } else {
+        setStep(2) // HIIT/Steady go to equipment selection
+      }
+    }
+  }, [])
 
   const equipData = EQUIPMENT.find(e => e.id === equipment)
   const unit = equipData?.unit || ''
@@ -33,7 +47,7 @@ export default function Cardio() {
         duration={duration}
         unit={unit}
         bpmZone={cardioType === 'liss' ? LISS_BPM_ZONES.find(z => z.level === level) : null}
-        onExit={() => navigate('/')}
+        onExit={() => preselectedType ? navigate(-1) : navigate('/')}
       />
     )
   }
@@ -44,6 +58,8 @@ export default function Cardio() {
       <button
         onClick={() => {
           if (step === 1) navigate(-1)
+          else if (step === 2 && preselectedType) navigate(-1)
+          else if (step === 3 && cardioType === 'liss' && preselectedType) navigate(-1)
           else if (step === 3 && cardioType === 'liss') setStep(1)
           else setStep(step - 1)
         }}

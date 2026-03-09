@@ -182,6 +182,11 @@ EXERCISES = [
     ("Jump Rope", "Saltar la Cuerda", MuscleGroup.CARDIO, "calves", ExerciseCategory.CARDIO, "Jump Rope"),
     ("Stair Climber", "Escaladora", MuscleGroup.CARDIO, "quadriceps,glutes", ExerciseCategory.CARDIO, "Machine"),
     ("Battle Ropes", "Cuerdas de Batalla", MuscleGroup.CARDIO, "shoulders,back", ExerciseCategory.CARDIO, "Battle Ropes"),
+
+    # ── Cardio Protocols (linked to /cardio wizard) ──
+    ("HIIT Cardio", "Cardio HIIT", MuscleGroup.CARDIO, None, ExerciseCategory.CARDIO, "Any"),
+    ("LISS Cardio", "Cardio LISS", MuscleGroup.CARDIO, None, ExerciseCategory.CARDIO, "Any"),
+    ("Steady State Cardio", "Cardio Steady State", MuscleGroup.CARDIO, None, ExerciseCategory.CARDIO, "Any"),
 ]
 
 # Build a name→name_es lookup for updating existing exercises
