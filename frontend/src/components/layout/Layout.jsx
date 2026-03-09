@@ -7,7 +7,7 @@ export default function Layout({ children }) {
     <div className="min-h-screen flex flex-col">
       <OfflineBanner />
       <TopBar />
-      <main className="flex-1 px-4 py-4 pb-20 max-w-7xl mx-auto w-full overflow-x-hidden">
+      <main className="flex-1 px-4 py-4 pb-28 max-w-7xl mx-auto w-full overflow-x-hidden">
         {children}
       </main>
       <BottomNav />

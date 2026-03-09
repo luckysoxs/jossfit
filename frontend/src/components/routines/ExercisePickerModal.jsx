@@ -110,7 +110,7 @@ export default function ExercisePickerModal({ title, priorityMuscle, showCustomi
   // Create exercise view
   if (showCreate) {
     return (
-      <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4">
+      <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4">
         <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-md shadow-2xl">
           <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center">
             <div className="flex items-center gap-3">
@@ -173,7 +173,7 @@ export default function ExercisePickerModal({ title, priorityMuscle, showCustomi
   // Customize view
   if (selectedExercise) {
     return (
-      <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4">
+      <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4">
         <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-md shadow-2xl">
           <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center">
             <div className="flex items-center gap-3">
@@ -196,21 +196,25 @@ export default function ExercisePickerModal({ title, priorityMuscle, showCustomi
               <div>
                 <label className="label">Series</label>
                 <input type="number" className="input text-center font-bold" value={config.sets}
+                  onFocus={e => e.target.select()}
                   onChange={e => setConfig({ ...config, sets: parseInt(e.target.value) || 1 })} min="1" max="20" inputMode="numeric" />
               </div>
               <div>
                 <label className="label">Descanso (s)</label>
                 <input type="number" className="input text-center font-bold" value={config.rest_seconds}
+                  onFocus={e => e.target.select()}
                   onChange={e => setConfig({ ...config, rest_seconds: parseInt(e.target.value) || 30 })} min="10" max="600" step="10" inputMode="numeric" />
               </div>
               <div>
                 <label className="label">Reps min</label>
                 <input type="number" className="input text-center font-bold" value={config.reps_min}
+                  onFocus={e => e.target.select()}
                   onChange={e => setConfig({ ...config, reps_min: parseInt(e.target.value) || 1 })} min="1" max="100" inputMode="numeric" />
               </div>
               <div>
                 <label className="label">Reps max</label>
                 <input type="number" className="input text-center font-bold" value={config.reps_max}
+                  onFocus={e => e.target.select()}
                   onChange={e => setConfig({ ...config, reps_max: parseInt(e.target.value) || 1 })} min="1" max="100" inputMode="numeric" />
               </div>
             </div>
@@ -229,8 +233,8 @@ export default function ExercisePickerModal({ title, priorityMuscle, showCustomi
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-md max-h-[75vh] flex flex-col shadow-2xl">
+    <div className="fixed inset-0 bg-black/60 z-[60] flex items-end sm:items-center justify-center p-4">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-md max-h-[75dvh] flex flex-col shadow-2xl" style={{ maxHeight: '75dvh' }}>
         <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center">
           <h3 className="font-bold">{title}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><X size={20} /></button>
