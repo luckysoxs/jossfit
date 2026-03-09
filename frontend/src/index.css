@@ -85,3 +85,9 @@
     scrollbar-width: none;
   }
 }
+
+/* Subtle glow pulse for today's routine banner */
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
+}

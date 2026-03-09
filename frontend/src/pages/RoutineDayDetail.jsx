@@ -243,7 +243,7 @@ export default function RoutineDayDetail() {
     try {
       const items = [...sortedExercises]
       ;[items[exIdx - 1], items[exIdx]] = [items[exIdx], items[exIdx - 1]]
-      await api.put('/routines/reorder-exercises', { day_id: dId, exercise_order: items.map(e => e.id) })
+      await api.put('/routines/reorder-exercises', { day_id: parseInt(dId, 10), exercise_order: items.map(e => parseInt(e.id, 10)) })
       await reloadRoutine()
     } catch (err) {
       console.error('Error reordering:', err)
@@ -259,7 +259,7 @@ export default function RoutineDayDetail() {
     try {
       const items = [...sortedExercises]
       ;[items[exIdx], items[exIdx + 1]] = [items[exIdx + 1], items[exIdx]]
-      await api.put('/routines/reorder-exercises', { day_id: dId, exercise_order: items.map(e => e.id) })
+      await api.put('/routines/reorder-exercises', { day_id: parseInt(dId, 10), exercise_order: items.map(e => parseInt(e.id, 10)) })
       await reloadRoutine()
     } catch (err) {
       console.error('Error reordering:', err)
