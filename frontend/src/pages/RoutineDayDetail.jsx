@@ -36,13 +36,26 @@ export default function RoutineDayDetail() {
   const [offlineMode, setOfflineMode] = useState(false)
   const [personalBests, setPersonalBests] = useState({})
 
-  const todayDate = new Date().toISOString().split('T')[0]
+  const todayDate = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD local time
   const todayKey = `routine_progress_${id}_${todayDate}`
 
   const [checked, setChecked] = useState(() => {
     try {
       const saved = localStorage.getItem(todayKey)
-      return saved ? JSON.parse(saved) : {}
+      if (saved) return JSON.parse(saved)
+      // Migrate from old UTC-based key if exists
+      const utcDate = new Date().toISOString().split('T')[0]
+      const utcKey = `routine_progress_${id}_${utcDate}`
+      const utcSaved = localStorage.getItem(utcKey)
+      if (utcSaved) {
+        const data = JSON.parse(utcSaved)
+        localStorage.setItem(todayKey, utcSaved) // copy to new key
+        return data
+      }
+      // Also check sessionStorage as fallback
+      const session = sessionStorage.getItem(todayKey)
+      if (session) return JSON.parse(session)
+      return {}
     } catch { return {} }
   })
 
