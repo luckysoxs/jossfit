@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useTheme } from '../../contexts/ThemeContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { useUnread } from '../../contexts/UnreadContext'
-import { Sun, Moon, Shield, Radio, Lightbulb } from 'lucide-react'
+import { Sun, Moon, Shield, MessageCircle, Lightbulb } from 'lucide-react'
 import WalkieTalkiePopup from '../walkie/WalkieTalkiePopup'
 
 export default function TopBar() {
@@ -11,7 +11,7 @@ export default function TopBar() {
   const { user } = useAuth()
   const { walkie } = useUnread()
   const [showTooltip, setShowTooltip] = useState(false)
-  const [showWalkie, setShowWalkie] = useState(false)
+  const [showChat, setShowChat] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -43,11 +43,11 @@ export default function TopBar() {
           {user?.is_admin && (
             <>
               <button
-                onClick={() => setShowWalkie(!showWalkie)}
+                onClick={() => setShowChat(!showChat)}
                 className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-brand-500"
-                aria-label="Walkie-Talkie"
+                aria-label="Chat Admins"
               >
-                <Radio size={18} />
+                <MessageCircle size={18} />
                 {walkie > 0 && (
                   <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
                     {walkie > 9 ? '9+' : walkie}
@@ -100,7 +100,7 @@ export default function TopBar() {
           )}
         </div>
       </div>
-      {showWalkie && <WalkieTalkiePopup onClose={() => setShowWalkie(false)} />}
+      {showChat && <WalkieTalkiePopup onClose={() => setShowChat(false)} />}
     </header>
   )
 }
