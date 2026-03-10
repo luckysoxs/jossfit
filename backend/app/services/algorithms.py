@@ -33,7 +33,7 @@ def get_progression_recommendation(
     """Analyze recent workout sets for an exercise and recommend next weight."""
     exercise = db.query(Exercise).filter(Exercise.id == exercise_id).first()
     if not exercise:
-        return {"action": "maintain", "reason": "Exercise not found"}
+        return {"action": "maintain", "reason": "Ejercicio no encontrado"}
 
     # Get last 3 workouts with this exercise
     recent_sets = (
@@ -53,7 +53,7 @@ def get_progression_recommendation(
             "action": "maintain",
             "current_weight": 0,
             "recommended_weight": 0,
-            "reason": "No previous data",
+            "reason": "Sin datos previos",
         }
 
     latest_weight = recent_sets[0].weight_kg
@@ -73,14 +73,14 @@ def get_progression_recommendation(
             "action": "increase",
             "current_weight": latest_weight,
             "recommended_weight": new_weight,
-            "reason": f"All reps completed with RPE {avg_rpe:.1f}. Ready to progress.",
+            "reason": f"Todas las reps completadas con RPE {avg_rpe:.1f}. Listo para subir.",
         }
     elif all_completed and avg_rpe <= 9:
         return {
             "action": "maintain",
             "current_weight": latest_weight,
             "recommended_weight": latest_weight,
-            "reason": f"RPE {avg_rpe:.1f} is high. Maintain weight until RPE drops.",
+            "reason": f"RPE {avg_rpe:.1f} esta alto. Mantener peso hasta que baje.",
         }
     else:
         # Check if failed multiple sessions
@@ -92,13 +92,13 @@ def get_progression_recommendation(
                 "action": "decrease",
                 "current_weight": latest_weight,
                 "recommended_weight": new_weight,
-                "reason": "Multiple failed sets. Reduce weight 10% to rebuild.",
+                "reason": "Varias series fallidas. Reduce el peso 10% para reconstruir.",
             }
         return {
             "action": "maintain",
             "current_weight": latest_weight,
             "recommended_weight": latest_weight,
-            "reason": "Some reps missed. Maintain weight and focus on completion.",
+            "reason": "Algunas reps incompletas. Mantener peso y enfocarse en completar.",
         }
 
 
@@ -127,11 +127,11 @@ def calculate_weekly_volume(db: Session, user_id: int) -> list[dict]:
     for muscle, count in sorted(volume.items()):
         count = int(count)
         if count < 10:
-            status, rec = "low", f"Consider adding {10 - count} more sets"
+            status, rec = "low", f"Considera agregar {10 - count} series mas"
         elif count > 20:
-            status, rec = "high", f"Consider reducing by {count - 20} sets"
+            status, rec = "high", f"Considera reducir {count - 20} series"
         else:
-            status, rec = "optimal", "Volume is within recommended range (10-20 sets)"
+            status, rec = "optimal", "Volumen dentro del rango recomendado (10-20 series)"
         results.append({
             "muscle_group": muscle,
             "weekly_sets": count,
@@ -170,8 +170,8 @@ def detect_overtraining(db: Session, user_id: int) -> dict:
 
     if avg_4week > 0 and current_week > avg_4week * 1.2:
         alerts.append(
-            f"Weekly volume ({current_week} sets) is {((current_week/avg_4week)-1)*100:.0f}% "
-            f"above your 4-week average ({avg_4week:.0f} sets)"
+            f"Volumen semanal ({current_week} series) esta {((current_week/avg_4week)-1)*100:.0f}% "
+            f"por encima de tu promedio de 4 semanas ({avg_4week:.0f} series)"
         )
 
     # 2. Check sleep quality
@@ -184,9 +184,9 @@ def detect_overtraining(db: Session, user_id: int) -> dict:
         avg_quality = sum(s.quality for s in recent_sleep) / len(recent_sleep)
         avg_hours = sum(s.hours_slept for s in recent_sleep) / len(recent_sleep)
         if avg_quality < 5:
-            alerts.append(f"Sleep quality is poor (avg {avg_quality:.1f}/10)")
+            alerts.append(f"Calidad de sueno baja (promedio {avg_quality:.1f}/10)")
         if avg_hours < 6:
-            alerts.append(f"Sleep duration is low (avg {avg_hours:.1f}h)")
+            alerts.append(f"Horas de sueno bajas (promedio {avg_hours:.1f}h)")
 
     # 3. Check fatigue levels
     recent_workouts = (
@@ -198,7 +198,7 @@ def detect_overtraining(db: Session, user_id: int) -> dict:
     if fatigue_levels:
         avg_fatigue = sum(fatigue_levels) / len(fatigue_levels)
         if avg_fatigue > 7:
-            alerts.append(f"Fatigue levels are high (avg {avg_fatigue:.1f}/10)")
+            alerts.append(f"Nivel de fatiga alto (promedio {avg_fatigue:.1f}/10)")
 
     # Determine risk level
     if len(alerts) >= 3:
@@ -238,13 +238,13 @@ def check_deload_needed(db: Session, user_id: int) -> dict:
 
     if weeks_training >= 6:
         recommended = True
-        reason = f"You've trained {weeks_training} consecutive weeks. A deload will aid recovery."
+        reason = f"Llevas {weeks_training} semanas seguidas entrenando. Un deload ayudara a tu recuperacion."
     elif weeks_training >= 4 and overtraining["risk"] == "high":
         recommended = True
-        reason = "High overtraining risk detected after 4+ weeks of training."
+        reason = "Riesgo alto de sobreentrenamiento detectado tras 4+ semanas de entrenamiento."
     elif overtraining["risk"] == "high":
         recommended = True
-        reason = "High overtraining risk. Consider reducing volume 40-60% this week."
+        reason = "Riesgo alto de sobreentrenamiento. Considera reducir el volumen 40-60% esta semana."
 
     return {
         "recommended": recommended,

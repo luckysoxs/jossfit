@@ -4,6 +4,7 @@ import LoadingSpinner from '../components/ui/LoadingSpinner'
 import PageTour from '../components/ui/PageTour'
 import { Link } from 'react-router-dom'
 import { TrendingUp, AlertTriangle, Shield, Activity, Flame, Dumbbell, Calendar, Clock, ChevronRight } from 'lucide-react'
+import { MUSCLE_LABELS } from '../utils/routineConstants'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
 
 export default function Progress() {
@@ -97,7 +98,7 @@ export default function Progress() {
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={analysis.volume_analysis}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
-                  <XAxis dataKey="muscle_group" tick={{ fontSize: 10 }} angle={-35} textAnchor="end" height={60} />
+                  <XAxis dataKey="muscle_group" tick={{ fontSize: 10 }} angle={-35} textAnchor="end" height={60} tickFormatter={(v) => MUSCLE_LABELS[v] || v} />
                   <YAxis tick={{ fontSize: 11 }} />
                   <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '12px', color: '#fff' }} />
                   <Bar dataKey="weekly_sets" fill="#3b82f6" radius={[6, 6, 0, 0]} />
@@ -107,7 +108,7 @@ export default function Progress() {
                 {analysis.volume_analysis.filter(v => v.status !== 'optimal').map((v, i) => (
                   <p key={i} className={`text-xs px-2 py-1 rounded ${
                     v.status === 'high' ? 'bg-red-50 dark:bg-red-500/10 text-red-500' : 'bg-yellow-50 dark:bg-yellow-500/10 text-yellow-500'
-                  }`}>{v.muscle_group}: {v.recommendation}</p>
+                  }`}>{MUSCLE_LABELS[v.muscle_group] || v.muscle_group}: {v.recommendation}</p>
                 ))}
               </div>
             </div>
