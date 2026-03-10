@@ -5,6 +5,7 @@ import App from './App'
 import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { UnreadProvider } from './contexts/UnreadContext'
+import { RestTimerProvider } from './contexts/RestTimerContext'
 import './index.css'
 
 
@@ -23,7 +24,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <ThemeProvider>
         <AuthProvider>
           <UnreadProvider>
-            <App />
+            <RestTimerProvider>
+              <App />
+            </RestTimerProvider>
           </UnreadProvider>
         </AuthProvider>
       </ThemeProvider>

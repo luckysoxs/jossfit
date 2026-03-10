@@ -2,8 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import { cacheSet, cacheGet, queueAction } from '../services/offlineCache'
-import { ensureNotificationPermission, scheduleSWNotification, cancelSWNotification } from '../utils/backgroundTimer'
 import useOnlineStatus from '../hooks/useOnlineStatus'
+import { useRestTimer } from '../contexts/RestTimerContext'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import OneRMCalculator from '../components/routines/OneRMCalculator'
 import ExercisePickerModal from '../components/routines/ExercisePickerModal'
@@ -59,11 +59,7 @@ export default function RoutineDayDetail() {
     } catch { return {} }
   })
 
-  // Rest timer state (endTime-based for background support)
-  const [timerSeconds, setTimerSeconds] = useState(0)
-  const [timerRunning, setTimerRunning] = useState(false)
-  const timerRef = useRef(null)
-  const endTimeRef = useRef(null)
+  const { timeLeft: timerSeconds, totalSeconds: timerTotal, isRunning: timerRunning, progress: timerProgress, startTimer, stopTimer } = useRestTimer()
 
   // Exercise picker modals
   const [swapExercise, setSwapExercise] = useState(null)
@@ -320,81 +316,6 @@ export default function RoutineDayDetail() {
     }
   }
 
-  // ─── Rest Timer (background-aware) ───
-  const startTimer = useCallback((seconds) => {
-    if (timerRef.current) clearInterval(timerRef.current)
-    // Request notification permission on first use
-    ensureNotificationPermission()
-
-    const end = Date.now() + seconds * 1000
-    endTimeRef.current = end
-    setTimerSeconds(seconds)
-    setTimerRunning(true)
-
-    timerRef.current = setInterval(() => {
-      const remaining = Math.max(0, Math.ceil((endTimeRef.current - Date.now()) / 1000))
-      setTimerSeconds(remaining)
-      if (remaining <= 0) {
-        clearInterval(timerRef.current)
-        timerRef.current = null
-        endTimeRef.current = null
-        setTimerRunning(false)
-        cancelSWNotification()
-        if (navigator.vibrate) navigator.vibrate([200, 100, 200])
-      }
-    }, 1000)
-  }, [])
-
-  const stopTimer = useCallback(() => {
-    if (timerRef.current) clearInterval(timerRef.current)
-    timerRef.current = null
-    endTimeRef.current = null
-    setTimerRunning(false)
-    setTimerSeconds(0)
-    cancelSWNotification()
-  }, [])
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current)
-      cancelSWNotification()
-    }
-  }, [])
-
-  // Background/foreground sync: schedule SW notification when app goes to background
-  useEffect(() => {
-    const handleVisibility = () => {
-      if (!endTimeRef.current) return
-
-      if (document.hidden) {
-        // App going to background → schedule push notification via SW
-        const remainingMs = endTimeRef.current - Date.now()
-        if (remainingMs > 0) {
-          scheduleSWNotification(remainingMs)
-        }
-      } else {
-        // App returning to foreground → cancel SW notification, sync timer
-        cancelSWNotification()
-        const remaining = Math.max(0, Math.ceil((endTimeRef.current - Date.now()) / 1000))
-        if (remaining <= 0) {
-          // Timer finished while in background
-          if (timerRef.current) clearInterval(timerRef.current)
-          timerRef.current = null
-          endTimeRef.current = null
-          setTimerSeconds(0)
-          setTimerRunning(false)
-          if (navigator.vibrate) navigator.vibrate([200, 100, 200])
-        } else {
-          setTimerSeconds(remaining)
-        }
-      }
-    }
-
-    document.addEventListener('visibilitychange', handleVisibility)
-    return () => document.removeEventListener('visibilitychange', handleVisibility)
-  }, [])
-
   // ─── Render ───
   if (loading) return <LoadingSpinner />
   if (!routine) return null
@@ -464,28 +385,44 @@ export default function RoutineDayDetail() {
       {/* Rest Timer */}
       <div className="card">
         {timerRunning ? (
-          <div className="text-center space-y-2">
-            <div className="flex items-center justify-center gap-2">
-              <Timer size={18} className="text-brand-500" />
-              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Descanso</span>
+          <div className="flex items-center gap-4">
+            <div className="relative w-20 h-20 flex-shrink-0">
+              <svg className="w-full h-full -rotate-90" viewBox="0 0 80 80">
+                <circle cx="40" cy="40" r="34" fill="none" strokeWidth="5"
+                  stroke="currentColor" className="text-gray-100 dark:text-gray-800" />
+                <circle cx="40" cy="40" r="34" fill="none" strokeWidth="5"
+                  strokeLinecap="round"
+                  strokeDasharray={213.63}
+                  strokeDashoffset={213.63 * (1 - timerProgress)}
+                  style={{ stroke: 'hsl(' + Math.round(timerProgress * 130) + ', 75%, 48%)', transition: 'stroke-dashoffset 1s linear, stroke 1s linear' }}
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-lg font-bold tabular-nums" style={{ color: 'hsl(' + Math.round(timerProgress * 130) + ', 75%, 48%)' }}>
+                  {Math.floor(timerSeconds / 60)}:{String(timerSeconds % 60).padStart(2, '0')}
+                </span>
+              </div>
             </div>
-            <p className={`text-4xl font-bold tabular-nums ${timerSeconds <= 5 ? 'text-red-500 animate-pulse' : 'text-brand-500'}`}>
-              {Math.floor(timerSeconds / 60)}:{String(timerSeconds % 60).padStart(2, '0')}
-            </p>
-            <button onClick={stopTimer}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-red-500 transition-colors">
-              <Pause size={14} /> Cancelar
-            </button>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Descanso</p>
+              <p className="text-xs text-gray-400 mt-1">
+                {timerProgress < 0.5 ? 'Descansa...' : timerProgress < 0.85 ? 'Casi listo...' : 'A darle!'}
+              </p>
+              <button onClick={stopTimer}
+                className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-red-500 transition-colors">
+                <X size={14} /> Cancelar
+              </button>
+            </div>
           </div>
-        ) : timerSeconds === 0 && !timerRunning ? (
+        ) : !timerRunning ? (
           <div className="flex items-center gap-2">
             <Timer size={16} className="text-gray-400 flex-shrink-0" />
             <span className="text-xs text-gray-400 flex-shrink-0">Descanso:</span>
             <div className="flex gap-1.5 flex-1">
-              {[60, 120, 180].map(s => (
+              {[60, 90, 120, 180].map(s => (
                 <button key={s} onClick={() => startTimer(s)}
                   className="flex-1 py-1.5 rounded-lg text-xs font-bold bg-brand-50 dark:bg-brand-500/10 text-brand-500 hover:bg-brand-100 dark:hover:bg-brand-500/20 active:scale-95 transition-all">
-                  {s / 60} min
+                  {s >= 120 ? (s / 60 + ' min') : (s + 's')}
                 </button>
               ))}
             </div>

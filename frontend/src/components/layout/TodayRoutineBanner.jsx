@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Dumbbell, ChevronRight, Check } from 'lucide-react'
+import { Dumbbell, ChevronRight, Check, Timer } from 'lucide-react'
 import api from '../../services/api'
 import { cacheSet, cacheGet } from '../../services/offlineCache'
 import { getWeekdayMap } from '../../utils/routineConstants'
 import { useAuth } from '../../contexts/AuthContext'
+import { useRestTimer } from '../../contexts/RestTimerContext'
 
 /**
  * Global banner that shows today's training day.
@@ -12,6 +13,7 @@ import { useAuth } from '../../contexts/AuthContext'
  */
 export default function TodayRoutineBanner() {
   const { user } = useAuth()
+  const rest = useRestTimer()
   const navigate = useNavigate()
   const location = useLocation()
   const [todayInfo, setTodayInfo] = useState(null)
@@ -137,6 +139,24 @@ export default function TodayRoutineBanner() {
       </div>
 
       <div className="relative flex items-center gap-2 shrink-0">
+        {rest && rest.isRunning && (
+          <div className="flex items-center gap-1.5 bg-black/20 rounded-full px-2 py-0.5 mr-1">
+            <div className="relative w-5 h-5">
+              <svg className="w-full h-full -rotate-90" viewBox="0 0 20 20">
+                <circle cx="10" cy="10" r="8" fill="none" strokeWidth="2" stroke="rgba(255,255,255,0.2)" />
+                <circle cx="10" cy="10" r="8" fill="none" strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeDasharray={50.27}
+                  strokeDashoffset={50.27 * (1 - rest.progress)}
+                  style={{ stroke: 'hsl(' + Math.round(rest.progress * 130) + ', 75%, 60%)', transition: 'stroke-dashoffset 1s linear, stroke 1s linear' }}
+                />
+              </svg>
+            </div>
+            <span className="text-[10px] font-bold text-white tabular-nums">
+              {Math.floor(rest.timeLeft / 60)}:{String(rest.timeLeft % 60).padStart(2, '0')}
+            </span>
+          </div>
+        )}
         {inProgress && (
           <span className="text-xs font-bold text-white/80 tabular-nums">
             {progress}%
