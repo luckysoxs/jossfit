@@ -47,6 +47,8 @@ export default function useCardioTimer(intervals) {
         gain2.gain.value = 0.3
         osc2.start()
         osc2.stop(ctx.currentTime + 0.4)
+        // Close context after beep to release audio session
+        setTimeout(() => ctx.close().catch(() => {}), 600)
       }, 350)
     } catch {}
   }, [])

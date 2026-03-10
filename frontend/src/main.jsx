@@ -7,6 +7,16 @@ import { ThemeProvider } from './contexts/ThemeContext'
 import { UnreadProvider } from './contexts/UnreadContext'
 import './index.css'
 
+
+// Prevent PWA from pausing background music (Spotify, etc.)
+// Sets the audio session to "ambient" so our app mixes with other audio
+// instead of interrupting it. Only activates our audio on explicit user action.
+try {
+  if (navigator.audioSession) {
+    navigator.audioSession.type = 'ambient'
+  }
+} catch {}
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
