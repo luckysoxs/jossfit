@@ -59,6 +59,18 @@ export default function RoutineDayDetail() {
     } catch { return {} }
   })
 
+  // One-time progress restore for 2026-03-10 (deploy wiped phone localStorage)
+  useEffect(() => {
+    if (id === '39' && todayDate === '2026-03-10') {
+      const saved = localStorage.getItem(todayKey)
+      if (!saved || saved === '{}') {
+        const restore = {"1392": true, "1395": true, "1399": true, "1394": true}
+        localStorage.setItem(todayKey, JSON.stringify(restore))
+        setChecked(restore)
+      }
+    }
+  }, [])
+
   const { timeLeft: timerSeconds, totalSeconds: timerTotal, isRunning: timerRunning, progress: timerProgress, startTimer, stopTimer } = useRestTimer()
 
   // Exercise picker modals
