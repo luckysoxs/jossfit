@@ -7,6 +7,7 @@ import { useRestTimer } from '../contexts/RestTimerContext'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import OneRMCalculator from '../components/routines/OneRMCalculator'
 import ExercisePickerModal from '../components/routines/ExercisePickerModal'
+import PageTour from '../components/ui/PageTour'
 import { MUSCLE_LABELS, MUSCLE_COLORS, WEEKDAY_NAMES, getWeekdayMap, exDisplayName, exSubtitle } from '../utils/routineConstants'
 import { CARDIO_TYPES } from '../data/cardioProtocols'
 import {
@@ -395,7 +396,7 @@ export default function RoutineDayDetail() {
       </div>
 
       {/* Rest Timer */}
-      <div className="card">
+      <div data-tour="rest-timer" className="card">
         {timerRunning ? (
           <div className="flex items-center gap-4">
             <div className="relative w-20 h-20 flex-shrink-0">
@@ -768,6 +769,9 @@ export default function RoutineDayDetail() {
           }}
         />
       )}
+      <PageTour pageKey="routine-day" steps={[
+        { target: '[data-tour="rest-timer"]', title: 'Cronometro de Descanso', description: 'Inicia un timer entre series. Se pinta de rojo a verde conforme se acerca tu turno. Suena una campana de box al terminar. Funciona aunque cambies de pagina o cierres la app.', position: 'top' },
+      ]} />
     </div>
   )
 }

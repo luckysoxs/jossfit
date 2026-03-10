@@ -6,7 +6,7 @@ import api from '../services/api'
 import { cacheSet, cacheGet } from '../services/offlineCache'
 import StatCard from '../components/ui/StatCard'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
-import AppTour from '../components/ui/AppTour'
+import AppTour, { WHATS_NEW_STEPS } from '../components/ui/AppTour'
 import { requestNotificationPermission, subscribeToPush, isPushSubscribed } from '../services/pushNotifications'
 import {
   Dumbbell, Flame, Timer, TrendingUp, Heart, Moon, Scale, Zap,
@@ -23,6 +23,7 @@ export default function Dashboard() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showTour, setShowTour] = useState(false)
+  const [showWhatsNew, setShowWhatsNew] = useState(false)
   const [strengthScore, setStrengthScore] = useState(null)
 
   useEffect(() => {
@@ -49,7 +50,13 @@ export default function Dashboard() {
   }, [])
 
   useEffect(() => {
-    if (!localStorage.getItem('tour_v2_completed')) setShowTour(true)
+    if (!localStorage.getItem('tour_v3_completed')) {
+      if (localStorage.getItem('tour_v2_completed')) {
+        setShowWhatsNew(true)
+      } else {
+        setShowTour(true)
+      }
+    }
   }, [])
 
   // Auto-subscribe to push notifications by default
@@ -303,6 +310,17 @@ export default function Dashboard() {
           onComplete={() => {
             setShowTour(false)
             localStorage.setItem('tour_v2_completed', 'true')
+            localStorage.setItem('tour_v3_completed', 'true')
+          }}
+        />
+      )}
+      {showWhatsNew && (
+        <AppTour
+          steps={WHATS_NEW_STEPS}
+          showPwa={false}
+          onComplete={() => {
+            setShowWhatsNew(false)
+            localStorage.setItem('tour_v3_completed', 'true')
           }}
         />
       )}

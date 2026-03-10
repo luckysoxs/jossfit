@@ -44,6 +44,7 @@ export default function TopBar() {
             <>
               <button
                 onClick={() => setShowChat(!showChat)}
+                data-tour="chat-btn"
                 className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-brand-500"
                 aria-label="Chat Admins"
               >

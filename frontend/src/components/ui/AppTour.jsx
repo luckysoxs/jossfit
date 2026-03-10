@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 
-const TOUR_STEPS = [
+const FULL_STEPS = [
   {
     target: '[data-tour="quick-links"]',
     title: 'Acceso Rapido',
@@ -10,7 +10,7 @@ const TOUR_STEPS = [
   {
     target: '[data-tour="link-rutinas"]',
     title: 'Mis Rutinas',
-    description: 'Tu rutina dividida en días. Cada ejercicio tiene calculador 1RM y opción de reemplazo.',
+    description: 'Tu rutina dividida en dias. Cada ejercicio tiene calculador 1RM y opcion de reemplazo.',
     position: 'bottom',
   },
   {
@@ -23,6 +23,12 @@ const TOUR_STEPS = [
     target: '[data-tour="stats"]',
     title: 'Tus Estadisticas',
     description: 'Entrenamientos realizados, racha actual, duracion promedio y mas.',
+    position: 'bottom',
+  },
+  {
+    target: '[data-tour="today-banner"]',
+    title: 'Tu Rutina de Hoy',
+    description: 'Muestra que te toca hoy con barra de progreso. Si tienes un timer de descanso activo, aparece aqui con un mini cronometro.',
     position: 'bottom',
   },
   {
@@ -39,6 +45,16 @@ const TOUR_STEPS = [
   },
 ]
 
+// Steps only shown to returning users (what's new in v3)
+const WHATS_NEW_STEPS = [
+  {
+    target: '[data-tour="today-banner"]',
+    title: 'Novedades: Banner de Hoy',
+    description: 'Ahora muestra un mini cronometro de descanso cuando esta activo. Visible desde cualquier pagina.',
+    position: 'bottom',
+  },
+]
+
 function getPlatform() {
   const ua = navigator.userAgent || ''
   if (/iPhone|iPad|iPod/.test(ua)) return 'ios'
@@ -50,7 +66,7 @@ function getPwaInstructions(platform) {
   if (platform === 'ios') {
     return (
       <ol className="text-left text-sm text-gray-300 space-y-2 mt-3">
-        <li>1. Toca el boton de compartir (<span className="font-semibold">{'\u25A1\u2191'}</span>) en Safari</li>
+        <li>1. Toca el boton de compartir en Safari</li>
         <li>2. Selecciona &quot;Agregar a pantalla de inicio&quot;</li>
         <li>3. Toca &quot;Agregar&quot;</li>
       </ol>
@@ -59,7 +75,7 @@ function getPwaInstructions(platform) {
   if (platform === 'android') {
     return (
       <ol className="text-left text-sm text-gray-300 space-y-2 mt-3">
-        <li>1. Toca los tres puntos (<span className="font-semibold">{'\u22EE'}</span>) en Chrome</li>
+        <li>1. Toca los tres puntos en Chrome</li>
         <li>2. Selecciona &quot;Agregar a pantalla de inicio&quot;</li>
         <li>3. Toca &quot;Agregar&quot;</li>
       </ol>
@@ -67,25 +83,28 @@ function getPwaInstructions(platform) {
   }
   return (
     <ol className="text-left text-sm text-gray-300 space-y-2 mt-3">
-      <li>1. En Chrome, busca el icono de instalacion (<span className="font-semibold">{'\u2295'}</span>) en la barra de direcciones</li>
+      <li>1. En Chrome, busca el icono de instalacion en la barra de direcciones</li>
       <li>2. Haz clic en &quot;Instalar&quot;</li>
     </ol>
   )
 }
 
-export default function AppTour({ onComplete }) {
+export { FULL_STEPS, WHATS_NEW_STEPS }
+
+export default function AppTour({ onComplete, steps: customSteps, showPwa }) {
+  const TOUR_STEPS = customSteps || FULL_STEPS
+  const includePwa = showPwa !== false
   const [step, setStep] = useState(0)
   const [spotlightStyle, setSpotlightStyle] = useState(null)
   const [tooltipStyle, setTooltipStyle] = useState(null)
   const [isTransitioning, setIsTransitioning] = useState(false)
   const deferredPromptRef = useRef(null)
 
-  const totalSteps = TOUR_STEPS.length + 1 // 6 spotlight + 1 PWA modal
+  const totalSteps = TOUR_STEPS.length + (includePwa ? 1 : 0)
   const isSpotlightStep = step < TOUR_STEPS.length
-  const isPwaStep = step === TOUR_STEPS.length
+  const isPwaStep = includePwa && step === TOUR_STEPS.length
   const isLast = step === totalSteps - 1
 
-  // Capture the beforeinstallprompt event for PWA install
   useEffect(() => {
     const handler = (e) => {
       e.preventDefault()
@@ -129,7 +148,6 @@ export default function AppTour({ onComplete }) {
 
     const tooltipWidth = 300
     let tooltipLeft = rect.left + rect.width / 2 - tooltipWidth / 2
-    // Clamp to viewport
     if (tooltipLeft < 12) tooltipLeft = 12
     if (tooltipLeft + tooltipWidth > window.innerWidth - 12) {
       tooltipLeft = window.innerWidth - 12 - tooltipWidth
@@ -151,7 +169,7 @@ export default function AppTour({ onComplete }) {
 
     setSpotlightStyle(spotlight)
     setTooltipStyle(tooltip)
-  }, [step, isSpotlightStep])
+  }, [step, isSpotlightStep, TOUR_STEPS])
 
   useEffect(() => {
     updateSpotlight()
@@ -209,7 +227,7 @@ export default function AppTour({ onComplete }) {
             Paso {step + 1} de {totalSteps}
           </p>
 
-          <div className="text-4xl text-center mb-3">{'\uD83D\uDCF2'}</div>
+          <div className="text-4xl text-center mb-3">{String.fromCodePoint(0x1F4F2)}</div>
 
           <h3 className="text-xl font-bold text-white text-center mb-1">
             Instalar como App
@@ -335,7 +353,7 @@ export default function AppTour({ onComplete }) {
                 onClick={goNext}
                 className="flex-1 py-2.5 text-sm font-semibold text-white bg-brand-500 hover:bg-brand-600 rounded-xl transition-colors"
               >
-                Siguiente
+                {isLast ? 'Listo' : 'Siguiente'}
               </button>
             </div>
           </div>

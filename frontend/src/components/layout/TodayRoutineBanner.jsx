@@ -106,6 +106,7 @@ export default function TodayRoutineBanner() {
   return (
     <button
       onClick={() => navigate('/routines/' + todayInfo.routineId + '/day/' + todayInfo.dayId)}
+      data-tour="today-banner"
       className="relative w-full flex items-center justify-between gap-2 px-4 py-2.5 overflow-hidden group transition-all duration-300"
       style={{
         backgroundColor: completed ? '#16a34a' : 'var(--brand-500)',
