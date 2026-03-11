@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { Dumbbell, ChevronRight, Check, Timer } from 'lucide-react'
 import api from '../../services/api'
 import { cacheSet, cacheGet } from '../../services/offlineCache'
-import { getWeekdayMap } from '../../utils/routineConstants'
+import { getWeekdayMap, MUSCLE_LABELS } from '../../utils/routineConstants'
 import { useAuth } from '../../contexts/AuthContext'
 import { useRestTimer } from '../../contexts/RestTimerContext'
 
@@ -59,6 +59,7 @@ export default function TodayRoutineBanner() {
         dayName: day.name,
         routineName: routine.name,
         exerciseIds: strengthExIds,
+        focus: day.focus || '',
       })
 
       // Calculate progress from localStorage
@@ -136,6 +137,11 @@ export default function TodayRoutineBanner() {
           <p className="text-sm font-bold text-white leading-tight truncate">
             {todayInfo.dayName}
           </p>
+          {todayInfo.focus && (
+            <p className="text-[10px] text-white/60 leading-tight truncate">
+              {todayInfo.focus.split(',').map(m => MUSCLE_LABELS[m.trim()] || m.trim()).join(', ')}
+            </p>
+          )}
         </div>
       </div>
 

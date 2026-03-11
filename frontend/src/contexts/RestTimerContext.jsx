@@ -90,6 +90,9 @@ export function RestTimerProvider({ children }) {
     setTotalSeconds(seconds)
     setTimeLeft(seconds)
     setIsRunning(true)
+    // Schedule SW notification immediately (iOS suspends SW timers in background,
+    // so scheduling early gives the setTimeout the best chance to fire)
+    scheduleSWNotification(seconds * 1000)
   }, [])
 
   const stopTimer = useCallback(() => {

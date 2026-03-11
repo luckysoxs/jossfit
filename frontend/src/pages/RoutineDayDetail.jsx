@@ -344,6 +344,7 @@ export default function RoutineDayDetail() {
   const done = dayExIds.filter(eId => checked[eId]).length
   const total = dayExIds.length
   const progress = total > 0 ? (done / total) * 100 : 0
+  const firstUncheckedId = strengthExercises.find(e => !checked[e.id])?.id || null
 
   // Build day title with weekday if available
   const rw = routine.rest_weekdays || [6]
@@ -374,7 +375,7 @@ export default function RoutineDayDetail() {
             </span>
           )}
         </div>
-        {day.focus && <p className="text-xs text-gray-400 mt-1">{day.focus}</p>}
+        {day.focus && <p className="text-xs text-gray-400 mt-1">{day.focus.split(',').map(m => MUSCLE_LABELS[m.trim()] || m.trim()).join(', ')}</p>}
         <div className="flex items-center gap-2 mt-2">
           <div className="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
             <div className="h-full bg-green-500 rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
@@ -490,7 +491,7 @@ export default function RoutineDayDetail() {
           <div
             key={ex.id}
             className={`card bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2.5 transition-all ${
-              checked[ex.id] ? 'opacity-40' : ''
+              checked[ex.id] ? 'opacity-40' : ex.id === firstUncheckedId ? 'ring-2 ring-brand-500/60 animate-pulse-subtle' : ''
             }`}
           >
             <div className="flex items-center gap-2">
