@@ -491,7 +491,7 @@ export default function RoutineDayDetail() {
           <div
             key={ex.id}
             className={`card bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2.5 transition-all ${
-              checked[ex.id] ? 'opacity-40' : ex.id === firstUncheckedId ? 'ring-2 ring-brand-500/60 animate-pulse-subtle' : ''
+              checked[ex.id] ? 'opacity-40' : ex.id === firstUncheckedId ? 'current-exercise' : ''
             }`}
           >
             <div className="flex items-center gap-2">
