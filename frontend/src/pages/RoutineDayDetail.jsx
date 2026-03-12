@@ -168,23 +168,21 @@ export default function RoutineDayDetail() {
       const reps = r
       const url = `/workouts/quick-set?exercise_id=${quickSetExercise.exerciseId}&weight_kg=${weight}&reps=${reps}`
 
+      let saved = false
       if (online) {
         try {
           const controller = new AbortController()
-          const timeout = setTimeout(() => controller.abort(), 8000)
+          const timeout = setTimeout(() => controller.abort(), 5000)
           await api.post(url, null, { signal: controller.signal })
           clearTimeout(timeout)
-        } catch (netErr) {
-          const isNetworkError = !netErr.response
-          if (isNetworkError) {
-            queueAction({
-              method: 'post',
-              url,
-              description: `Quick set: ${quickSetExercise.name} ${weight}kg x ${reps}`,
-            })
-          } else {
-            throw netErr
-          }
+          saved = true
+        } catch {
+          // Any failure (network, timeout, server error) → queue for later
+          queueAction({
+            method: 'post',
+            url,
+            description: `Quick set: ${quickSetExercise.name} ${weight}kg x ${reps}`,
+          })
         }
       } else {
         queueAction({

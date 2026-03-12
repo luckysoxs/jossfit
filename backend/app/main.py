@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, date, timedelta, time
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -202,6 +202,93 @@ async def publish_scheduled_notes():
             logger.error(f"Error publishing scheduled notes: {e}")
 
 
+async def send_sleep_reminders():
+    """Background task: send push reminder to log sleep if not logged today.
+
+    Smart timing: checks user's average wake_time from recent sleep logs
+    and sends reminder 30 min after. Falls back to 8:00 AM local time.
+    Runs every 5 minutes, sends at most once per day per user.
+    """
+    from app.models.user import User
+    from app.models.sleep import SleepLog
+    from app.services.push_service import send_push_to_user
+    try:
+        import zoneinfo
+        MX_TZ = zoneinfo.ZoneInfo("America/Mexico_City")
+    except ImportError:
+        import pytz
+        MX_TZ = pytz.timezone("America/Mexico_City")
+
+    sent_today = set()  # user_ids already reminded today
+    last_date = None
+
+    while True:
+        await asyncio.sleep(300)  # check every 5 min
+        try:
+            now_local = datetime.now(MX_TZ)
+            today = now_local.date()
+
+            # Reset sent tracker each new day
+            if last_date != today:
+                sent_today.clear()
+                last_date = today
+
+            # Only send between 7:00 and 22:00
+            if now_local.hour < 7 or now_local.hour >= 22:
+                continue
+
+            db = SessionLocal()
+            try:
+                users = db.query(User).all()
+                for user in users:
+                    if user.id in sent_today:
+                        continue
+
+                    # Check if already logged sleep today
+                    logged = db.query(SleepLog).filter(
+                        SleepLog.user_id == user.id,
+                        SleepLog.date == today,
+                    ).first()
+                    if logged:
+                        sent_today.add(user.id)
+                        continue
+
+                    # Smart timing: get average wake_time from last 7 logs
+                    recent = (
+                        db.query(SleepLog)
+                        .filter(SleepLog.user_id == user.id, SleepLog.wake_time.isnot(None))
+                        .order_by(SleepLog.date.desc())
+                        .limit(7)
+                        .all()
+                    )
+
+                    if recent and len(recent) >= 3:
+                        # Average wake time + 30 min
+                        total_minutes = sum(
+                            s.wake_time.hour * 60 + s.wake_time.minute for s in recent
+                        ) / len(recent)
+                        remind_minutes = total_minutes + 30
+                        remind_hour = int(remind_minutes // 60)
+                        remind_min = int(remind_minutes % 60)
+                    else:
+                        remind_hour, remind_min = 8, 0
+
+                    # Check if it's time to send
+                    if now_local.hour > remind_hour or (now_local.hour == remind_hour and now_local.minute >= remind_min):
+                        send_push_to_user(
+                            db, user.id,
+                            "JOSSFITness 😴",
+                            "No has registrado tu sueño de hoy. ¡Registralo para un mejor seguimiento!",
+                            "/sleep",
+                        )
+                        sent_today.add(user.id)
+                        logger.info(f"Sleep reminder sent to user #{user.id}")
+            finally:
+                db.close()
+        except Exception as e:
+            logger.error(f"Error in sleep reminders: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
@@ -211,10 +298,12 @@ async def lifespan(app: FastAPI):
         seed_all(db)
     finally:
         db.close()
-    # Start background scheduler
-    task = asyncio.create_task(publish_scheduled_notes())
+    # Start background schedulers
+    task1 = asyncio.create_task(publish_scheduled_notes())
+    task2 = asyncio.create_task(send_sleep_reminders())
     yield
-    task.cancel()
+    task1.cancel()
+    task2.cancel()
 
 
 app = FastAPI(

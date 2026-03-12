@@ -11,9 +11,12 @@ export default function OfflineBanner() {
   const [syncResult, setSyncResult] = useState(null)
   const [showReconnect, setShowReconnect] = useState(false)
 
-  // Refresh queue count only when connectivity changes (no polling!)
+  // Refresh queue count on connectivity changes and when queue is modified
   useEffect(() => {
     setQueueCount(getQueue().length)
+    const refresh = () => setQueueCount(getQueue().length)
+    window.addEventListener('offline-queue-changed', refresh)
+    return () => window.removeEventListener('offline-queue-changed', refresh)
   }, [online])
 
   // When we come back online, auto-sync

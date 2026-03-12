@@ -52,6 +52,7 @@ export function queueAction(action) {
       queuedAt: new Date().toISOString(),
     })
     localStorage.setItem(QUEUE_KEY, JSON.stringify(queue))
+    window.dispatchEvent(new Event('offline-queue-changed'))
     return true
   } catch (e) {
     console.warn('Queue write failed:', e)
