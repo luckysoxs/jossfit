@@ -212,12 +212,7 @@ async def send_sleep_reminders():
     from app.models.user import User
     from app.models.sleep import SleepLog
     from app.services.push_service import send_push_to_user
-    try:
-        import zoneinfo
-        MX_TZ = zoneinfo.ZoneInfo("America/Mexico_City")
-    except ImportError:
-        import pytz
-        MX_TZ = pytz.timezone("America/Mexico_City")
+    from app.utils.timezone import MX_TZ, today_mx
 
     sent_today = set()  # user_ids already reminded today
     last_date = None
@@ -226,7 +221,7 @@ async def send_sleep_reminders():
         await asyncio.sleep(300)  # check every 5 min
         try:
             now_local = datetime.now(MX_TZ)
-            today = now_local.date()
+            today = today_mx()
 
             # Reset sent tracker each new day
             if last_date != today:

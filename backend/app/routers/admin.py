@@ -28,6 +28,7 @@ from app.schemas.admin import (
 from app.schemas.user import UserResponse
 from app.models.partner_brand import PartnerBrand
 from app.auth.security import get_admin_user
+from app.utils.timezone import today_mx
 
 
 class PartnerBrandCreate(PydanticBase):
@@ -64,7 +65,7 @@ def get_global_stats(
     admin: User = Depends(get_admin_user),
     db: Session = Depends(get_db),
 ):
-    today = date.today()
+    today = today_mx()
     week_ago = today - timedelta(days=7)
     month_ago = today - timedelta(days=30)
 
@@ -144,7 +145,7 @@ def users_growth(
     """Return daily new-user counts for the given period."""
     days_map = {"7d": 7, "30d": 30, "90d": 90, "6m": 180, "1y": 365}
     days = days_map.get(period, 30)
-    start = date.today() - timedelta(days=days)
+    start = today_mx() - timedelta(days=days)
 
     rows = (
         db.query(
@@ -160,7 +161,7 @@ def users_growth(
     data_map = {str(r.day): r.count for r in rows}
     result = []
     current = start
-    today = date.today()
+    today = today_mx()
     while current <= today:
         d = str(current)
         result.append({"date": d, "count": data_map.get(d, 0)})
@@ -476,7 +477,7 @@ def send_daily_reminder(
     from app.services.push_service import send_push_to_user
     from app.models.push_subscription import PushSubscription
 
-    today = date.today()
+    today = today_mx()
 
     # Users who trained today
     trained_today = (

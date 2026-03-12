@@ -9,6 +9,7 @@ from app.models.workout import Workout, WorkoutSet
 from app.models.exercise import Exercise, ExerciseCategory
 from app.models.sleep import SleepLog
 from app.models.one_rep_max import OneRepMax
+from app.utils.timezone import today_mx
 
 
 # ─── 1RM Calculation ──────────────────────────────────────────────
@@ -105,7 +106,7 @@ def get_progression_recommendation(
 # ─── Volume Analysis ──────────────────────────────────────────────
 def calculate_weekly_volume(db: Session, user_id: int) -> list[dict]:
     """Calculate sets per muscle group in the last 7 days."""
-    week_ago = date.today() - timedelta(days=7)
+    week_ago = today_mx() - timedelta(days=7)
     sets = (
         db.query(WorkoutSet)
         .join(Workout)
@@ -144,7 +145,7 @@ def calculate_weekly_volume(db: Session, user_id: int) -> list[dict]:
 # ─── Overtraining Detection ───────────────────────────────────────
 def detect_overtraining(db: Session, user_id: int) -> dict:
     """Analyze training data for overtraining signals."""
-    today = date.today()
+    today = today_mx()
     alerts = []
 
     # 1. Check weekly volume vs 4-week average
@@ -214,7 +215,7 @@ def detect_overtraining(db: Session, user_id: int) -> dict:
 # ─── Deload Recommendation ────────────────────────────────────────
 def check_deload_needed(db: Session, user_id: int) -> dict:
     """Check if a deload week is recommended."""
-    today = date.today()
+    today = today_mx()
 
     # Count consecutive training weeks
     weeks_training = 0

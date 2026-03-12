@@ -12,6 +12,7 @@ from app.models.exercise import Exercise
 from app.schemas.workout import WorkoutCreate, WorkoutResponse
 from app.auth.security import get_current_user
 from app.services.algorithms import calculate_1rm_epley, calculate_1rm_brzycki
+from app.utils.timezone import today_mx
 
 router = APIRouter(prefix="/workouts", tags=["Workouts"])
 
@@ -200,9 +201,7 @@ def log_quick_set(
     db: Session = Depends(get_db),
 ):
     """Log a single top set from the routine view. Creates/reuses today's workout."""
-    from datetime import date as date_type
-
-    today = date_type.today()
+    today = today_mx()
 
     # Find or create today's workout
     workout = db.query(Workout).filter(

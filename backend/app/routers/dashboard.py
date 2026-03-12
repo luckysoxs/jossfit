@@ -17,6 +17,7 @@ from app.models.support_message import SupportMessage
 from app.schemas.dashboard import DashboardSummary, StrengthProgress, StrengthScoreResponse, CategoryScore
 from app.services.algorithms import calculate_weekly_volume, detect_overtraining
 from app.auth.security import get_current_user
+from app.utils.timezone import today_mx
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
@@ -26,7 +27,7 @@ def get_summary(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    today = date.today()
+    today = today_mx()
     week_ago = today - timedelta(days=7)
 
     # Total workouts
@@ -229,7 +230,7 @@ def get_strength_score(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    today = date.today()
+    today = today_mx()
     month_ago = today - timedelta(days=30)
 
     # Current scores
