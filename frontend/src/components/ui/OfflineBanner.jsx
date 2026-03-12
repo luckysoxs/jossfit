@@ -19,20 +19,19 @@ export default function OfflineBanner() {
     return () => window.removeEventListener('offline-queue-changed', refresh)
   }, [online])
 
-  // When we come back online, auto-sync
+  // Auto-sync: on connectivity change, on queue change, and on mount
   useEffect(() => {
-    if (online && queueCount > 0) {
+    if (online && queueCount > 0 && !syncing) {
       setShowReconnect(true)
       handleSync()
     }
     if (online && queueCount === 0) {
-      // Show brief "back online" then hide
       if (showReconnect) {
         const t = setTimeout(() => setShowReconnect(false), 3000)
         return () => clearTimeout(t)
       }
     }
-  }, [online])
+  }, [online, queueCount])
 
   const handleSync = async () => {
     setSyncing(true)
