@@ -3,10 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import { ArrowLeft, Calendar, Clock, Gauge } from 'lucide-react'
+import { useWeightUnit } from '../contexts/WeightUnitContext'
 
 export default function WorkoutDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { unit, displayWeight } = useWeightUnit()
   const [workout, setWorkout] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -70,7 +72,7 @@ export default function WorkoutDetail() {
               <div key={s.id} className={`grid grid-cols-4 text-sm px-2 py-1.5 rounded-lg ${s.completed ? '' : 'bg-red-50 dark:bg-red-500/5 text-red-500'}`}>
                 <span>{s.set_number}</span>
                 <span>{s.reps}</span>
-                <span>{s.weight_kg} kg</span>
+                <span>{displayWeight(s.weight_kg)} {unit}</span>
                 <span>{s.rpe || '—'}</span>
               </div>
             ))}

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { X, Calculator } from 'lucide-react'
+import { useWeightUnit } from '../../contexts/WeightUnitContext'
 
 // Brzycki percentages for 1RM through 20RM
 const RM_PERCENTAGES = [
@@ -10,6 +11,7 @@ const RM_PERCENTAGES = [
 ]
 
 export default function OneRMCalculator({ exercise, onClose }) {
+  const { unit, displayWeight, toKg } = useWeightUnit()
   const [weight, setWeight] = useState('')
   const [reps, setReps] = useState('')
 
@@ -17,14 +19,15 @@ export default function OneRMCalculator({ exercise, onClose }) {
   const r = parseInt(reps)
   const valid = w > 0 && r > 0 && r <= 20
 
-  // Calculate 1RM using Brzycki formula
-  const oneRM = valid ? Math.round(w / RM_PERCENTAGES[r - 1]) : 0
+  // Convert input to kg for calculation, then display in selected unit
+  const wKg = valid ? toKg(w) : 0
+  const oneRM = valid ? Math.round(wKg / RM_PERCENTAGES[r - 1]) : 0
 
-  // Build RM table
+  // Build RM table (values in selected unit)
   const rmTable = valid
     ? RM_PERCENTAGES.map((pct, i) => ({
         rm: i + 1,
-        kg: Math.round(oneRM * pct),
+        kg: Math.round(displayWeight(oneRM * pct)),
       }))
     : []
 
@@ -52,7 +55,7 @@ export default function OneRMCalculator({ exercise, onClose }) {
           {/* Inputs */}
           <div className="grid grid-cols-2 gap-3 mb-4">
             <div>
-              <label className="text-xs text-gray-500 font-medium">Peso (kg)</label>
+              <label className="text-xs text-gray-500 font-medium">Peso ({unit})</label>
               <input
                 type="number"
                 className="input text-center text-lg font-bold"
@@ -103,7 +106,7 @@ export default function OneRMCalculator({ exercise, onClose }) {
                   )}>
                     {kg}
                   </p>
-                  <p className="text-[10px] text-gray-400">kg</p>
+                  <p className="text-[10px] text-gray-400">{unit}</p>
                 </div>
               ))}
             </div>

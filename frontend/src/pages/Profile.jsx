@@ -4,12 +4,14 @@ import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
 import { User, LogOut, Sun, Moon, Save, Mail, Ruler, Weight, Calendar, CheckCircle, Palette, Bell, BellOff, HeartPulse, X, Plus } from 'lucide-react'
 import { ACCENT_COLORS, applyAccentColor } from '../data/accentColors'
+import { useWeightUnit } from '../contexts/WeightUnitContext'
 import PageTour from '../components/ui/PageTour'
 import { requestNotificationPermission, subscribeToPush, unsubscribeFromPush, isPushSubscribed } from '../services/pushNotifications'
 
 export default function Profile() {
   const { user, updateUser, logout } = useAuth()
   const { theme, toggleTheme } = useTheme()
+  const { unit, toggleUnit, displayWeight } = useWeightUnit()
   const navigate = useNavigate()
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -128,6 +130,24 @@ export default function Profile() {
             theme === 'dark' ? 'translate-x-7' : 'translate-x-0.5'
           }`} />
         </button>
+      </div>
+
+      {/* Weight Unit Toggle */}
+      <div className="card flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Weight size={20} />
+          <span className="font-medium">Unidad de peso</span>
+        </div>
+        <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5">
+          <button
+            onClick={() => toggleUnit('kg')}
+            className={`px-3 py-1.5 rounded-md text-sm font-bold transition-colors ${unit === 'kg' ? 'bg-brand-500 text-white' : 'text-gray-400'}`}
+          >kg</button>
+          <button
+            onClick={() => toggleUnit('lb')}
+            className={`px-3 py-1.5 rounded-md text-sm font-bold transition-colors ${unit === 'lb' ? 'bg-brand-500 text-white' : 'text-gray-400'}`}
+          >lb</button>
+        </div>
       </div>
 
       {/* Push Notifications */}
@@ -304,7 +324,7 @@ export default function Profile() {
             {[
               { icon: Calendar, label: 'Edad', value: `${user?.age} años` },
               { icon: Ruler, label: 'Altura', value: `${user?.height_cm} cm` },
-              { icon: Weight, label: 'Peso', value: `${user?.weight_kg} kg` },
+              { icon: Weight, label: 'Peso', value: `${displayWeight(user?.weight_kg)} ${unit}` },
               { icon: User, label: 'Sexo', value: user?.sex === 'male' ? 'Masculino' : 'Femenino' },
             ].map(({ icon: Icon, label, value }) => (
               <div key={label} className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-xl">

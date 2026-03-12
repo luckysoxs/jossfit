@@ -2,16 +2,12 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useTheme } from '../../contexts/ThemeContext'
 import { useAuth } from '../../contexts/AuthContext'
-import { useUnread } from '../../contexts/UnreadContext'
-import { Sun, Moon, Shield, MessageCircle, Lightbulb } from 'lucide-react'
-import WalkieTalkiePopup from '../walkie/WalkieTalkiePopup'
+import { Sun, Moon, Shield, Lightbulb } from 'lucide-react'
 
 export default function TopBar() {
   const { theme, toggleTheme } = useTheme()
   const { user } = useAuth()
-  const { walkie } = useUnread()
   const [showTooltip, setShowTooltip] = useState(false)
-  const [showChat, setShowChat] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -41,28 +37,13 @@ export default function TopBar() {
         </Link>
         <div className="flex items-center gap-3">
           {user?.is_admin && (
-            <>
-              <button
-                onClick={() => setShowChat(!showChat)}
-                data-tour="chat-btn"
-                className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-brand-500"
-                aria-label="Chat Admins"
-              >
-                <MessageCircle size={18} />
-                {walkie > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                    {walkie > 9 ? '9+' : walkie}
-                  </span>
-                )}
-              </button>
-              <Link
-                to="/admin"
-                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-brand-500"
-                aria-label="Admin Panel"
-              >
-                <Shield size={20} />
-              </Link>
-            </>
+            <Link
+              to="/admin"
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-brand-500"
+              aria-label="Admin Panel"
+            >
+              <Shield size={20} />
+            </Link>
           )}
           <button
             onClick={toggleTheme}
@@ -101,7 +82,6 @@ export default function TopBar() {
           )}
         </div>
       </div>
-      {showChat && <WalkieTalkiePopup onClose={() => setShowChat(false)} />}
     </header>
   )
 }

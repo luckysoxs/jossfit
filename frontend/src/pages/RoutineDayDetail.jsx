@@ -4,6 +4,7 @@ import api from '../services/api'
 import { cacheSet, cacheGet, queueAction } from '../services/offlineCache'
 import useOnlineStatus from '../hooks/useOnlineStatus'
 import { useRestTimer } from '../contexts/RestTimerContext'
+import { useWeightUnit } from '../contexts/WeightUnitContext'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import OneRMCalculator from '../components/routines/OneRMCalculator'
 import ExercisePickerModal from '../components/routines/ExercisePickerModal'
@@ -31,6 +32,7 @@ export default function RoutineDayDetail() {
   const { id, dayId } = useParams()
   const navigate = useNavigate()
   const online = useOnlineStatus()
+  const { unit, displayWeight, toKg } = useWeightUnit()
 
   const [routine, setRoutine] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -151,27 +153,29 @@ export default function RoutineDayDetail() {
     } else {
       const prev = personalBests[exerciseId]
       setQuickSetExercise({ routineExId, exerciseId, name: exerciseName })
-      setQuickSetForm({ weight_kg: prev?.weight_kg?.toString() || '', reps: prev?.reps?.toString() || '' })
+      setQuickSetForm({ weight_kg: prev ? displayWeight(prev.weight_kg).toString() : '', reps: prev?.reps?.toString() || '' })
       setQuickSetNewPR(false)
     }
   }
 
   const submitQuickSet = async () => {
-    if (!quickSetForm.weight_kg || !quickSetForm.reps) return
+    const w = parseFloat(quickSetForm.weight_kg)
+    const r = parseInt(quickSetForm.reps)
+    if (!w || !r || w <= 0 || r <= 0) return
     setQuickSetSaving(true)
     try {
-      const weight = parseFloat(quickSetForm.weight_kg)
-      const reps = parseInt(quickSetForm.reps)
+      const weight = toKg(w)
+      const reps = r
       const url = `/workouts/quick-set?exercise_id=${quickSetExercise.exerciseId}&weight_kg=${weight}&reps=${reps}`
 
-      let saved = false
       if (online) {
         try {
-          await api.post(url)
-          saved = true
+          const controller = new AbortController()
+          const timeout = setTimeout(() => controller.abort(), 8000)
+          await api.post(url, null, { signal: controller.signal })
+          clearTimeout(timeout)
         } catch (netErr) {
-          // Network failed even though navigator.onLine was true — queue it
-          const isNetworkError = !netErr.response // no server response = network issue
+          const isNetworkError = !netErr.response
           if (isNetworkError) {
             queueAction({
               method: 'post',
@@ -179,7 +183,7 @@ export default function RoutineDayDetail() {
               description: `Quick set: ${quickSetExercise.name} ${weight}kg x ${reps}`,
             })
           } else {
-            throw netErr // real server error (4xx/5xx), re-throw
+            throw netErr
           }
         }
       } else {
@@ -490,7 +494,7 @@ export default function RoutineDayDetail() {
         return (
           <div
             key={ex.id}
-            className={`card bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2.5 transition-all ${
+            className={`card bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2.5 transition-all relative ${
               checked[ex.id] ? 'opacity-40' : ex.id === firstUncheckedId ? 'current-exercise' : ''
             }`}
           >
@@ -522,6 +526,9 @@ export default function RoutineDayDetail() {
               >
                 {checked[ex.id] && <Check size={14} />}
               </button>
+              {ex.id === firstUncheckedId && (
+                <span className="text-[9px] font-bold text-blue-400 uppercase tracking-wide absolute -top-2 left-14 bg-gray-800 px-1.5 py-0.5 rounded">En progreso</span>
+              )}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
                   <div className="flex-1 min-w-0">
@@ -595,7 +602,7 @@ export default function RoutineDayDetail() {
                     <div className="flex items-center gap-1.5 bg-yellow-50 dark:bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 px-2 py-1 rounded-lg">
                       <Trophy size={12} />
                       <span className="text-xs font-semibold">
-                        PR: {personalBests[ex.exercise_id].weight_kg} kg x {personalBests[ex.exercise_id].reps}
+                        PR: {displayWeight(personalBests[ex.exercise_id].weight_kg)} {unit} x {personalBests[ex.exercise_id].reps}
                       </span>
                     </div>
                     {!checked[ex.id] && (() => {
@@ -606,7 +613,7 @@ export default function RoutineDayDetail() {
                         <div className="flex items-center gap-1.5 bg-brand-50 dark:bg-brand-500/10 text-brand-500 px-2 py-1 rounded-lg">
                           <TrendingUp size={12} />
                           <span className="text-xs font-semibold">
-                            Hoy: {suggestedWeight} kg x {suggestedReps}
+                            Hoy: {displayWeight(suggestedWeight)} {unit} x {suggestedReps}
                           </span>
                         </div>
                       )
@@ -657,7 +664,7 @@ export default function RoutineDayDetail() {
                   <Trophy size={32} className="text-yellow-500" />
                 </div>
                 <h3 className="text-xl font-bold">Nuevo PR!</h3>
-                <p className="text-brand-500 font-bold text-lg">{quickSetForm.weight_kg} kg x {quickSetForm.reps} reps</p>
+                <p className="text-brand-500 font-bold text-lg">{quickSetForm.weight_kg} {unit} x {quickSetForm.reps} reps</p>
               </div>
             ) : (
               <>
@@ -681,12 +688,12 @@ export default function RoutineDayDetail() {
                   {personalBests[quickSetExercise.exerciseId] && (
                     <div className="flex items-center gap-2 bg-yellow-50 dark:bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 px-3 py-2 rounded-xl text-sm">
                       <Trophy size={14} />
-                      <span className="font-medium">PR actual: {personalBests[quickSetExercise.exerciseId].weight_kg} kg x {personalBests[quickSetExercise.exerciseId].reps} reps</span>
+                      <span className="font-medium">PR actual: {displayWeight(personalBests[quickSetExercise.exerciseId].weight_kg)} {unit} x {personalBests[quickSetExercise.exerciseId].reps} reps</span>
                     </div>
                   )}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="label">Peso (kg)</label>
+                      <label className="label">Peso ({unit})</label>
                       <input type="number" className="input text-center text-lg font-bold" value={quickSetForm.weight_kg}
                         onChange={(e) => setQuickSetForm({ ...quickSetForm, weight_kg: e.target.value })} placeholder="0" inputMode="decimal" autoFocus />
                     </div>

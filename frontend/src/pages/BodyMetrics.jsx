@@ -4,8 +4,10 @@ import LoadingSpinner from '../components/ui/LoadingSpinner'
 import PageTour from '../components/ui/PageTour'
 import { Scale, Plus, Trash2 } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { useWeightUnit } from '../contexts/WeightUnitContext'
 
 export default function BodyMetrics() {
+  const { unit, displayWeight, toKg } = useWeightUnit()
   const [metrics, setMetrics] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -44,7 +46,7 @@ export default function BodyMetrics() {
   }))
 
   const fields = [
-    { key: 'weight_kg', label: 'Peso (kg)' }, { key: 'body_fat_pct', label: 'Grasa (%)' },
+    { key: 'weight_kg', label: `Peso (${unit})` }, { key: 'body_fat_pct', label: 'Grasa (%)' },
     { key: 'muscle_mass_kg', label: 'Músculo (kg)' }, { key: 'waist_cm', label: 'Cintura (cm)' },
     { key: 'chest_cm', label: 'Pecho (cm)' }, { key: 'arm_cm', label: 'Brazos (cm)' },
     { key: 'leg_cm', label: 'Piernas (cm)' },
@@ -98,7 +100,7 @@ export default function BodyMetrics() {
           {metrics.map((m) => (
             <div key={m.id} className="card flex items-center justify-between">
               <div>
-                <p className="font-medium">{m.weight_kg ? `${m.weight_kg} kg` : '—'}{m.body_fat_pct ? ` · ${m.body_fat_pct}% grasa` : ''}</p>
+                <p className="font-medium">{m.weight_kg ? `${displayWeight(m.weight_kg)} ${unit}` : '—'}{m.body_fat_pct ? ` · ${m.body_fat_pct}% grasa` : ''}</p>
                 <p className="text-xs text-gray-400">{new Date(m.date).toLocaleDateString('es-MX')}</p>
               </div>
               <button onClick={async () => { await api.delete(`/body-metrics/${m.id}`); load() }} className="p-2 text-red-400"><Trash2 size={16} /></button>

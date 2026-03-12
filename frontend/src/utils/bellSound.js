@@ -1,6 +1,6 @@
 /**
  * Boxing bell sound synthesized with Web Audio API.
- * AudioContext is warmed up on user gesture so it plays reliably on iOS.
+ * AudioContext is kept alive (not closed) so iOS doesn't block re-creation.
  */
 var sharedCtx = null
 
@@ -19,13 +19,15 @@ export function warmUpAudio() {
 export function playBoxingBell(strikes) {
   if (strikes === undefined) strikes = 3
   try {
+    // Always try to reuse or create context
+    if (!sharedCtx || sharedCtx.state === "closed") {
+      sharedCtx = new (window.AudioContext || window.webkitAudioContext)()
+    }
+    // Resume if suspended (iOS background)
+    if (sharedCtx.state === "suspended") {
+      sharedCtx.resume()
+    }
     var ctx = sharedCtx
-    if (!ctx || ctx.state === "closed") {
-      ctx = new (window.AudioContext || window.webkitAudioContext)()
-    }
-    if (ctx.state === "suspended") {
-      ctx.resume()
-    }
     var now = ctx.currentTime
     for (var i = 0; i < strikes; i++) {
       var t = now + i * 0.38
@@ -70,10 +72,6 @@ export function playBoxingBell(strikes) {
       osc4.start(t)
       osc4.stop(t + 0.15)
     }
-    var totalMs = ((strikes - 1) * 0.38 + 0.9) * 1000
-    setTimeout(function() {
-      ctx.close().catch(function() {})
-      if (sharedCtx === ctx) sharedCtx = null
-    }, totalMs)
+    // DO NOT close ctx — iOS blocks creating new AudioContext without user gesture
   } catch (e) {}
 }

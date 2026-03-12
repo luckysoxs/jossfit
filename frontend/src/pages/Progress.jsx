@@ -6,8 +6,10 @@ import { Link } from 'react-router-dom'
 import { TrendingUp, AlertTriangle, Shield, Activity, Flame, Dumbbell, Calendar, Clock, ChevronRight } from 'lucide-react'
 import { MUSCLE_LABELS } from '../utils/routineConstants'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
+import { useWeightUnit } from '../contexts/WeightUnitContext'
 
 export default function Progress() {
+  const { unit, displayWeight } = useWeightUnit()
   const [analysis, setAnalysis] = useState(null)
   const [exercises, setExercises] = useState([])
   const [selectedEx, setSelectedEx] = useState(null)
@@ -153,15 +155,15 @@ export default function Progress() {
         {orm && orm.average_1rm > 0 && (
           <div className="mt-4 grid grid-cols-3 gap-3">
             <div className="text-center p-3 bg-brand-50 dark:bg-brand-500/10 rounded-xl">
-              <p className="text-lg font-bold text-brand-500">{orm.average_1rm} kg</p>
+              <p className="text-lg font-bold text-brand-500">{displayWeight(orm.average_1rm)} {unit}</p>
               <p className="text-xs text-gray-400">1RM Estimado</p>
             </div>
             <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-xl">
-              <p className="text-lg font-bold">{orm.epley_1rm} kg</p>
+              <p className="text-lg font-bold">{displayWeight(orm.epley_1rm)} {unit}</p>
               <p className="text-xs text-gray-400">Epley</p>
             </div>
             <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-xl">
-              <p className="text-lg font-bold">{orm.brzycki_1rm} kg</p>
+              <p className="text-lg font-bold">{displayWeight(orm.brzycki_1rm)} {unit}</p>
               <p className="text-xs text-gray-400">Brzycki</p>
             </div>
           </div>
@@ -176,7 +178,7 @@ export default function Progress() {
             <p className="font-medium">
               {progression.action === 'increase' ? '↑ Aumentar peso' :
                progression.action === 'decrease' ? '↓ Reducir peso' : '→ Mantener peso'}
-              : {progression.recommended_weight} kg
+              : {displayWeight(progression.recommended_weight)} {unit}
             </p>
             <p className="text-xs mt-1 opacity-75">{progression.reason}</p>
           </div>

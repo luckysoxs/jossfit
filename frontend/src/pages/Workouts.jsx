@@ -4,8 +4,10 @@ import api from '../services/api'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import PageTour from '../components/ui/PageTour'
 import { Plus, Dumbbell, Calendar, Clock, ChevronRight, CheckCircle, Trophy, Flame, X, ChevronDown, ChevronUp } from 'lucide-react'
+import { useWeightUnit } from '../contexts/WeightUnitContext'
 
 export default function Workouts() {
+  const { unit, toKg } = useWeightUnit()
   const [workouts, setWorkouts] = useState([])
   const [showForm, setShowForm] = useState(false)
   const [exercises, setExercises] = useState([])
@@ -146,7 +148,7 @@ export default function Workouts() {
           allSets.push({
             exercise_id: parseInt(exerciseId),
             reps: parseInt(s.reps),
-            weight_kg: parseFloat(s.weight_kg),
+            weight_kg: toKg(parseFloat(s.weight_kg)),
             rpe: s.rpe ? parseFloat(s.rpe) : null,
             set_number: setNumber++,
             completed: true,
@@ -370,7 +372,7 @@ export default function Workouts() {
                         <div className="grid grid-cols-[2rem_1fr_1fr_1fr_2rem] gap-2 text-xs text-gray-400 font-medium px-1">
                           <span>Set</span>
                           <span>Reps</span>
-                          <span>Kg</span>
+                          <span>{unit.toUpperCase()}</span>
                           <span>RPE</span>
                           <span></span>
                         </div>

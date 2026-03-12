@@ -16,9 +16,11 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer,
 } from 'recharts'
+import { useWeightUnit } from '../contexts/WeightUnitContext'
 
 export default function Dashboard() {
   const { user } = useAuth()
+  const { unit, displayWeight } = useWeightUnit()
   const { notes: unreadNotes } = useUnread()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -166,8 +168,8 @@ export default function Dashboard() {
                 <Shield size={18} className="text-brand-500" /> Strength Score
               </h3>
               <div className="text-right">
-                <span className="text-2xl font-bold">{Math.round(ss.total_score)}</span>
-                <span className="text-xs text-gray-400 ml-1">kg</span>
+                <span className="text-2xl font-bold">{displayWeight(Math.round(ss.total_score))}</span>
+                <span className="text-xs text-gray-400 ml-1">{unit}</span>
               </div>
             </div>
 
@@ -191,7 +193,7 @@ export default function Dashboard() {
                 <div key={cat.category}>
                   <div className="flex items-center justify-between mb-1">
                     <span className={`text-xs font-semibold ${CAT_TEXT[cat.category]}`}>{cat.label}</span>
-                    <span className="text-xs text-gray-500">{Math.round(cat.total_1rm)} kg</span>
+                    <span className="text-xs text-gray-500">{displayWeight(Math.round(cat.total_1rm))} {unit}</span>
                   </div>
                   <div className="w-full h-2.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
                     <div
@@ -201,7 +203,7 @@ export default function Dashboard() {
                   </div>
                   {cat.top_exercise && (
                     <p className="text-[10px] text-gray-400 mt-0.5">
-                      Mejor: {cat.top_exercise} — {Math.round(cat.top_1rm)} kg
+                      Mejor: {cat.top_exercise} — {displayWeight(Math.round(cat.top_1rm))} {unit}
                     </p>
                   )}
                 </div>
@@ -265,7 +267,7 @@ export default function Dashboard() {
             <h3 className="font-semibold flex items-center gap-2">
               <Scale size={18} className="text-purple-500" /> Peso Corporal
             </h3>
-            <span className="text-lg font-bold">{d.latest_body_weight} kg</span>
+            <span className="text-lg font-bold">{displayWeight(d.latest_body_weight)} {unit}</span>
           </div>
           <ResponsiveContainer width="100%" height={180}>
             <LineChart data={d.body_weight_trend}>

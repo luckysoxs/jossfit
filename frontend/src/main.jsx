@@ -6,6 +6,7 @@ import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { UnreadProvider } from './contexts/UnreadContext'
 import { RestTimerProvider } from './contexts/RestTimerContext'
+import { WeightUnitProvider } from './contexts/WeightUnitContext'
 import './index.css'
 
 
@@ -25,7 +26,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <AuthProvider>
           <UnreadProvider>
             <RestTimerProvider>
-              <App />
+              <WeightUnitProvider>
+                <App />
+              </WeightUnitProvider>
             </RestTimerProvider>
           </UnreadProvider>
         </AuthProvider>
