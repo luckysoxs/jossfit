@@ -203,40 +203,38 @@ async def publish_scheduled_notes():
 
 
 async def send_sleep_reminders():
-    """Background task: send push reminder to log sleep if not logged today.
+    """Background task: send ONE push reminder per day to log sleep.
 
-    Smart timing: checks user's average wake_time from recent sleep logs
-    and sends reminder 30 min after. Falls back to 8:00 AM local time.
-    Runs every 5 minutes, sends at most once per day per user.
+    Only runs between 7:00-10:00 AM Mexico time.
+    Uses the notifications table to track if already sent today (survives restarts).
     """
     from app.models.user import User
     from app.models.sleep import SleepLog
+    from app.models.notification import Notification
     from app.services.push_service import send_push_to_user
     from app.utils.timezone import MX_TZ, today_mx
-
-    sent_today = set()  # user_ids already reminded today
-    last_date = None
 
     while True:
         await asyncio.sleep(300)  # check every 5 min
         try:
             now_local = datetime.now(MX_TZ)
-            today = today_mx()
 
-            # Reset sent tracker each new day
-            if last_date != today:
-                sent_today.clear()
-                last_date = today
-
-            # Only send between 7:00 and 22:00
-            if now_local.hour < 7 or now_local.hour >= 22:
+            # Only send between 7:00 and 10:00 AM
+            if now_local.hour < 7 or now_local.hour >= 10:
                 continue
 
+            today = today_mx()
             db = SessionLocal()
             try:
                 users = db.query(User).all()
                 for user in users:
-                    if user.id in sent_today:
+                    # Check if already sent reminder today (persisted in DB)
+                    already_sent = db.query(Notification.id).filter(
+                        Notification.user_id == user.id,
+                        Notification.url == "/sleep",
+                        Notification.created_at >= datetime.combine(today, time(0, 0)),
+                    ).first()
+                    if already_sent:
                         continue
 
                     # Check if already logged sleep today
@@ -245,39 +243,23 @@ async def send_sleep_reminders():
                         SleepLog.date == today,
                     ).first()
                     if logged:
-                        sent_today.add(user.id)
                         continue
 
-                    # Smart timing: get average wake_time from last 7 logs
-                    recent = (
-                        db.query(SleepLog)
-                        .filter(SleepLog.user_id == user.id, SleepLog.wake_time.isnot(None))
-                        .order_by(SleepLog.date.desc())
-                        .limit(7)
-                        .all()
+                    # Send push + create in-app notification (so we don't send again)
+                    db.add(Notification(
+                        user_id=user.id,
+                        title="Registra tu sueño",
+                        body="No has registrado tu sueño de hoy",
+                        url="/sleep",
+                    ))
+                    db.commit()
+                    send_push_to_user(
+                        db, user.id,
+                        "JOSSFITness 😴",
+                        "No has registrado tu sueño de hoy. ¡Registralo para un mejor seguimiento!",
+                        "/sleep",
                     )
-
-                    if recent and len(recent) >= 3:
-                        # Average wake time + 30 min
-                        total_minutes = sum(
-                            s.wake_time.hour * 60 + s.wake_time.minute for s in recent
-                        ) / len(recent)
-                        remind_minutes = total_minutes + 30
-                        remind_hour = int(remind_minutes // 60)
-                        remind_min = int(remind_minutes % 60)
-                    else:
-                        remind_hour, remind_min = 8, 0
-
-                    # Check if it's time to send
-                    if now_local.hour > remind_hour or (now_local.hour == remind_hour and now_local.minute >= remind_min):
-                        send_push_to_user(
-                            db, user.id,
-                            "JOSSFITness 😴",
-                            "No has registrado tu sueño de hoy. ¡Registralo para un mejor seguimiento!",
-                            "/sleep",
-                        )
-                        sent_today.add(user.id)
-                        logger.info(f"Sleep reminder sent to user #{user.id}")
+                    logger.info(f"Sleep reminder sent to user #{user.id}")
             finally:
                 db.close()
         except Exception as e:
