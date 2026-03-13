@@ -357,7 +357,12 @@ export default function RoutineDayDetail() {
     )
   }
 
-  const sortedExercises = [...(day.exercises || [])].sort((a, b) => a.order - b.order)
+  const sortedExercises = [...(day.exercises || [])].sort((a, b) => {
+    const aChecked = !!checked[a.id]
+    const bChecked = !!checked[b.id]
+    if (aChecked !== bChecked) return aChecked ? 1 : -1
+    return a.order - b.order
+  })
   const strengthExercises = sortedExercises.filter(e => !isCardioExercise(e.exercise))
   const dayExIds = strengthExercises.map(e => e.id)
   const done = dayExIds.filter(eId => checked[eId]).length
