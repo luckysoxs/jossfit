@@ -5,8 +5,13 @@ from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app.models.user import User
 from app.models.routine import Routine, RoutineDay, RoutineExercise
+from app.models.exercise import Exercise, MuscleGroup, ExerciseCategory
 from app.schemas.routine import RoutineCreate, RoutineExerciseCreate, RoutineExerciseUpdate, RoutineResponse
 from app.auth.security import get_current_user
+from app.ai.routine_generator import (
+    MAX_EXERCISES_PER_DAY, SETS_CONFIG, REP_RANGES, ACCESSORY_MUSCLES,
+    _EXERCISE_TO_GROUP, _allocate_exercises,
+)
 
 router = APIRouter(prefix="/routines", tags=["Routines"])
 
@@ -257,6 +262,160 @@ def add_exercise(
     db.add(ex)
     db.commit()
     return {"ok": True}
+
+
+@router.post("/days/{routine_day_id}/regenerate", status_code=200)
+def regenerate_day_exercises(
+    routine_day_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Regenerate (randomize) exercises for a routine day, keeping the same
+    muscle focus, day name, and config from the parent routine."""
+    from sqlalchemy import func as sqlfunc
+
+    day = (
+        db.query(RoutineDay)
+        .join(Routine)
+        .filter(RoutineDay.id == routine_day_id, Routine.user_id == user.id)
+        .first()
+    )
+    if not day:
+        raise HTTPException(status_code=404, detail="Day not found")
+
+    routine = db.query(Routine).filter(Routine.id == day.routine_id).first()
+    if not routine:
+        raise HTTPException(status_code=404, detail="Routine not found")
+
+    # Determine training params
+    training_level = (
+        user.training_level.value
+        if hasattr(user.training_level, "value")
+        else str(user.training_level)
+    )
+    objective = routine.objective or "hypertrophy"
+    max_ex = MAX_EXERCISES_PER_DAY.get(training_level, 7)
+    sets_cfg = SETS_CONFIG.get(training_level, SETS_CONFIG["intermediate"])
+    reps = REP_RANGES.get(objective, REP_RANGES["hypertrophy"])
+
+    focus_muscles = [m.strip() for m in (day.focus or "").split(",") if m.strip()]
+    if not focus_muscles:
+        raise HTTPException(status_code=400, detail="Este día no tiene enfoque muscular definido")
+
+    main_muscles = [m for m in focus_muscles if m not in ACCESSORY_MUSCLES]
+    accessory_muscles = [m for m in focus_muscles if m in ACCESSORY_MUSCLES]
+    allocation = _allocate_exercises(main_muscles, max_ex) if main_muscles else {}
+
+    # Delete old exercises for this day
+    db.query(RoutineExercise).filter(RoutineExercise.routine_day_id == day.id).delete()
+    db.flush()
+
+    # Generate new exercises (same logic as routine_generator)
+    used_exercise_ids = set()
+    used_sim_groups = set()
+    order = 1
+
+    for muscle in main_muscles:
+        try:
+            mg = MuscleGroup(muscle)
+        except ValueError:
+            continue
+
+        count = allocation.get(muscle, 1)
+
+        compounds = (
+            db.query(Exercise)
+            .filter(Exercise.muscle_group == mg, Exercise.category == ExerciseCategory.COMPOUND)
+            .order_by(sqlfunc.random())
+            .all()
+        )
+        isolations = (
+            db.query(Exercise)
+            .filter(Exercise.muscle_group == mg, Exercise.category == ExerciseCategory.ISOLATION)
+            .order_by(sqlfunc.random())
+            .all()
+        )
+
+        added = 0
+        for ex in compounds:
+            if added >= count:
+                break
+            if ex.id in used_exercise_ids:
+                continue
+            sim_group = _EXERCISE_TO_GROUP.get(ex.name)
+            if sim_group and sim_group in used_sim_groups:
+                continue
+            base_rest = 120 if objective == "strength" else 90
+            db.add(RoutineExercise(
+                routine_day_id=day.id,
+                exercise_id=ex.id,
+                order=order,
+                sets=sets_cfg["compound"],
+                reps_min=reps["compound"][0],
+                reps_max=reps["compound"][1],
+                rest_seconds=base_rest,
+            ))
+            used_exercise_ids.add(ex.id)
+            if sim_group:
+                used_sim_groups.add(sim_group)
+            order += 1
+            added += 1
+
+        for ex in isolations:
+            if added >= count:
+                break
+            if ex.id in used_exercise_ids:
+                continue
+            sim_group = _EXERCISE_TO_GROUP.get(ex.name)
+            if sim_group and sim_group in used_sim_groups:
+                continue
+            db.add(RoutineExercise(
+                routine_day_id=day.id,
+                exercise_id=ex.id,
+                order=order,
+                sets=sets_cfg["isolation"],
+                reps_min=reps["isolation"][0],
+                reps_max=reps["isolation"][1],
+                rest_seconds=60,
+            ))
+            used_exercise_ids.add(ex.id)
+            if sim_group:
+                used_sim_groups.add(sim_group)
+            order += 1
+            added += 1
+
+    # Accessory muscles
+    for muscle in accessory_muscles:
+        try:
+            mg = MuscleGroup(muscle)
+        except ValueError:
+            continue
+
+        ex = (
+            db.query(Exercise)
+            .filter(Exercise.muscle_group == mg, ~Exercise.id.in_(used_exercise_ids))
+            .order_by(sqlfunc.random())
+            .first()
+        )
+        if not ex:
+            ex = db.query(Exercise).filter(Exercise.muscle_group == mg).order_by(sqlfunc.random()).first()
+        if not ex:
+            continue
+
+        db.add(RoutineExercise(
+            routine_day_id=day.id,
+            exercise_id=ex.id,
+            order=order,
+            sets=sets_cfg["isolation"],
+            reps_min=reps["isolation"][0],
+            reps_max=reps["isolation"][1],
+            rest_seconds=60,
+        ))
+        used_exercise_ids.add(ex.id)
+        order += 1
+
+    db.commit()
+    return _load_full_routine(db, routine.id)
 
 
 # ─── Parameterised /{routine_id} routes (MUST be last) ───

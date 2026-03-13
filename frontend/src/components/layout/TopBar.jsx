@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useTheme } from '../../contexts/ThemeContext'
 import { useAuth } from '../../contexts/AuthContext'
-import { Sun, Moon, Shield, Lightbulb } from 'lucide-react'
+import { Sun, Moon, Shield, Lightbulb, RotateCw } from 'lucide-react'
 
 export default function TopBar() {
   const { theme, toggleTheme } = useTheme()
@@ -45,6 +45,13 @@ export default function TopBar() {
               <Shield size={20} />
             </Link>
           )}
+          <button
+            onClick={() => window.location.reload()}
+            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400"
+            aria-label="Recargar página"
+          >
+            <RotateCw size={18} />
+          </button>
           <button
             onClick={toggleTheme}
             className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"

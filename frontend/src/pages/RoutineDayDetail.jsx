@@ -80,6 +80,9 @@ export default function RoutineDayDetail() {
   // 1RM calculator
   const [oneRMExercise, setOneRMExercise] = useState(null)
 
+  // Regenerate exercises state
+  const [regenerating, setRegenerating] = useState(false)
+
   // Edit exercise state
   const [editingExId, setEditingExId] = useState(null)
   const [editForm, setEditForm] = useState({ sets: '', reps_min: '', reps_max: '', rest_seconds: '' })
@@ -144,6 +147,20 @@ export default function RoutineDayDetail() {
     setRoutine(r.data)
     cacheSet(`routine_${id}`, r.data)
   })
+
+  const regenerateExercises = async () => {
+    if (!confirm('¿Regenerar todos los ejercicios de este día? Se reemplazarán los actuales por nuevos aleatorios.')) return
+    setRegenerating(true)
+    try {
+      const r = await api.post(`/routines/days/${dayId}/regenerate`)
+      setRoutine(r.data)
+      cacheSet(`routine_${id}`, r.data)
+    } catch (err) {
+      alert('Error al regenerar: ' + (err.response?.data?.detail || err.message))
+    } finally {
+      setRegenerating(false)
+    }
+  }
 
   const handleExerciseCheck = (routineExId, exerciseId, exerciseName) => {
     if (checked[routineExId]) {
@@ -384,6 +401,14 @@ export default function RoutineDayDetail() {
           </div>
           <span className="text-xs text-gray-400">{done}/{total}</span>
         </div>
+        <button
+          onClick={regenerateExercises}
+          disabled={regenerating}
+          className="mt-3 w-full flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-medium text-orange-500 bg-orange-50 dark:bg-orange-500/10 hover:bg-orange-100 dark:hover:bg-orange-500/20 transition-colors disabled:opacity-50"
+        >
+          <RefreshCw size={15} className={regenerating ? 'animate-spin' : ''} />
+          {regenerating ? 'Regenerando...' : 'Regenerar ejercicios'}
+        </button>
       </div>
 
       {/* Rest Timer */}
