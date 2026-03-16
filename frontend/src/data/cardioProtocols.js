@@ -24,36 +24,36 @@ export const LEVELS = [
 
 export const HIIT_PROTOCOLS = {
   treadmill: [
-    { level: 0, recovery: [4, 5], work: [5, 6], workSec: 30, recoverySec: 90 },
-    { level: 1, recovery: [5, 6], work: [7, 9], workSec: 30, recoverySec: 60 },
-    { level: 2, recovery: [5, 6], work: [9, 11], workSec: 30, recoverySec: 60 },
-    { level: 3, recovery: [6, 7], work: [11, 13], workSec: 40, recoverySec: 50 },
-    { level: 4, recovery: [6, 7], work: [13, 15], workSec: 45, recoverySec: 45 },
-    { level: 5, recovery: [7, 8], work: [15, 17], workSec: 60, recoverySec: 30 },
+    { level: 0, recovery: [4, 5], moderate: [5, 6], work: [6, 7], recoverySec: 45, moderateSec: 25, workSec: 20 },
+    { level: 1, recovery: [5, 6], moderate: [7, 8], work: [9, 10], recoverySec: 35, moderateSec: 20, workSec: 20 },
+    { level: 2, recovery: [5, 6], moderate: [8, 9], work: [10, 12], recoverySec: 30, moderateSec: 20, workSec: 20 },
+    { level: 3, recovery: [6, 7], moderate: [9, 10], work: [12, 14], recoverySec: 25, moderateSec: 20, workSec: 25 },
+    { level: 4, recovery: [6, 7], moderate: [10, 12], work: [14, 16], recoverySec: 20, moderateSec: 20, workSec: 30 },
+    { level: 5, recovery: [7, 8], moderate: [12, 14], work: [16, 18], recoverySec: 15, moderateSec: 15, workSec: 30 },
   ],
   bike: [
-    { level: 0, recovery: [50, 70], work: [70, 90], workSec: 30, recoverySec: 90 },
-    { level: 1, recovery: [60, 80], work: [90, 120], workSec: 30, recoverySec: 60 },
-    { level: 2, recovery: [70, 90], work: [120, 150], workSec: 30, recoverySec: 60 },
-    { level: 3, recovery: [80, 100], work: [150, 180], workSec: 40, recoverySec: 50 },
-    { level: 4, recovery: [90, 110], work: [180, 220], workSec: 45, recoverySec: 45 },
-    { level: 5, recovery: [100, 120], work: [220, 270], workSec: 60, recoverySec: 30 },
+    { level: 0, recovery: [50, 70], moderate: [70, 80], work: [80, 100], recoverySec: 45, moderateSec: 25, workSec: 20 },
+    { level: 1, recovery: [60, 80], moderate: [90, 110], work: [110, 130], recoverySec: 35, moderateSec: 20, workSec: 20 },
+    { level: 2, recovery: [70, 90], moderate: [110, 130], work: [140, 160], recoverySec: 30, moderateSec: 20, workSec: 20 },
+    { level: 3, recovery: [80, 100], moderate: [130, 150], work: [170, 200], recoverySec: 25, moderateSec: 20, workSec: 25 },
+    { level: 4, recovery: [90, 110], moderate: [150, 180], work: [200, 240], recoverySec: 20, moderateSec: 20, workSec: 30 },
+    { level: 5, recovery: [100, 120], moderate: [180, 210], work: [240, 280], recoverySec: 15, moderateSec: 15, workSec: 30 },
   ],
   elliptical: [
-    { level: 0, recovery: [80, 100], work: [100, 120], workSec: 30, recoverySec: 90 },
-    { level: 1, recovery: [90, 110], work: [120, 140], workSec: 30, recoverySec: 60 },
-    { level: 2, recovery: [100, 120], work: [140, 160], workSec: 30, recoverySec: 60 },
-    { level: 3, recovery: [110, 130], work: [160, 180], workSec: 40, recoverySec: 50 },
-    { level: 4, recovery: [120, 140], work: [180, 200], workSec: 45, recoverySec: 45 },
-    { level: 5, recovery: [130, 150], work: [200, 220], workSec: 60, recoverySec: 30 },
+    { level: 0, recovery: [80, 100], moderate: [100, 110], work: [110, 130], recoverySec: 45, moderateSec: 25, workSec: 20 },
+    { level: 1, recovery: [90, 110], moderate: [120, 130], work: [135, 150], recoverySec: 35, moderateSec: 20, workSec: 20 },
+    { level: 2, recovery: [100, 120], moderate: [130, 140], work: [150, 170], recoverySec: 30, moderateSec: 20, workSec: 20 },
+    { level: 3, recovery: [110, 130], moderate: [150, 160], work: [170, 190], recoverySec: 25, moderateSec: 20, workSec: 25 },
+    { level: 4, recovery: [120, 140], moderate: [160, 175], work: [190, 210], recoverySec: 20, moderateSec: 20, workSec: 30 },
+    { level: 5, recovery: [130, 150], moderate: [175, 195], work: [210, 230], recoverySec: 15, moderateSec: 15, workSec: 30 },
   ],
   stair_climber: [
-    { level: 0, recovery: [3, 4], work: [5, 6], workSec: 30, recoverySec: 90 },
-    { level: 1, recovery: [4, 5], work: [6, 7], workSec: 30, recoverySec: 60 },
-    { level: 2, recovery: [4, 5], work: [7, 8], workSec: 30, recoverySec: 60 },
-    { level: 3, recovery: [5, 6], work: [8, 10], workSec: 40, recoverySec: 50 },
-    { level: 4, recovery: [5, 6], work: [10, 12], workSec: 45, recoverySec: 45 },
-    { level: 5, recovery: [6, 7], work: [12, 15], workSec: 60, recoverySec: 30 },
+    { level: 0, recovery: [3, 4], moderate: [4, 5], work: [5, 6], recoverySec: 45, moderateSec: 25, workSec: 20 },
+    { level: 1, recovery: [4, 5], moderate: [5, 6], work: [7, 8], recoverySec: 35, moderateSec: 20, workSec: 20 },
+    { level: 2, recovery: [4, 5], moderate: [6, 7], work: [8, 9], recoverySec: 30, moderateSec: 20, workSec: 20 },
+    { level: 3, recovery: [5, 6], moderate: [7, 8], work: [9, 11], recoverySec: 25, moderateSec: 20, workSec: 25 },
+    { level: 4, recovery: [5, 6], moderate: [8, 9], work: [11, 13], recoverySec: 20, moderateSec: 20, workSec: 30 },
+    { level: 5, recovery: [6, 7], moderate: [9, 11], work: [13, 15], recoverySec: 15, moderateSec: 15, workSec: 30 },
   ],
 }
 
@@ -80,17 +80,25 @@ export function generateHIITIntervals(equipment, level, durationMin) {
   const protocol = HIIT_PROTOCOLS[equipment]?.find(p => p.level === level)
   if (!protocol) return []
   const totalSeconds = durationMin * 60
-  const intervalLength = protocol.workSec + protocol.recoverySec
-  const numIntervals = Math.floor(totalSeconds / intervalLength)
+  const cycleLength = protocol.recoverySec + protocol.moderateSec + protocol.workSec
+  const numCycles = Math.floor(totalSeconds / cycleLength)
   const intervals = []
-  for (let i = 0; i < numIntervals; i++) {
-    intervals.push({ type: 'work', duration: protocol.workSec, range: protocol.work })
+  for (let i = 0; i < numCycles; i++) {
     intervals.push({ type: 'recovery', duration: protocol.recoverySec, range: protocol.recovery })
+    intervals.push({ type: 'moderate', duration: protocol.moderateSec, range: protocol.moderate })
+    intervals.push({ type: 'work', duration: protocol.workSec, range: protocol.work })
   }
   let accumulated = intervals.reduce((s, i) => s + i.duration, 0)
-  if (accumulated < totalSeconds) {
+  const phases = [
+    { type: 'recovery', duration: protocol.recoverySec, range: protocol.recovery },
+    { type: 'moderate', duration: protocol.moderateSec, range: protocol.moderate },
+    { type: 'work', duration: protocol.workSec, range: protocol.work },
+  ]
+  for (const phase of phases) {
+    if (accumulated >= totalSeconds) break
     const remaining = totalSeconds - accumulated
-    intervals.push({ type: 'work', duration: Math.min(remaining, protocol.workSec), range: protocol.work })
+    intervals.push({ ...phase, duration: Math.min(remaining, phase.duration) })
+    accumulated += Math.min(remaining, phase.duration)
   }
   return intervals
 }

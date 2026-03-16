@@ -56,6 +56,7 @@ export default function CardioSession({ intervals, equipment, cardioType, level,
   const current = timer.currentInterval
   const next = timer.nextInterval
   const isWork = current?.type === 'work'
+  const isModerate = current?.type === 'moderate'
   const isRecovery = current?.type === 'recovery'
   const isLISS = cardioType === 'liss'
 
@@ -94,7 +95,7 @@ export default function CardioSession({ intervals, equipment, cardioType, level,
           const intervalDuration = current?.duration || 1
           const intervalProgress = timer.secondsLeft / intervalDuration
           const offset = circumference * (1 - intervalProgress)
-          const strokeColor = isLISS ? 'var(--brand-500)' : isWork ? '#ef4444' : isRecovery ? '#22c55e' : 'var(--brand-500)'
+          const strokeColor = isLISS ? 'var(--brand-500)' : isWork ? '#ef4444' : isModerate ? '#f59e0b' : isRecovery ? '#22c55e' : 'var(--brand-500)'
           return (
             <div className="relative w-44 h-44 flex items-center justify-center">
               <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 160 160">
@@ -110,9 +111,9 @@ export default function CardioSession({ intervals, equipment, cardioType, level,
 
         {/* Type Badge */}
         <span className={`px-4 py-1.5 rounded-full text-sm font-bold uppercase tracking-wider ${
-          isLISS ? 'bg-brand-500/20 text-brand-400' : isWork ? 'bg-red-500/20 text-red-400' : isRecovery ? 'bg-green-500/20 text-green-400' : 'bg-brand-500/20 text-brand-400'
+          isLISS ? 'bg-brand-500/20 text-brand-400' : isWork ? 'bg-red-500/20 text-red-400' : isModerate ? 'bg-amber-500/20 text-amber-400' : isRecovery ? 'bg-green-500/20 text-green-400' : 'bg-brand-500/20 text-brand-400'
         }`}>
-          {isLISS ? 'LISS' : isWork ? 'Trabajo' : isRecovery ? 'Recuperación' : 'Estable'}
+          {isLISS ? 'LISS' : isWork ? 'Sprint' : isModerate ? 'Moderado' : isRecovery ? 'Recuperación' : 'Estable'}
         </span>
 
         {/* Current Range / BPM Target */}
@@ -151,7 +152,7 @@ export default function CardioSession({ intervals, equipment, cardioType, level,
               <div
                 key={i}
                 className={`flex-1 rounded-t transition-all ${
-                  interval.type === 'work' ? 'bg-red-500' : interval.type === 'recovery' ? 'bg-green-500' : 'bg-brand-500'
+                  interval.type === 'work' ? 'bg-red-500' : interval.type === 'moderate' ? 'bg-amber-500' : interval.type === 'recovery' ? 'bg-green-500' : 'bg-brand-500'
                 } ${isPast ? 'opacity-30' : isCurrent ? 'opacity-100 scale-y-110' : 'opacity-50'}`}
                 style={{ height: `${height}%` }}
               />
