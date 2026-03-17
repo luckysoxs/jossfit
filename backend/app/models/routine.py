@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import String, Integer, ForeignKey, DateTime, JSON, func, Text
+from sqlalchemy import String, Integer, ForeignKey, DateTime, JSON, func, Text, VARCHAR
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -49,6 +49,7 @@ class RoutineExercise(Base):
     reps_max: Mapped[int] = mapped_column(Integer)
     rest_seconds: Mapped[int] = mapped_column(Integer, default=90)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    group_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
 
     routine_day = relationship("RoutineDay", back_populates="exercises")
     exercise = relationship("Exercise")

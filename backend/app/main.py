@@ -126,6 +126,8 @@ def run_migrations():
             created_at TIMESTAMP DEFAULT NOW()
         )""",
         "CREATE INDEX IF NOT EXISTS idx_suggestions_user_id ON suggestions(user_id)",
+        # Exercise grouping (supersets / circuits)
+        "ALTER TABLE routine_exercises ADD COLUMN IF NOT EXISTS group_id VARCHAR(36)",
         # Clean up duplicate note notifications — keep only the oldest per (user_id, url)
         """DELETE FROM notifications
            WHERE id NOT IN (

@@ -3,7 +3,7 @@ import api from '../services/api'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import PageTour from '../components/ui/PageTour'
 import { Link } from 'react-router-dom'
-import { TrendingUp, AlertTriangle, Shield, Activity, Flame, Dumbbell, Calendar, Clock, ChevronRight } from 'lucide-react'
+import { TrendingUp, AlertTriangle, Shield, Activity, Flame, Dumbbell, Calendar, Clock, ChevronRight, Link2, Zap, Target } from 'lucide-react'
 import { MUSCLE_LABELS } from '../utils/routineConstants'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
 import { useWeightUnit } from '../contexts/WeightUnitContext'
@@ -17,6 +17,7 @@ export default function Progress() {
   const [progression, setProgression] = useState(null)
   const [fatigueData, setFatigueData] = useState([])
   const [workoutHistory, setWorkoutHistory] = useState([])
+  const [trainingTypes, setTrainingTypes] = useState({ monoserie: 0, biserie: 0, circuito: 0 })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -24,7 +25,28 @@ export default function Progress() {
       api.get('/ai/training-analysis'),
       api.get('/exercises'),
       api.get('/workouts/history'),
-    ]).then(([a, e, w]) => {
+      api.get('/routines').catch(() => ({ data: [] })),
+    ]).then(([a, e, w, r]) => {
+      // Calculate training type counts from routines
+      const routines = r.data || []
+      let mono = 0, bi = 0, circ = 0
+      for (const routine of routines) {
+        for (const day of (routine.days || [])) {
+          const groups = {}
+          for (const ex of (day.exercises || [])) {
+            if (ex.group_id) {
+              groups[ex.group_id] = (groups[ex.group_id] || 0) + 1
+            } else {
+              mono++
+            }
+          }
+          for (const count of Object.values(groups)) {
+            if (count === 2) bi++
+            else if (count >= 3) circ++
+          }
+        }
+      }
+      setTrainingTypes({ monoserie: mono, biserie: bi, circuito: circ })
       setAnalysis(a.data)
       setExercises(e.data)
       // Extract fatigue data from workout history
@@ -56,6 +78,33 @@ export default function Progress() {
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Progreso & Análisis</h1>
+
+      {/* Training Type Summary */}
+      {(trainingTypes.monoserie > 0 || trainingTypes.biserie > 0 || trainingTypes.circuito > 0) && (
+        <div className="grid grid-cols-3 gap-2">
+          <div className="card text-center py-3">
+            <div className="w-8 h-8 mx-auto mb-1.5 rounded-lg bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center">
+              <Target size={16} className="text-blue-500" />
+            </div>
+            <p className="text-lg font-bold">{trainingTypes.monoserie}</p>
+            <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">Monoserie</p>
+          </div>
+          <div className="card text-center py-3">
+            <div className="w-8 h-8 mx-auto mb-1.5 rounded-lg bg-purple-50 dark:bg-purple-500/10 flex items-center justify-center">
+              <Link2 size={16} className="text-purple-500" />
+            </div>
+            <p className="text-lg font-bold">{trainingTypes.biserie}</p>
+            <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">Biserie</p>
+          </div>
+          <div className="card text-center py-3">
+            <div className="w-8 h-8 mx-auto mb-1.5 rounded-lg bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center">
+              <Zap size={16} className="text-amber-500" />
+            </div>
+            <p className="text-lg font-bold">{trainingTypes.circuito}</p>
+            <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">Circuito</p>
+          </div>
+        </div>
+      )}
 
       {/* Overtraining & Deload */}
       {analysis && (

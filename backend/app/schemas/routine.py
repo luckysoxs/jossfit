@@ -13,6 +13,7 @@ class RoutineExerciseCreate(BaseModel):
     reps_max: int
     rest_seconds: int = 90
     notes: str | None = None
+    group_id: str | None = None
 
 
 class RoutineExerciseUpdate(BaseModel):
@@ -21,6 +22,7 @@ class RoutineExerciseUpdate(BaseModel):
     reps_max: int | None = None
     rest_seconds: int | None = None
     notes: str | None = None
+    group_id: str | None = None
 
 
 class RoutineExerciseResponse(BaseModel):
@@ -32,6 +34,7 @@ class RoutineExerciseResponse(BaseModel):
     reps_max: int
     rest_seconds: int
     notes: str | None
+    group_id: str | None = None
     exercise: ExerciseResponse | None = None
 
     model_config = {"from_attributes": True}

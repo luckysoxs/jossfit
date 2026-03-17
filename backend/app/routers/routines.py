@@ -144,6 +144,112 @@ def reorder_exercises(
     return {"ok": True}
 
 
+class LinkExercisesRequest(BaseModel):
+    exercise_ids: list[int]
+
+
+@router.put("/exercises/link", status_code=200)
+def link_exercises(
+    data: LinkExercisesRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Link 2+ exercises into a superset (biserie) or circuit."""
+    import uuid
+
+    if len(data.exercise_ids) < 2:
+        raise HTTPException(status_code=400, detail="Se necesitan al menos 2 ejercicios para enlazar")
+
+    # Fetch all exercises and verify ownership + same day
+    exercises = (
+        db.query(RoutineExercise)
+        .join(RoutineDay)
+        .join(Routine)
+        .filter(
+            RoutineExercise.id.in_(data.exercise_ids),
+            Routine.user_id == user.id,
+        )
+        .all()
+    )
+
+    if len(exercises) != len(data.exercise_ids):
+        raise HTTPException(status_code=404, detail="Uno o más ejercicios no encontrados")
+
+    day_ids = set(ex.routine_day_id for ex in exercises)
+    if len(day_ids) > 1:
+        raise HTTPException(status_code=400, detail="Todos los ejercicios deben pertenecer al mismo día")
+
+    day_id = day_ids.pop()
+    routine_day = db.query(RoutineDay).filter(RoutineDay.id == day_id).first()
+
+    # Assign group_id
+    group_id = str(uuid.uuid4())[:8]
+    for ex in exercises:
+        ex.group_id = group_id
+
+    # Reorder so grouped exercises are consecutive
+    all_day_exercises = (
+        db.query(RoutineExercise)
+        .filter(RoutineExercise.routine_day_id == day_id)
+        .order_by(RoutineExercise.order)
+        .all()
+    )
+
+    grouped_ids = set(data.exercise_ids)
+    first_grouped_order = min(ex.order for ex in exercises)
+
+    # Separate: non-grouped before insertion point, grouped, non-grouped after
+    before = [e for e in all_day_exercises if e.id not in grouped_ids and e.order < first_grouped_order]
+    grouped = sorted(exercises, key=lambda e: data.exercise_ids.index(e.id))
+    after = [e for e in all_day_exercises if e.id not in grouped_ids and e.order >= first_grouped_order]
+
+    new_order = before + grouped + after
+    for i, ex in enumerate(new_order, start=1):
+        ex.order = i
+
+    db.commit()
+    return _load_full_routine(db, routine_day.routine_id)
+
+
+@router.put("/exercises/{routine_exercise_id}/unlink", status_code=200)
+def unlink_exercise(
+    routine_exercise_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Remove an exercise from its superset/circuit group."""
+    routine_ex = (
+        db.query(RoutineExercise)
+        .join(RoutineDay)
+        .join(Routine)
+        .filter(RoutineExercise.id == routine_exercise_id, Routine.user_id == user.id)
+        .first()
+    )
+    if not routine_ex:
+        raise HTTPException(status_code=404, detail="Ejercicio no encontrado")
+
+    if not routine_ex.group_id:
+        return _load_full_routine(db, routine_ex.routine_day.routine_id)
+
+    old_group_id = routine_ex.group_id
+    routine_ex.group_id = None
+
+    # If remaining group has only 1 member, dissolve it
+    remaining = (
+        db.query(RoutineExercise)
+        .filter(
+            RoutineExercise.routine_day_id == routine_ex.routine_day_id,
+            RoutineExercise.group_id == old_group_id,
+        )
+        .all()
+    )
+    if len(remaining) == 1:
+        remaining[0].group_id = None
+
+    db.commit()
+    return _load_full_routine(db, routine_ex.routine_day.routine_id)
+
+
 # ─── /exercises/ sub-path routes (before /{routine_id}) ───
 
 @router.put("/exercises/{routine_exercise_id}", status_code=200)
