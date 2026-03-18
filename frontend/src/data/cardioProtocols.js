@@ -22,6 +22,12 @@ export const LEVELS = [
   { level: 5, label: 'Máximo', color: 'bg-red-700' },
 ]
 
+export const HIIT_LEVELS = [
+  { level: 1, label: 'Principiante', description: 'Intervalos suaves, más descanso', color: 'bg-green-500', emoji: '🟢' },
+  { level: 3, label: 'Intermedio', description: 'Intervalos moderados, ritmo balanceado', color: 'bg-yellow-500', emoji: '🟡' },
+  { level: 5, label: 'Avanzado', description: 'Intervalos intensos, poco descanso', color: 'bg-red-500', emoji: '🔴' },
+]
+
 export const HIIT_PROTOCOLS = {
   treadmill: [
     { level: 0, recovery: [4, 5], work: [5, 6], workSec: 30, recoverySec: 90 },
