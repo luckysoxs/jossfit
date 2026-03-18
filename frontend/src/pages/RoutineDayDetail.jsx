@@ -83,6 +83,10 @@ export default function RoutineDayDetail() {
   // Regenerate exercises state
   const [regenerating, setRegenerating] = useState(false)
 
+  // Link mode state
+  const [linkMode, setLinkMode] = useState(false)
+  const [linkSelection, setLinkSelection] = useState(new Set())
+
   // Edit exercise state
   const [editingExId, setEditingExId] = useState(null)
   const [editForm, setEditForm] = useState({ sets: '', reps_min: '', reps_max: '', rest_seconds: '' })
@@ -162,32 +166,36 @@ export default function RoutineDayDetail() {
     }
   }
 
-  const handleLinkExercise = async (exercise, idx) => {
-    try {
-      if (exercise.group_id) {
-        // Unlink from group
-        const r = await api.put(`/routines/exercises/${exercise.id}/unlink`)
-        setRoutine(r.data)
-        cacheSet(`routine_${id}`, r.data)
-      } else {
-        // Find the next exercise in the flat sorted list
-        const flatSorted = [...(day.exercises || [])].sort((a, b) => a.order - b.order)
-        const currentIdx = flatSorted.findIndex(e => e.id === exercise.id)
-        const nextEx = flatSorted[currentIdx + 1]
-        if (!nextEx) return
+  const toggleLinkSelection = (exId) => {
+    setLinkSelection(prev => {
+      const next = new Set(prev)
+      if (next.has(exId)) next.delete(exId)
+      else next.add(exId)
+      return next
+    })
+  }
 
-        let exerciseIds
-        if (nextEx.group_id) {
-          // Join existing group
-          const groupMembers = flatSorted.filter(e => e.group_id === nextEx.group_id)
-          exerciseIds = [exercise.id, ...groupMembers.map(e => e.id)]
-        } else {
-          exerciseIds = [exercise.id, nextEx.id]
-        }
-        const r = await api.put('/routines/exercises/link', { exercise_ids: exerciseIds })
-        setRoutine(r.data)
-        cacheSet(`routine_${id}`, r.data)
-      }
+  const confirmLink = async () => {
+    if (linkSelection.size < 2) {
+      alert('Selecciona al menos 2 ejercicios para enlazar')
+      return
+    }
+    try {
+      const r = await api.put('/routines/exercises/link', { exercise_ids: [...linkSelection] })
+      setRoutine(r.data)
+      cacheSet(`routine_${id}`, r.data)
+      setLinkMode(false)
+      setLinkSelection(new Set())
+    } catch (err) {
+      alert('Error: ' + (err.response?.data?.detail || err.message))
+    }
+  }
+
+  const handleUnlink = async (exercise) => {
+    try {
+      const r = await api.put(`/routines/exercises/${exercise.id}/unlink`)
+      setRoutine(r.data)
+      cacheSet(`routine_${id}`, r.data)
     } catch (err) {
       alert('Error: ' + (err.response?.data?.detail || err.message))
     }
@@ -473,6 +481,35 @@ export default function RoutineDayDetail() {
         </button>
       </div>
 
+      {/* Link mode bar */}
+      {linkMode ? (
+        <div className="card border-2 border-purple-500 bg-purple-50/50 dark:bg-purple-500/10">
+          <p className="text-sm font-semibold text-purple-500 mb-2 flex items-center gap-2">
+            <Link2 size={16} /> Selecciona los ejercicios a enlazar
+          </p>
+          <p className="text-xs text-gray-400 mb-3">
+            2 ejercicios = Biserie, 3+ = Circuito
+          </p>
+          <div className="flex gap-2">
+            <button onClick={confirmLink} disabled={linkSelection.size < 2}
+              className="flex-1 py-2 rounded-xl text-sm font-bold text-white bg-purple-500 hover:bg-purple-600 transition-colors disabled:opacity-30">
+              Enlazar {linkSelection.size > 0 ? `(${linkSelection.size})` : ''}
+            </button>
+            <button onClick={() => { setLinkMode(false); setLinkSelection(new Set()) }}
+              className="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => { setLinkMode(true); setLinkSelection(new Set()) }}
+          className="card w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-purple-500 bg-purple-50/50 dark:bg-purple-500/5 hover:bg-purple-100 dark:hover:bg-purple-500/10 transition-colors border border-purple-500/20"
+        >
+          <Link2 size={15} /> Crear biserie / circuito
+        </button>
+      )}
+
       {/* Rest Timer */}
       <div data-tour="rest-timer" className="card">
         {timerRunning ? (
@@ -594,14 +631,25 @@ export default function RoutineDayDetail() {
                     </button>
                   </div>
                 )}
-                <button
-                  onClick={() => handleExerciseCheck(ex.id, ex.exercise_id, exDisplayName(ex.exercise))}
-                  className={`w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
-                    checked[ex.id] ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 dark:border-gray-600'
-                  }`}
-                >
-                  {checked[ex.id] && <Check size={14} />}
-                </button>
+                {linkMode ? (
+                  <button
+                    onClick={() => toggleLinkSelection(ex.id)}
+                    className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                      linkSelection.has(ex.id) ? 'bg-purple-500 border-purple-500 text-white' : 'border-purple-300 dark:border-purple-600'
+                    }`}
+                  >
+                    {linkSelection.has(ex.id) && <Check size={14} />}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleExerciseCheck(ex.id, ex.exercise_id, exDisplayName(ex.exercise))}
+                    className={`w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                      checked[ex.id] ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 dark:border-gray-600'
+                    }`}
+                  >
+                    {checked[ex.id] && <Check size={14} />}
+                  </button>
+                )}
                 {ex.id === firstUncheckedId && !isGroup && (
                   <span className="text-[9px] font-bold text-blue-400 uppercase tracking-wide absolute -top-2 left-14 bg-gray-800 px-1.5 py-0.5 rounded">En progreso</span>
                 )}
@@ -700,9 +748,11 @@ export default function RoutineDayDetail() {
                     <button onClick={() => setSwapExercise(ex)} className="inline-flex items-center gap-1.5 mt-1 ml-3 text-xs font-medium text-orange-500 hover:text-orange-400 transition-colors">
                       <RefreshCw size={14} /> Reemplazar
                     </button>
-                    <button onClick={() => handleLinkExercise(ex, globalIdx)} className={`inline-flex items-center gap-1.5 mt-1 ml-3 text-xs font-medium transition-colors ${ex.group_id ? 'text-purple-500 hover:text-purple-400' : 'text-purple-400 hover:text-purple-300'}`}>
-                      {ex.group_id ? <><Unlink size={14} /> Desenlazar</> : <><Link2 size={14} /> Enlazar</>}
-                    </button>
+                    {ex.group_id && (
+                      <button onClick={() => handleUnlink(ex)} className="inline-flex items-center gap-1.5 mt-1 ml-3 text-xs font-medium text-purple-500 hover:text-purple-400 transition-colors">
+                        <Unlink size={14} /> Desenlazar
+                      </button>
+                    )}
                     <button onClick={() => { if (confirm('Eliminar este ejercicio?')) deleteExercise(ex.id) }} className="inline-flex items-center gap-1.5 mt-1 ml-3 text-xs font-medium text-red-500 hover:text-red-400 transition-colors">
                       <Trash2 size={14} /> Eliminar
                     </button>
