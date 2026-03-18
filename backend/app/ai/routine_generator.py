@@ -81,6 +81,29 @@ MAX_EXERCISES_PER_DAY = {
 # Muscles treated as accessories — 1 exercise each, outside the main budget
 ACCESSORY_MUSCLES = {"calves", "abs", "forearms", "traps"}
 
+# ── Weekly volume targets (total sets per muscle per week) ──
+# Based on exercise science: optimal hypertrophy = 10-20 sets/muscle/week
+WEEKLY_SETS_TARGET = {
+    "beginner": {
+        "default": 10,  # 10 sets/week per muscle
+        "chest": 10, "back": 12, "shoulders": 10,
+        "quadriceps": 10, "hamstrings": 8, "glutes": 10,
+        "biceps": 8, "triceps": 8,
+    },
+    "intermediate": {
+        "default": 14,
+        "chest": 14, "back": 16, "shoulders": 14,
+        "quadriceps": 14, "hamstrings": 12, "glutes": 14,
+        "biceps": 10, "triceps": 10,
+    },
+    "advanced": {
+        "default": 18,
+        "chest": 18, "back": 20, "shoulders": 16,
+        "quadriceps": 18, "hamstrings": 14, "glutes": 18,
+        "biceps": 14, "triceps": 14,
+    },
+}
+
 # Exercise similarity groups — at most ONE exercise from each group per day
 # Keys are group names, values are sets of exercise names (English)
 SIMILAR_GROUPS = {
@@ -147,12 +170,40 @@ def select_split(days_per_week: int, preference: str | None = None) -> str:
         return "ppl"
 
 
-def _allocate_exercises(focus_muscles: list[str], max_total: int) -> dict[str, int]:
+def _allocate_exercises(
+    focus_muscles: list[str],
+    max_total: int,
+    muscle_targets: dict[str, int] | None = None,
+) -> dict[str, int]:
     """Distribute exercise budget across muscles.
 
-    First gives 1 exercise per muscle, then distributes remaining
-    one-by-one in order (primary muscles first), capped at 3 per muscle.
+    Uses per-muscle targets (from weekly volume) when available.
+    Otherwise falls back to even distribution.
+    The per-muscle cap is dynamic: fewer muscles on a day = more exercises each.
     """
+    if not focus_muscles:
+        return {}
+
+    # Dynamic cap: depends on how many muscles share this day
+    n_muscles = len(focus_muscles)
+    if n_muscles == 1:
+        per_muscle_cap = max_total  # single muscle day: use full budget
+    elif n_muscles == 2:
+        per_muscle_cap = min(5, max_total)
+    elif n_muscles <= 4:
+        per_muscle_cap = min(4, max_total)
+    else:
+        per_muscle_cap = min(3, max_total)
+
+    # If we have per-muscle targets, use them to set priorities
+    if muscle_targets:
+        # Sort muscles by target volume descending (bigger muscles get more)
+        focus_muscles = sorted(
+            focus_muscles,
+            key=lambda m: muscle_targets.get(m, 2),
+            reverse=True,
+        )
+
     allocation = {}
     budget = max_total
 
@@ -163,13 +214,15 @@ def _allocate_exercises(focus_muscles: list[str], max_total: int) -> dict[str, i
         if budget <= 0:
             break
 
-    # Phase 2: distribute remaining 1 at a time, cap at 3
+    # Phase 2: distribute remaining proportionally, cap per muscle
     while budget > 0:
         distributed = False
         for m in focus_muscles:
             if budget <= 0:
                 break
-            if allocation.get(m, 0) < 3:
+            target = muscle_targets.get(m, 3) if muscle_targets else per_muscle_cap
+            cap = min(per_muscle_cap, max(target, 2))
+            if allocation.get(m, 0) < cap:
                 allocation[m] = allocation.get(m, 0) + 1
                 budget -= 1
                 distributed = True
@@ -232,6 +285,19 @@ def generate_routine(
         template_name = template["name"]
         days_template = template["days"][:days_per_week]
 
+    # ── Calculate weekly muscle frequency to distribute volume correctly ──
+    volume_targets = WEEKLY_SETS_TARGET.get(training_level, WEEKLY_SETS_TARGET["intermediate"])
+    muscle_frequency: dict[str, int] = {}  # how many days each muscle appears
+    for dt in days_template:
+        for m in dt["focus"].split(","):
+            m = m.strip()
+            if m and m not in ACCESSORY_MUSCLES:
+                muscle_frequency[m] = muscle_frequency.get(m, 0) + 1
+
+    # Per-day exercise target for each muscle = ceil(weekly_sets_target / frequency / avg_sets_per_exercise)
+    # avg_sets_per_exercise ≈ 3 (compound=3-4, isolation=2-3)
+    avg_sets = (sets_cfg["compound"] + sets_cfg["isolation"]) / 2
+
     routine_days = []
     for day_tmpl in days_template:
         focus_muscles = [m.strip() for m in day_tmpl["focus"].split(",")]
@@ -240,8 +306,18 @@ def generate_routine(
         main_muscles = [m for m in focus_muscles if m not in ACCESSORY_MUSCLES]
         accessory_muscles = [m for m in focus_muscles if m in ACCESSORY_MUSCLES]
 
-        # Budget allocation only for main muscles
-        allocation = _allocate_exercises(main_muscles, max_ex) if main_muscles else {}
+        # Calculate per-muscle exercise targets for THIS day based on weekly volume
+        day_muscle_targets = {}
+        for m in main_muscles:
+            weekly_target = volume_targets.get(m, volume_targets.get("default", 14))
+            freq = muscle_frequency.get(m, 1)
+            # How many exercises needed this day to hit weekly target
+            sets_this_day = weekly_target / freq
+            exercises_needed = max(2, round(sets_this_day / avg_sets))
+            day_muscle_targets[m] = exercises_needed
+
+        # Budget allocation using volume-aware targets
+        allocation = _allocate_exercises(main_muscles, max_ex, day_muscle_targets) if main_muscles else {}
 
         exercises_for_day = []
         used_exercise_ids = set()  # Prevent duplicates within the same day

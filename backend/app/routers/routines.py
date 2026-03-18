@@ -10,7 +10,7 @@ from app.schemas.routine import RoutineCreate, RoutineExerciseCreate, RoutineExe
 from app.auth.security import get_current_user
 from app.ai.routine_generator import (
     MAX_EXERCISES_PER_DAY, SETS_CONFIG, REP_RANGES, ACCESSORY_MUSCLES,
-    _EXERCISE_TO_GROUP, _allocate_exercises,
+    WEEKLY_SETS_TARGET, _EXERCISE_TO_GROUP, _allocate_exercises,
 )
 
 router = APIRouter(prefix="/routines", tags=["Routines"])
@@ -414,7 +414,29 @@ def regenerate_day_exercises(
 
     main_muscles = [m for m in focus_muscles if m not in ACCESSORY_MUSCLES]
     accessory_muscles = [m for m in focus_muscles if m in ACCESSORY_MUSCLES]
-    allocation = _allocate_exercises(main_muscles, max_ex) if main_muscles else {}
+
+    # Calculate per-muscle targets based on weekly volume
+    volume_targets = WEEKLY_SETS_TARGET.get(training_level, WEEKLY_SETS_TARGET["intermediate"])
+    avg_sets = (sets_cfg["compound"] + sets_cfg["isolation"]) / 2
+
+    # Count how many days each muscle appears in this routine
+    all_days = db.query(RoutineDay).filter(RoutineDay.routine_id == routine.id).all()
+    muscle_frequency = {}
+    for d in all_days:
+        for m in (d.focus or "").split(","):
+            m = m.strip()
+            if m and m not in ACCESSORY_MUSCLES:
+                muscle_frequency[m] = muscle_frequency.get(m, 0) + 1
+
+    day_muscle_targets = {}
+    for m in main_muscles:
+        weekly_target = volume_targets.get(m, volume_targets.get("default", 14))
+        freq = muscle_frequency.get(m, 1)
+        sets_this_day = weekly_target / freq
+        exercises_needed = max(2, round(sets_this_day / avg_sets))
+        day_muscle_targets[m] = exercises_needed
+
+    allocation = _allocate_exercises(main_muscles, max_ex, day_muscle_targets) if main_muscles else {}
 
     # Delete old exercises for this day
     db.query(RoutineExercise).filter(RoutineExercise.routine_day_id == day.id).delete()
