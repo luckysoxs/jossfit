@@ -128,6 +128,16 @@ def run_migrations():
         "CREATE INDEX IF NOT EXISTS idx_suggestions_user_id ON suggestions(user_id)",
         # Exercise grouping (supersets / circuits)
         "ALTER TABLE routine_exercises ADD COLUMN IF NOT EXISTS group_id VARCHAR(36)",
+        # Routine progress sync across devices
+        """CREATE TABLE IF NOT EXISTS routine_progress (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            routine_id INTEGER REFERENCES routines(id) ON DELETE CASCADE,
+            date DATE NOT NULL,
+            checked_data JSONB NOT NULL DEFAULT '{}',
+            updated_at TIMESTAMP DEFAULT NOW(),
+            UNIQUE(user_id, routine_id, date)
+        )""",
         # Clean up duplicate note notifications — keep only the oldest per (user_id, url)
         """DELETE FROM notifications
            WHERE id NOT IN (

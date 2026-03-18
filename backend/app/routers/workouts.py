@@ -188,6 +188,47 @@ def get_today_exercises(
     return [eid for (eid,) in exercise_ids]
 
 
+@router.get("/progress/{routine_id}")
+def get_routine_progress(
+    routine_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get today's checked state for a routine (synced across devices)."""
+    from sqlalchemy import text
+    today = today_mx()
+    row = db.execute(
+        text("SELECT checked_data FROM routine_progress WHERE user_id = :uid AND routine_id = :rid AND date = :d"),
+        {"uid": user.id, "rid": routine_id, "d": today},
+    ).first()
+    return row[0] if row else {}
+
+
+@router.put("/progress/{routine_id}")
+def save_routine_progress(
+    routine_id: int,
+    checked_data: dict,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Save checked state for a routine (syncs across devices)."""
+    import json
+    from sqlalchemy import text
+    today = today_mx()
+    data_json = json.dumps(checked_data)
+    db.execute(
+        text("""
+            INSERT INTO routine_progress (user_id, routine_id, date, checked_data, updated_at)
+            VALUES (:uid, :rid, :d, cast(:data as jsonb), NOW())
+            ON CONFLICT (user_id, routine_id, date)
+            DO UPDATE SET checked_data = cast(:data as jsonb), updated_at = NOW()
+        """),
+        {"uid": user.id, "rid": routine_id, "d": today, "data": data_json},
+    )
+    db.commit()
+    return {"ok": True}
+
+
 @router.get("/{workout_id}", response_model=WorkoutResponse)
 def get_workout(
     workout_id: int,

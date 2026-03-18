@@ -97,10 +97,11 @@ export default function RoutineDayDetail() {
     let cancelled = false
     const loadData = async () => {
       try {
-        const [r, pb, todayEx] = await Promise.all([
+        const [r, pb, todayEx, serverProgress] = await Promise.all([
           api.get(`/routines/${id}`),
           api.get('/workouts/personal-bests').catch(() => ({ data: [] })),
           api.get('/workouts/today-exercises').catch(() => ({ data: [] })),
+          api.get(`/workouts/progress/${id}`).catch(() => ({ data: {} })),
         ])
         if (cancelled) return
         setRoutine(r.data)
@@ -111,24 +112,30 @@ export default function RoutineDayDetail() {
         cacheSet(`routine_${id}`, r.data)
         cacheSet('personal_bests', bests)
 
-        // Restore checked state from server: if an exercise was logged today, mark it checked
+        // Merge checked state: server progress + today's workout exercises + localStorage
+        const numDId = parseInt(dayId)
+        const currentDay = r.data.days?.find(d => d.id === numDId)
         const todayExerciseIds = new Set(todayEx.data || [])
-        if (todayExerciseIds.size > 0) {
-          const numDId = parseInt(dayId)
-          const currentDay = r.data.days?.find(d => d.id === numDId)
-          if (currentDay) {
-            setChecked(prev => {
-              const merged = { ...prev }
-              for (const ex of (currentDay.exercises || [])) {
-                if (todayExerciseIds.has(ex.exercise_id) && !merged[ex.id]) {
-                  merged[ex.id] = true
-                }
-              }
-              localStorage.setItem(todayKey, JSON.stringify(merged))
-              return merged
-            })
+        const serverChecked = serverProgress.data || {}
+
+        setChecked(prev => {
+          // Start with server state (authoritative across devices)
+          const merged = { ...prev }
+          // Merge server-synced checked state
+          for (const [k, v] of Object.entries(serverChecked)) {
+            if (v) merged[k] = true
           }
-        }
+          // Also restore from workout logs (exercises where weight/reps were recorded)
+          if (currentDay && todayExerciseIds.size > 0) {
+            for (const ex of (currentDay.exercises || [])) {
+              if (todayExerciseIds.has(ex.exercise_id)) {
+                merged[ex.id] = true
+              }
+            }
+          }
+          localStorage.setItem(todayKey, JSON.stringify(merged))
+          return merged
+        })
       } catch {
         if (cancelled) return
         const cachedRoutine = cacheGet(`routine_${id}`)
@@ -159,10 +166,16 @@ export default function RoutineDayDetail() {
     }
   }, [online])
 
-  // Persist checked progress
+  // Persist checked progress to localStorage + server sync
+  const syncTimerRef = useRef(null)
   useEffect(() => {
     if (Object.keys(checked).length > 0) {
       sessionStorage.setItem(todayKey, JSON.stringify(checked))
+      // Debounced server sync (500ms after last change)
+      if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
+      syncTimerRef.current = setTimeout(() => {
+        api.put(`/workouts/progress/${id}`, checked).catch(() => {})
+      }, 500)
     }
   }, [checked, todayKey])
 
