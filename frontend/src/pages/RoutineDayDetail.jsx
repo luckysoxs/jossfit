@@ -97,9 +97,10 @@ export default function RoutineDayDetail() {
     let cancelled = false
     const loadData = async () => {
       try {
-        const [r, pb] = await Promise.all([
+        const [r, pb, todayEx] = await Promise.all([
           api.get(`/routines/${id}`),
           api.get('/workouts/personal-bests').catch(() => ({ data: [] })),
+          api.get('/workouts/today-exercises').catch(() => ({ data: [] })),
         ])
         if (cancelled) return
         setRoutine(r.data)
@@ -109,6 +110,25 @@ export default function RoutineDayDetail() {
         setOfflineMode(false)
         cacheSet(`routine_${id}`, r.data)
         cacheSet('personal_bests', bests)
+
+        // Restore checked state from server: if an exercise was logged today, mark it checked
+        const todayExerciseIds = new Set(todayEx.data || [])
+        if (todayExerciseIds.size > 0) {
+          const numDId = parseInt(dayId)
+          const currentDay = r.data.days?.find(d => d.id === numDId)
+          if (currentDay) {
+            setChecked(prev => {
+              const merged = { ...prev }
+              for (const ex of (currentDay.exercises || [])) {
+                if (todayExerciseIds.has(ex.exercise_id) && !merged[ex.id]) {
+                  merged[ex.id] = true
+                }
+              }
+              localStorage.setItem(todayKey, JSON.stringify(merged))
+              return merged
+            })
+          }
+        }
       } catch {
         if (cancelled) return
         const cachedRoutine = cacheGet(`routine_${id}`)
@@ -355,7 +375,8 @@ export default function RoutineDayDetail() {
       console.error('Error reordering:', err)
       alert('Error al reordenar: ' + getErrMsg(err))
     } finally {
-      setReordering(false)
+      // 1s cooldown to prevent accidental taps while scrolling
+      setTimeout(() => setReordering(false), 1000)
     }
   }
 
@@ -371,7 +392,8 @@ export default function RoutineDayDetail() {
       console.error('Error reordering:', err)
       alert('Error al reordenar: ' + getErrMsg(err))
     } finally {
-      setReordering(false)
+      // 1s cooldown to prevent accidental taps while scrolling
+      setTimeout(() => setReordering(false), 1000)
     }
   }
 

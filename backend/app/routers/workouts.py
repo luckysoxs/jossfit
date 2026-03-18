@@ -165,6 +165,29 @@ def get_personal_bests(
     return list(bests.values())
 
 
+@router.get("/today-exercises")
+def get_today_exercises(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Return list of exercise_ids that the user has logged sets for today."""
+    today = today_mx()
+    workout = db.query(Workout).filter(
+        Workout.user_id == user.id, Workout.date == today
+    ).first()
+
+    if not workout:
+        return []
+
+    exercise_ids = (
+        db.query(WorkoutSet.exercise_id)
+        .filter(WorkoutSet.workout_id == workout.id, WorkoutSet.completed == True)
+        .distinct()
+        .all()
+    )
+    return [eid for (eid,) in exercise_ids]
+
+
 @router.get("/{workout_id}", response_model=WorkoutResponse)
 def get_workout(
     workout_id: int,
