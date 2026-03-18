@@ -148,7 +148,7 @@ class LinkExercisesRequest(BaseModel):
     exercise_ids: list[int]
 
 
-@router.put("/exercises/link", status_code=200)
+@router.put("/exercises/link", response_model=RoutineResponse, status_code=200)
 def link_exercises(
     data: LinkExercisesRequest,
     user: User = Depends(get_current_user),
@@ -211,7 +211,7 @@ def link_exercises(
     return _load_full_routine(db, routine_day.routine_id)
 
 
-@router.put("/exercises/{routine_exercise_id}/unlink", status_code=200)
+@router.put("/exercises/{routine_exercise_id}/unlink", response_model=RoutineResponse, status_code=200)
 def unlink_exercise(
     routine_exercise_id: int,
     user: User = Depends(get_current_user),
@@ -228,8 +228,12 @@ def unlink_exercise(
     if not routine_ex:
         raise HTTPException(status_code=404, detail="Ejercicio no encontrado")
 
+    # Get routine_id explicitly to avoid lazy-load issues
+    day = db.query(RoutineDay).filter(RoutineDay.id == routine_ex.routine_day_id).first()
+    routine_id = day.routine_id
+
     if not routine_ex.group_id:
-        return _load_full_routine(db, routine_ex.routine_day.routine_id)
+        return _load_full_routine(db, routine_id)
 
     old_group_id = routine_ex.group_id
     routine_ex.group_id = None
@@ -247,7 +251,7 @@ def unlink_exercise(
         remaining[0].group_id = None
 
     db.commit()
-    return _load_full_routine(db, routine_ex.routine_day.routine_id)
+    return _load_full_routine(db, routine_id)
 
 
 # ─── /exercises/ sub-path routes (before /{routine_id}) ───
@@ -370,7 +374,7 @@ def add_exercise(
     return {"ok": True}
 
 
-@router.post("/days/{routine_day_id}/regenerate", status_code=200)
+@router.post("/days/{routine_day_id}/regenerate", response_model=RoutineResponse, status_code=200)
 def regenerate_day_exercises(
     routine_day_id: int,
     user: User = Depends(get_current_user),
