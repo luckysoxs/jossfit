@@ -14,6 +14,7 @@ from app.models.coach import RoutineAssignment, RoutineShareLink, ShareLinkVisit
 from app.models.routine import Routine, RoutineDay, RoutineExercise
 from app.models.user import User
 from app.schemas.coach import ClaimResponse, SharePreviewResponse
+from app.services.coach_notifications import notify_claim
 from app.utils.timezone import now_mx
 
 router = APIRouter(prefix="/share", tags=["Compartir"])
@@ -159,5 +160,10 @@ def claim_share_link(
     if ultima_visita:
         ultima_visita.claimed = True
     db.commit()
+
+    try:
+        notify_claim(db, link.coach_id, user.name, routine.name)
+    except Exception:
+        pass
 
     return ClaimResponse(routine_id=routine.id, routine_name=routine.name)

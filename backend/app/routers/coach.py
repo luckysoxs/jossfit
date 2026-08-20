@@ -27,6 +27,7 @@ from app.schemas.coach import (
     ShareLinkResponse,
 )
 from app.schemas.routine import RoutineCreate, RoutineResponse
+from app.services.coach_notifications import notify_request_reply
 from app.utils.timezone import now_mx, today_mx
 
 router = APIRouter(prefix="/coach", tags=["Coach"])
@@ -334,7 +335,13 @@ def reply_change_request(
         req.coach_reply = data.coach_reply.strip() or None
     db.commit()
     db.refresh(req)
-    return _change_request_response(db, req)
+
+    respuesta = _change_request_response(db, req)
+    try:
+        notify_request_reply(db, req.client_id, respuesta.routine_name, req.coach_reply)
+    except Exception:
+        pass
+    return respuesta
 
 
 # ─── Clientes y adherencia ──────────────────────────────────────

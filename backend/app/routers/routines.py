@@ -15,6 +15,7 @@ from app.services.routine_access import (
     get_readable_routine, get_assigned_routine_ids, get_assignment,
 )
 from app.routers.coach import _change_request_response
+from app.services.coach_notifications import notify_change_request, notify_routine_updated
 from app.ai.routine_generator import (
     MAX_EXERCISES_PER_DAY, SETS_CONFIG, REP_RANGES, ACCESSORY_MUSCLES,
     WEEKLY_SETS_TARGET, _EXERCISE_TO_GROUP, _allocate_exercises,
@@ -605,7 +606,15 @@ def create_change_request(
     db.add(req)
     db.commit()
     db.refresh(req)
-    return _change_request_response(db, req)
+
+    respuesta = _change_request_response(db, req)
+    try:
+        notify_change_request(
+            db, assignment.coach_id, user.name, respuesta.exercise_name,
+        )
+    except Exception:
+        pass
+    return respuesta
 
 
 @router.put("/{routine_id}/schedule")
@@ -641,6 +650,12 @@ def update_routine(
     if data.name and data.name.strip():
         routine.name = data.name.strip()
     db.commit()
+
+    try:
+        notify_routine_updated(db, routine.id, user.name)
+    except Exception:
+        pass
+
     return _load_full_routine(db, routine.id)
 
 
