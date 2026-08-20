@@ -19,6 +19,9 @@ from app.models.note import Note
 from app.models.note_view import NoteView
 from app.models.notification import Notification
 from app.models.admin_chat import AdminChat, AdminChatMember, AdminChatMessage
+from app.models.coach import (
+    RoutineShareLink, RoutineAssignment, ShareLinkVisit, RoutineChangeRequest,
+)
 
 __all__ = [
     "User", "Exercise", "Routine", "RoutineDay", "RoutineExercise",
@@ -28,4 +31,5 @@ __all__ = [
     "CardioSession", "PushSubscription", "SupportMessage",
     "Note", "NoteView", "Notification",
     "AdminChat", "AdminChatMember", "AdminChatMessage",
+    "RoutineShareLink", "RoutineAssignment", "ShareLinkVisit", "RoutineChangeRequest",
 ]

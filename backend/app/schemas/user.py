@@ -58,6 +58,7 @@ class UserResponse(BaseModel):
     phone: str | None = None
     country_code: str = "+52"
     is_admin: bool = False
+    is_coach: bool = False
     theme_preference: str
     accent_color: str = "blue"
     has_condition: bool = False
