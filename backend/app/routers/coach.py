@@ -1,0 +1,249 @@
+"""Panel de coach: rutinas para clientes, enlaces, adherencia y solicitudes.
+
+Todas las consultas filtran por coach_id: un coach no ve nada de otro coach.
+"""
+
+import secrets
+from datetime import timedelta
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func as sqlfunc
+from sqlalchemy.orm import Session
+
+from app.auth.security import get_coach_user
+from app.database import get_db
+from app.models.coach import RoutineAssignment, RoutineShareLink, ShareLinkVisit
+from app.models.routine import Routine, RoutineDay, RoutineExercise
+from app.models.user import User
+from app.schemas.coach import (
+    CoachRoutineResponse,
+    ShareLinkCreate,
+    ShareLinkResponse,
+)
+from app.schemas.routine import RoutineCreate, RoutineResponse
+from app.utils.timezone import now_mx
+
+router = APIRouter(prefix="/coach", tags=["Coach"])
+
+VALID_KINDS = ("personal", "plantilla")
+
+
+# ─── Helpers ────────────────────────────────────────────────────
+
+def _generate_token(db: Session) -> str:
+    """Token no adivinable. Reintenta en el caso improbable de colision."""
+    for _ in range(5):
+        token = secrets.token_urlsafe(16)
+        if not db.query(RoutineShareLink.id).filter(RoutineShareLink.token == token).first():
+            return token
+    raise HTTPException(status_code=500, detail="No se pudo generar el enlace")
+
+
+def _link_stats(db: Session, link: RoutineShareLink) -> tuple[int, int, int | None]:
+    """Visitas, reclamos activos y cupos restantes de un enlace."""
+    visits = (
+        db.query(sqlfunc.count(ShareLinkVisit.id))
+        .filter(ShareLinkVisit.link_id == link.id)
+        .scalar() or 0
+    )
+    claims = (
+        db.query(sqlfunc.count(RoutineAssignment.id))
+        .filter(
+            RoutineAssignment.link_id == link.id,
+            RoutineAssignment.status == "active",
+        )
+        .scalar() or 0
+    )
+    remaining = None if link.max_claims is None else max(0, link.max_claims - claims)
+    return visits, claims, remaining
+
+
+def _link_response(db: Session, link: RoutineShareLink) -> ShareLinkResponse:
+    visits, claims, remaining = _link_stats(db, link)
+    return ShareLinkResponse(
+        id=link.id,
+        token=link.token,
+        path=f"/r/{link.token}",
+        kind=link.kind,
+        label=link.label,
+        max_claims=link.max_claims,
+        expires_at=link.expires_at,
+        revoked=link.revoked,
+        visits=visits,
+        claims=claims,
+        remaining=remaining,
+        created_at=link.created_at,
+    )
+
+
+def _own_routine(db: Session, coach: User, routine_id: int) -> Routine:
+    """La rutina del coach, o 404. Solo verifica propiedad; que sea plantilla
+    lo comprueba quien la usa."""
+    routine = (
+        db.query(Routine)
+        .filter(Routine.id == routine_id, Routine.user_id == coach.id)
+        .first()
+    )
+    if not routine:
+        raise HTTPException(status_code=404, detail="Rutina no encontrada")
+    return routine
+
+
+# ─── Rutinas de cliente ─────────────────────────────────────────
+
+@router.get("/routines", response_model=list[CoachRoutineResponse])
+def list_coach_routines(
+    coach: User = Depends(get_coach_user),
+    db: Session = Depends(get_db),
+):
+    routines = (
+        db.query(Routine)
+        .filter(Routine.user_id == coach.id, Routine.is_template == True)  # noqa: E712
+        .order_by(Routine.created_at.desc())
+        .all()
+    )
+    out = []
+    for r in routines:
+        count = (
+            db.query(sqlfunc.count(RoutineAssignment.id))
+            .filter(
+                RoutineAssignment.routine_id == r.id,
+                RoutineAssignment.status == "active",
+            )
+            .scalar() or 0
+        )
+        out.append(CoachRoutineResponse(
+            id=r.id, name=r.name, split_type=r.split_type,
+            objective=r.objective, days_per_week=r.days_per_week,
+            clients_count=count, created_at=r.created_at,
+        ))
+    return out
+
+
+@router.post("/routines", response_model=RoutineResponse, status_code=201)
+def create_coach_routine(
+    data: RoutineCreate,
+    coach: User = Depends(get_coach_user),
+    db: Session = Depends(get_db),
+):
+    """Crea una rutina para clientes. Nace con is_template=True, asi que no
+    aparece en la lista de entrenamiento propia del coach."""
+    routine = Routine(
+        user_id=coach.id,
+        name=data.name,
+        split_type=data.split_type,
+        objective=data.objective,
+        days_per_week=data.days_per_week,
+        is_template=True,
+    )
+    db.add(routine)
+    db.flush()
+
+    for day_data in data.days:
+        day = RoutineDay(
+            routine_id=routine.id,
+            day_number=day_data.day_number,
+            name=day_data.name,
+            focus=day_data.focus,
+        )
+        db.add(day)
+        db.flush()
+        for ex in day_data.exercises:
+            db.add(RoutineExercise(
+                routine_day_id=day.id,
+                exercise_id=ex.exercise_id,
+                order=ex.order,
+                sets=ex.sets,
+                reps_min=ex.reps_min,
+                reps_max=ex.reps_max,
+                rest_seconds=ex.rest_seconds,
+                notes=ex.notes,
+            ))
+
+    db.commit()
+    db.refresh(routine)
+    return RoutineResponse.model_validate(routine)
+
+
+# ─── Enlaces ────────────────────────────────────────────────────
+
+@router.post("/routines/{routine_id}/links", response_model=ShareLinkResponse, status_code=201)
+def create_share_link(
+    routine_id: int,
+    data: ShareLinkCreate,
+    coach: User = Depends(get_coach_user),
+    db: Session = Depends(get_db),
+):
+    routine = _own_routine(db, coach, routine_id)
+
+    if not routine.is_template:
+        raise HTTPException(
+            status_code=400,
+            detail="Solo puedes compartir rutinas hechas para clientes",
+        )
+    if data.kind not in VALID_KINDS:
+        raise HTTPException(status_code=400, detail="Tipo de enlace invalido")
+
+    # Un enlace personal es para una persona, sin importar lo que llegue.
+    max_claims = 1 if data.kind == "personal" else data.max_claims
+    if max_claims is not None and max_claims < 1:
+        raise HTTPException(status_code=400, detail="El limite debe ser al menos 1")
+
+    expires_at = None
+    if data.expires_in_days is not None:
+        if data.expires_in_days < 1:
+            raise HTTPException(status_code=400, detail="La expiracion debe ser al menos 1 dia")
+        expires_at = now_mx().replace(tzinfo=None) + timedelta(days=data.expires_in_days)
+
+    link = RoutineShareLink(
+        token=_generate_token(db),
+        routine_id=routine.id,
+        coach_id=coach.id,
+        kind=data.kind,
+        label=(data.label or "").strip() or None,
+        max_claims=max_claims,
+        expires_at=expires_at,
+    )
+    db.add(link)
+    db.commit()
+    db.refresh(link)
+    return _link_response(db, link)
+
+
+@router.get("/routines/{routine_id}/links", response_model=list[ShareLinkResponse])
+def list_share_links(
+    routine_id: int,
+    coach: User = Depends(get_coach_user),
+    db: Session = Depends(get_db),
+):
+    _own_routine(db, coach, routine_id)
+    links = (
+        db.query(RoutineShareLink)
+        .filter(
+            RoutineShareLink.routine_id == routine_id,
+            RoutineShareLink.coach_id == coach.id,
+        )
+        .order_by(RoutineShareLink.created_at.desc())
+        .all()
+    )
+    return [_link_response(db, l) for l in links]
+
+
+@router.delete("/links/{link_id}")
+def revoke_share_link(
+    link_id: int,
+    coach: User = Depends(get_coach_user),
+    db: Session = Depends(get_db),
+):
+    """Revoca el enlace. Quien ya reclamo la rutina la conserva; para quitarle
+    el acceso se usa DELETE de coach/assignments/{id}."""
+    link = (
+        db.query(RoutineShareLink)
+        .filter(RoutineShareLink.id == link_id, RoutineShareLink.coach_id == coach.id)
+        .first()
+    )
+    if not link:
+        raise HTTPException(status_code=404, detail="Enlace no encontrado")
+    link.revoked = True
+    db.commit()
+    return {"ok": True}

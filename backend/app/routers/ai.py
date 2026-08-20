@@ -33,15 +33,26 @@ def generate_smart_routine(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    # Build user_data dict for medical-aware generation
-    user_data = {
-        "has_condition": user.has_condition if hasattr(user, "has_condition") else False,
-        "pathologies": user.pathologies if hasattr(user, "pathologies") else None,
-        "medications": user.medications if hasattr(user, "medications") else None,
-        "mobility_limitations": user.mobility_limitations if hasattr(user, "mobility_limitations") else None,
-        "age": user.age,
-        "weight_kg": user.weight_kg,
-    }
+    # Build user_data dict for medical-aware generation.
+    # En una rutina de cliente, las condiciones medicas del coach no deben
+    # filtrar los ejercicios de otra persona: se omiten por completo, y el
+    # generador aplica sus propios valores neutros para edad y peso.
+    if req.is_template:
+        user_data = {
+            "has_condition": False,
+            "pathologies": None,
+            "medications": None,
+            "mobility_limitations": None,
+        }
+    else:
+        user_data = {
+            "has_condition": user.has_condition if hasattr(user, "has_condition") else False,
+            "pathologies": user.pathologies if hasattr(user, "pathologies") else None,
+            "medications": user.medications if hasattr(user, "medications") else None,
+            "mobility_limitations": user.mobility_limitations if hasattr(user, "mobility_limitations") else None,
+            "age": user.age,
+            "weight_kg": user.weight_kg,
+        }
 
     routine_data = generate_routine(
         db=db,
@@ -63,6 +74,7 @@ def generate_smart_routine(
         days_per_week=routine_data["days_per_week"],
         generation_type=routine_data.get("generation_type", "normal"),
         ai_data=routine_data.get("ai_data"),
+        is_template=req.is_template,
     )
     db.add(routine)
     db.flush()
