@@ -12,10 +12,14 @@ from sqlalchemy.orm import Session
 
 from app.auth.security import get_coach_user
 from app.database import get_db
-from app.models.coach import RoutineAssignment, RoutineShareLink, ShareLinkVisit
+from app.models.coach import (
+    RoutineAssignment, RoutineChangeRequest, RoutineShareLink, ShareLinkVisit,
+)
 from app.models.routine import Routine, RoutineDay, RoutineExercise
 from app.models.user import User
 from app.schemas.coach import (
+    ChangeRequestResponse,
+    ChangeRequestUpdate,
     CoachRoutineResponse,
     ShareLinkCreate,
     ShareLinkResponse,
@@ -247,3 +251,85 @@ def revoke_share_link(
     link.revoked = True
     db.commit()
     return {"ok": True}
+
+
+# ─── Solicitudes de cambio ──────────────────────────────────────
+
+VALID_REQUEST_STATUS = ("pendiente", "aceptada", "rechazada")
+
+
+def _change_request_response(db: Session, req: RoutineChangeRequest) -> ChangeRequestResponse:
+    """Arma la respuesta con el contexto que el coach necesita para decidir:
+    quien pidio, en que rutina y sobre que ejercicio."""
+    assignment = db.query(RoutineAssignment).filter(
+        RoutineAssignment.id == req.assignment_id
+    ).first()
+    routine = db.query(Routine).filter(Routine.id == assignment.routine_id).first()
+    cliente = db.query(User).filter(User.id == req.client_id).first()
+
+    exercise_name = None
+    if req.routine_exercise_id:
+        rex = db.query(RoutineExercise).filter(
+            RoutineExercise.id == req.routine_exercise_id
+        ).first()
+        if rex and rex.exercise:
+            exercise_name = rex.exercise.name_es or rex.exercise.name
+
+    return ChangeRequestResponse(
+        id=req.id,
+        client_id=req.client_id,
+        client_name=cliente.name if cliente else "?",
+        routine_id=routine.id if routine else 0,
+        routine_name=routine.name if routine else "?",
+        exercise_name=exercise_name,
+        content=req.content,
+        status=req.status,
+        coach_reply=req.coach_reply,
+        created_at=req.created_at,
+    )
+
+
+@router.get("/change-requests", response_model=list[ChangeRequestResponse])
+def list_change_requests(
+    status: str | None = None,
+    coach: User = Depends(get_coach_user),
+    db: Session = Depends(get_db),
+):
+    query = (
+        db.query(RoutineChangeRequest)
+        .join(RoutineAssignment, RoutineChangeRequest.assignment_id == RoutineAssignment.id)
+        .filter(RoutineAssignment.coach_id == coach.id)
+    )
+    if status:
+        query = query.filter(RoutineChangeRequest.status == status)
+    reqs = query.order_by(RoutineChangeRequest.created_at.desc()).all()
+    return [_change_request_response(db, r) for r in reqs]
+
+
+@router.put("/change-requests/{request_id}", response_model=ChangeRequestResponse)
+def reply_change_request(
+    request_id: int,
+    data: ChangeRequestUpdate,
+    coach: User = Depends(get_coach_user),
+    db: Session = Depends(get_db),
+):
+    req = (
+        db.query(RoutineChangeRequest)
+        .join(RoutineAssignment, RoutineChangeRequest.assignment_id == RoutineAssignment.id)
+        .filter(
+            RoutineChangeRequest.id == request_id,
+            RoutineAssignment.coach_id == coach.id,
+        )
+        .first()
+    )
+    if not req:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+    if data.status not in VALID_REQUEST_STATUS:
+        raise HTTPException(status_code=400, detail="Estado invalido")
+
+    req.status = data.status
+    if data.coach_reply is not None:
+        req.coach_reply = data.coach_reply.strip() or None
+    db.commit()
+    db.refresh(req)
+    return _change_request_response(db, req)

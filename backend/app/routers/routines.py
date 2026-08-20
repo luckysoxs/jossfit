@@ -9,7 +9,12 @@ from app.models.routine import Routine, RoutineDay, RoutineExercise
 from app.models.exercise import Exercise, MuscleGroup, ExerciseCategory
 from app.schemas.routine import RoutineCreate, RoutineExerciseCreate, RoutineExerciseUpdate, RoutineResponse
 from app.auth.security import get_current_user
-from app.services.routine_access import get_readable_routine, get_assigned_routine_ids
+from app.models.coach import RoutineChangeRequest
+from app.schemas.coach import ChangeRequestCreate, ChangeRequestResponse
+from app.services.routine_access import (
+    get_readable_routine, get_assigned_routine_ids, get_assignment,
+)
+from app.routers.coach import _change_request_response
 from app.ai.routine_generator import (
     MAX_EXERCISES_PER_DAY, SETS_CONFIG, REP_RANGES, ACCESSORY_MUSCLES,
     WEEKLY_SETS_TARGET, _EXERCISE_TO_GROUP, _allocate_exercises,
@@ -567,6 +572,41 @@ def regenerate_day_exercises(
 
 
 # ─── Parameterised /{routine_id} routes (MUST be last) ───
+
+@router.post("/{routine_id}/change-request", response_model=ChangeRequestResponse, status_code=201)
+def create_change_request(
+    routine_id: int,
+    data: ChangeRequestCreate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """El cliente le pide un cambio a su coach.
+
+    Solo tiene sentido sobre una rutina asignada: el dueno la edita directo.
+    """
+    assignment = get_assignment(db, user.id, routine_id)
+    if not assignment:
+        raise HTTPException(
+            status_code=403,
+            detail="Solo puedes pedir cambios en una rutina que te asigno tu coach",
+        )
+    contenido = (data.content or "").strip()
+    if not contenido:
+        raise HTTPException(status_code=400, detail="Escribe que necesitas cambiar")
+    if len(contenido) > 1000:
+        raise HTTPException(status_code=400, detail="Maximo 1000 caracteres")
+
+    req = RoutineChangeRequest(
+        assignment_id=assignment.id,
+        client_id=user.id,
+        routine_exercise_id=data.routine_exercise_id,
+        content=contenido,
+    )
+    db.add(req)
+    db.commit()
+    db.refresh(req)
+    return _change_request_response(db, req)
+
 
 @router.put("/{routine_id}/schedule")
 def update_schedule(
