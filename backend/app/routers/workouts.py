@@ -13,6 +13,7 @@ from app.models.exercise import Exercise
 from app.schemas.workout import WorkoutCreate, WorkoutResponse
 from app.auth.security import get_current_user
 from app.services.algorithms import calculate_1rm_epley, calculate_1rm_brzycki
+from app.services.routine_access import assert_routine_access
 from app.utils.timezone import today_mx
 
 router = APIRouter(prefix="/workouts", tags=["Workouts"])
@@ -196,6 +197,7 @@ def get_routine_progress(
     db: Session = Depends(get_db),
 ):
     """Estado marcado de hoy para una rutina (sincronizado entre dispositivos)."""
+    assert_routine_access(db, user.id, routine_id)
     row = (
         db.query(RoutineProgress)
         .filter(
@@ -216,6 +218,7 @@ def save_routine_progress(
     db: Session = Depends(get_db),
 ):
     """Guarda el estado marcado (se sincroniza entre dispositivos)."""
+    assert_routine_access(db, user.id, routine_id)
     today = today_mx()
     row = (
         db.query(RoutineProgress)
