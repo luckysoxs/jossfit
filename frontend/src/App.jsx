@@ -30,6 +30,7 @@ import NotificationCenter from './pages/NotificationCenter'
 import TermsAndConditions from './pages/TermsAndConditions'
 import WalkieTalkie from './pages/WalkieTalkie'
 import Suggestions from './pages/Suggestions'
+import SharedRoutine from './pages/SharedRoutine'
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
@@ -52,6 +53,7 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/terms" element={<TermsAndConditions />} />
+      <Route path="/r/:token" element={<SharedRoutine />} />
 
       <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/workouts" element={<ProtectedRoute><Workouts /></ProtectedRoute>} />
