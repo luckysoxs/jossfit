@@ -38,6 +38,7 @@ from app.routers import (
     walkie_talkie,
     suggestions,
     coach,
+    share,
 )
 
 
@@ -384,6 +385,7 @@ app.include_router(notification_center.router)
 app.include_router(walkie_talkie.router)
 app.include_router(suggestions.router)
 app.include_router(coach.router)
+app.include_router(share.router)
 
 
 @app.get("/health")
