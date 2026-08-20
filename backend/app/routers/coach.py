@@ -17,15 +17,17 @@ from app.models.coach import (
 )
 from app.models.routine import Routine, RoutineDay, RoutineExercise
 from app.models.user import User
+from app.models.workout import Workout
 from app.schemas.coach import (
     ChangeRequestResponse,
     ChangeRequestUpdate,
+    CoachClientResponse,
     CoachRoutineResponse,
     ShareLinkCreate,
     ShareLinkResponse,
 )
 from app.schemas.routine import RoutineCreate, RoutineResponse
-from app.utils.timezone import now_mx
+from app.utils.timezone import now_mx, today_mx
 
 router = APIRouter(prefix="/coach", tags=["Coach"])
 
@@ -333,3 +335,112 @@ def reply_change_request(
     db.commit()
     db.refresh(req)
     return _change_request_response(db, req)
+
+
+# ─── Clientes y adherencia ──────────────────────────────────────
+
+def _client_row(db: Session, assignment: RoutineAssignment) -> CoachClientResponse:
+    """Una fila de adherencia. Todo sale de datos que ya existen: no hay
+    tablas nuevas para esto."""
+    cliente = db.query(User).filter(User.id == assignment.client_id).first()
+    routine = db.query(Routine).filter(Routine.id == assignment.routine_id).first()
+
+    hoy = today_mx()
+    lunes = hoy - timedelta(days=hoy.weekday())
+
+    ultimo = (
+        db.query(sqlfunc.max(Workout.date))
+        .filter(Workout.user_id == assignment.client_id)
+        .scalar()
+    )
+    esta_semana = (
+        db.query(sqlfunc.count(Workout.id))
+        .filter(
+            Workout.user_id == assignment.client_id,
+            Workout.date >= lunes,
+            Workout.date <= hoy,
+        )
+        .scalar() or 0
+    )
+    pendientes = (
+        db.query(sqlfunc.count(RoutineChangeRequest.id))
+        .filter(
+            RoutineChangeRequest.assignment_id == assignment.id,
+            RoutineChangeRequest.status == "pendiente",
+        )
+        .scalar() or 0
+    )
+
+    return CoachClientResponse(
+        assignment_id=assignment.id,
+        user_id=assignment.client_id,
+        name=cliente.name if cliente else "?",
+        email=cliente.email if cliente else "?",
+        routine_id=assignment.routine_id,
+        routine_name=routine.name if routine else "?",
+        last_workout_date=ultimo.isoformat() if ultimo else None,
+        workouts_this_week=esta_semana,
+        days_per_week=routine.days_per_week if routine else 0,
+        pending_requests=pendientes,
+    )
+
+
+@router.get("/clients", response_model=list[CoachClientResponse])
+def list_clients(
+    coach: User = Depends(get_coach_user),
+    db: Session = Depends(get_db),
+):
+    asignaciones = (
+        db.query(RoutineAssignment)
+        .filter(
+            RoutineAssignment.coach_id == coach.id,
+            RoutineAssignment.status == "active",
+        )
+        .order_by(RoutineAssignment.assigned_at.desc())
+        .all()
+    )
+    return [_client_row(db, a) for a in asignaciones]
+
+
+@router.get("/clients/{user_id}", response_model=list[CoachClientResponse])
+def get_client_detail(
+    user_id: int,
+    coach: User = Depends(get_coach_user),
+    db: Session = Depends(get_db),
+):
+    """Una fila por cada rutina que el coach le tiene asignada a ese cliente."""
+    asignaciones = (
+        db.query(RoutineAssignment)
+        .filter(
+            RoutineAssignment.coach_id == coach.id,
+            RoutineAssignment.client_id == user_id,
+            RoutineAssignment.status == "active",
+        )
+        .all()
+    )
+    if not asignaciones:
+        raise HTTPException(status_code=404, detail="Cliente no encontrado")
+    return [_client_row(db, a) for a in asignaciones]
+
+
+@router.delete("/assignments/{assignment_id}")
+def revoke_assignment(
+    assignment_id: int,
+    coach: User = Depends(get_coach_user),
+    db: Session = Depends(get_db),
+):
+    """Quita el acceso. No borra el historial del cliente: sus workouts y su
+    progreso son suyos y alimentan sus graficas."""
+    assignment = (
+        db.query(RoutineAssignment)
+        .filter(
+            RoutineAssignment.id == assignment_id,
+            RoutineAssignment.coach_id == coach.id,
+        )
+        .first()
+    )
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Asignacion no encontrada")
+    assignment.status = "revoked"
+    db.commit()
+    return {"ok": True}
