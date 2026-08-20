@@ -7,6 +7,7 @@ from sqlalchemy import func as sqlfunc
 from app.database import get_db
 from app.models.user import User
 from app.models.workout import Workout, WorkoutSet
+from app.models.routine_progress import RoutineProgress
 from app.models.one_rep_max import OneRepMax
 from app.models.exercise import Exercise
 from app.schemas.workout import WorkoutCreate, WorkoutResponse
@@ -194,14 +195,17 @@ def get_routine_progress(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Get today's checked state for a routine (synced across devices)."""
-    from sqlalchemy import text
-    today = today_mx()
-    row = db.execute(
-        text("SELECT checked_data FROM routine_progress WHERE user_id = :uid AND routine_id = :rid AND date = :d"),
-        {"uid": user.id, "rid": routine_id, "d": today},
-    ).first()
-    return row[0] if row else {}
+    """Estado marcado de hoy para una rutina (sincronizado entre dispositivos)."""
+    row = (
+        db.query(RoutineProgress)
+        .filter(
+            RoutineProgress.user_id == user.id,
+            RoutineProgress.routine_id == routine_id,
+            RoutineProgress.date == today_mx(),
+        )
+        .first()
+    )
+    return row.checked_data if row else {}
 
 
 @router.put("/progress/{routine_id}")
@@ -211,20 +215,26 @@ def save_routine_progress(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Save checked state for a routine (syncs across devices)."""
-    import json
-    from sqlalchemy import text
+    """Guarda el estado marcado (se sincroniza entre dispositivos)."""
     today = today_mx()
-    data_json = json.dumps(checked_data)
-    db.execute(
-        text("""
-            INSERT INTO routine_progress (user_id, routine_id, date, checked_data, updated_at)
-            VALUES (:uid, :rid, :d, cast(:data as jsonb), NOW())
-            ON CONFLICT (user_id, routine_id, date)
-            DO UPDATE SET checked_data = cast(:data as jsonb), updated_at = NOW()
-        """),
-        {"uid": user.id, "rid": routine_id, "d": today, "data": data_json},
+    row = (
+        db.query(RoutineProgress)
+        .filter(
+            RoutineProgress.user_id == user.id,
+            RoutineProgress.routine_id == routine_id,
+            RoutineProgress.date == today,
+        )
+        .first()
     )
+    if row:
+        row.checked_data = checked_data
+    else:
+        db.add(RoutineProgress(
+            user_id=user.id,
+            routine_id=routine_id,
+            date=today,
+            checked_data=checked_data,
+        ))
     db.commit()
     return {"ok": True}
 

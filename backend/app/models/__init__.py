@@ -1,6 +1,7 @@
 from app.models.user import User
 from app.models.exercise import Exercise
 from app.models.routine import Routine, RoutineDay, RoutineExercise
+from app.models.routine_progress import RoutineProgress
 from app.models.workout import Workout, WorkoutSet
 from app.models.body_metric import BodyMetric
 from app.models.nutrition import NutritionLog
@@ -21,6 +22,7 @@ from app.models.admin_chat import AdminChat, AdminChatMember, AdminChatMessage
 
 __all__ = [
     "User", "Exercise", "Routine", "RoutineDay", "RoutineExercise",
+    "RoutineProgress",
     "Workout", "WorkoutSet", "BodyMetric", "NutritionLog", "SleepLog",
     "Supplement", "Goal", "OneRepMax", "PartnerBrand", "PartnerClick", "ProgressionLog",
     "CardioSession", "PushSubscription", "SupportMessage",
