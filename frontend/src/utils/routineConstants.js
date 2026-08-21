@@ -1,3 +1,13 @@
+// Techo de ejercicios renderizados a la vez en cualquier lista.
+//
+// El catalogo tiene 204 ejercicios. Pintarlos todos son 829 nodos DOM, y cada
+// tecla del buscador obliga a React a reconciliarlos: en un telefono de gama
+// media eso congela la interfaz. El filtrado en si cuesta 0,03 ms, asi que lo
+// que hay que acotar es el volumen renderizado, no el calculo.
+//
+// Cubierto por ExercisePickerModal.test.jsx.
+export const MAX_EJERCICIOS_VISIBLES = 40
+
 export const MUSCLE_LABELS = {
   chest: 'Pecho', back: 'Espalda', shoulders: 'Hombros', biceps: 'Bíceps',
   triceps: 'Tríceps', quadriceps: 'Cuádriceps', hamstrings: 'Isquiotibiales',

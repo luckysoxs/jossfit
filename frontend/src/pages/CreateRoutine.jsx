@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../services/api'
 import { ArrowLeft, Plus, X, Search, ChevronUp, ChevronDown, Save, Dumbbell } from 'lucide-react'
+import { MAX_EJERCICIOS_VISIBLES } from '../utils/routineConstants'
 
 const SPLIT_TYPES = ['PPL', 'Upper/Lower', 'Full Body', 'Torso/Pierna', 'Bro Split', 'Custom']
 
@@ -39,6 +40,7 @@ export default function CreateRoutine() {
   const [showSearch, setShowSearch] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [muscleFilter, setMuscleFilter] = useState('')
+  const [visibleCount, setVisibleCount] = useState(MAX_EJERCICIOS_VISIBLES)
 
   useEffect(() => {
     api.get('/exercises').then(r => setExercises(r.data)).catch(() => {})
@@ -104,11 +106,17 @@ export default function CreateRoutine() {
     setDays(updated)
   }
 
-  const filteredExercises = exercises.filter(e => {
-    const matchesName = !searchTerm || e.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const term = searchTerm.trim().toLowerCase()
+  const coincidencias = exercises.filter(e => {
+    const matchesName = !term ||
+      (e.name || '').toLowerCase().includes(term) ||
+      (e.name_es || '').toLowerCase().includes(term)
     const matchesMuscle = !muscleFilter || e.muscle_group === muscleFilter
     return matchesName && matchesMuscle
   })
+  // Ver MAX_EJERCICIOS_VISIBLES: pintar los 204 congela la interfaz en movil.
+  const filteredExercises = coincidencias.slice(0, visibleCount)
+  const ejerciciosOcultos = coincidencias.length - filteredExercises.length
 
   const saveRoutine = async () => {
     setSaving(true)
@@ -305,14 +313,18 @@ export default function CreateRoutine() {
                   </div>
                   <div className="relative">
                     <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input className="input pl-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Buscar por nombre..." autoFocus />
+                    <input className="input pl-9" value={searchTerm}
+                      onChange={e => { setSearchTerm(e.target.value); setVisibleCount(MAX_EJERCICIOS_VISIBLES) }}
+                      placeholder="Buscar por nombre..." autoFocus />
                   </div>
                   <div className="flex gap-2 mt-2 overflow-x-auto pb-1">
-                    <button onClick={() => setMuscleFilter('')} className={`flex-shrink-0 px-2 py-1 rounded-full text-xs ${!muscleFilter ? 'bg-brand-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
+                    <button onClick={() => { setMuscleFilter(''); setVisibleCount(MAX_EJERCICIOS_VISIBLES) }}
+                      className={`flex-shrink-0 px-3 py-2 rounded-full text-xs font-medium ${!muscleFilter ? 'bg-brand-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
                       Todos
                     </button>
                     {MUSCLE_GROUPS.map(mg => (
-                      <button key={mg} onClick={() => setMuscleFilter(mg)} className={`flex-shrink-0 px-2 py-1 rounded-full text-xs ${muscleFilter === mg ? 'bg-brand-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
+                      <button key={mg} onClick={() => { setMuscleFilter(mg); setVisibleCount(MAX_EJERCICIOS_VISIBLES) }}
+                        className={`flex-shrink-0 px-3 py-2 rounded-full text-xs font-medium ${muscleFilter === mg ? 'bg-brand-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
                         {MUSCLE_LABELS[mg] || mg}
                       </button>
                     ))}
@@ -322,11 +334,20 @@ export default function CreateRoutine() {
                   {filteredExercises.length === 0 && <p className="text-sm text-gray-500 text-center py-4">No se encontraron ejercicios</p>}
                   {filteredExercises.map(ex => (
                     <button key={ex.id} onClick={() => addExercise(ex)}
-                      className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                      <p className="font-medium text-sm">{ex.name}</p>
-                      <p className="text-xs text-gray-400">{ex.muscle_group} · {ex.equipment}</p>
+                      className="w-full text-left px-3 py-3 min-h-[56px] rounded-lg active:bg-gray-200 dark:active:bg-gray-700 transition-colors">
+                      <p className="font-medium text-sm">{ex.name_es || ex.name}</p>
+                      {ex.name_es && <p className="text-[11px] text-gray-400 italic">{ex.name}</p>}
+                      <p className="text-xs text-gray-400">
+                        {MUSCLE_LABELS[ex.muscle_group] || ex.muscle_group}{ex.equipment ? ` · ${ex.equipment}` : ''}
+                      </p>
                     </button>
                   ))}
+                  {ejerciciosOcultos > 0 && (
+                    <button onClick={() => setVisibleCount(c => c + MAX_EJERCICIOS_VISIBLES)}
+                      className="w-full py-3 text-xs font-medium text-gray-400 active:text-brand-500">
+                      Ver {Math.min(ejerciciosOcultos, MAX_EJERCICIOS_VISIBLES)} más ({ejerciciosOcultos} sin mostrar)
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

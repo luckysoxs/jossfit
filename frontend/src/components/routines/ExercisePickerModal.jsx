@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import api from '../../services/api'
 import { cacheSet, cacheGet } from '../../services/offlineCache'
-import { MUSCLE_LABELS } from '../../utils/routineConstants'
+import { MUSCLE_LABELS, MAX_EJERCICIOS_VISIBLES } from '../../utils/routineConstants'
 import { CARDIO_TYPES } from '../../data/cardioProtocols'
 import { ArrowLeft, X, Search, Plus, Settings2 } from 'lucide-react'
 
@@ -12,13 +12,7 @@ const CARDIO_EXERCISE_NAMES = {
   steady: 'Steady State Cardio',
 }
 
-// Techo de ejercicios renderizados a la vez.
-//
-// Antes se pintaban los 204 de golpe — 829 nodos DOM — y cada tecla obligaba
-// a React a reconciliarlos todos: en un telefono de gama media eso congela la
-// interfaz. El filtrado en si es despreciable (0,03 ms medidos), asi que lo
-// que hay que acotar es el volumen renderizado, no el calculo.
-const MAX_VISIBLES = 40
+const MAX_VISIBLES = MAX_EJERCICIOS_VISIBLES
 
 const EQUIPMENT_OPTIONS = ['Barbell', 'Dumbbells', 'Cable', 'Machine', 'Bodyweight', 'Smith Machine', 'Kettlebell', 'Bands']
 const CATEGORY_OPTIONS = [

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
 import RichTextEditor from '../components/ui/RichTextEditor'
+import { MAX_EJERCICIOS_VISIBLES } from '../utils/routineConstants'
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid } from 'recharts'
 import {
   Shield, Users, Activity, UserPlus, Dumbbell, Search,
@@ -1322,6 +1323,7 @@ function ExercisesSection() {
   const [exercises, setExercises] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const [visibleCount, setVisibleCount] = useState(MAX_EJERCICIOS_VISIBLES)
   const [muscleFilter, setMuscleFilter] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [showForm, setShowForm] = useState(false)
@@ -1403,13 +1405,18 @@ function ExercisesSection() {
     }
   }
 
-  const term = searchTerm.toLowerCase()
-  let filtered = exercises.filter(e =>
+  const term = searchTerm.trim().toLowerCase()
+  let coincidencias = exercises.filter(e =>
     (e.name || '').toLowerCase().includes(term) ||
     (e.name_es || '').toLowerCase().includes(term)
   )
-  if (muscleFilter) filtered = filtered.filter(e => e.muscle_group === muscleFilter)
-  if (categoryFilter) filtered = filtered.filter(e => e.category === categoryFilter)
+  if (muscleFilter) coincidencias = coincidencias.filter(e => e.muscle_group === muscleFilter)
+  if (categoryFilter) coincidencias = coincidencias.filter(e => e.category === categoryFilter)
+
+  // Ver MAX_EJERCICIOS_VISIBLES: cada fila de aqui trae botones de editar y
+  // borrar, asi que pintar los 204 son ~2000 nodos y la interfaz se congela.
+  const filtered = coincidencias.slice(0, visibleCount)
+  const ejerciciosOcultos = coincidencias.length - filtered.length
 
   // Group by muscle
   const grouped = {}
@@ -1441,7 +1448,8 @@ function ExercisesSection() {
         <div className="relative">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input type="text" placeholder="Buscar ejercicio..." value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)} className="input pl-9 w-full text-sm" />
+            onChange={e => { setSearchTerm(e.target.value); setVisibleCount(MAX_EJERCICIOS_VISIBLES) }}
+            className="input pl-9 w-full text-sm" />
         </div>
         <div className="flex gap-2">
           <select className="input text-xs flex-1" value={muscleFilter}
@@ -1520,6 +1528,12 @@ function ExercisesSection() {
           ))}
           {sortedGroups.length === 0 && (
             <p className="text-center text-gray-400 text-sm py-8">No se encontraron ejercicios</p>
+          )}
+          {ejerciciosOcultos > 0 && (
+            <button onClick={() => setVisibleCount(c => c + MAX_EJERCICIOS_VISIBLES)}
+              className="w-full py-3 text-xs font-medium text-gray-400 hover:text-brand-500 transition-colors">
+              Ver {Math.min(ejerciciosOcultos, MAX_EJERCICIOS_VISIBLES)} más ({ejerciciosOcultos} sin mostrar)
+            </button>
           )}
         </div>
       )}
