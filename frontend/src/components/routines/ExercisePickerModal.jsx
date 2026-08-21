@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import api from '../../services/api'
 import { cacheSet, cacheGet } from '../../services/offlineCache'
 import { MUSCLE_LABELS } from '../../utils/routineConstants'
@@ -12,6 +12,14 @@ const CARDIO_EXERCISE_NAMES = {
   steady: 'Steady State Cardio',
 }
 
+// Techo de ejercicios renderizados a la vez.
+//
+// Antes se pintaban los 204 de golpe — 829 nodos DOM — y cada tecla obligaba
+// a React a reconciliarlos todos: en un telefono de gama media eso congela la
+// interfaz. El filtrado en si es despreciable (0,03 ms medidos), asi que lo
+// que hay que acotar es el volumen renderizado, no el calculo.
+const MAX_VISIBLES = 40
+
 const EQUIPMENT_OPTIONS = ['Barbell', 'Dumbbells', 'Cable', 'Machine', 'Bodyweight', 'Smith Machine', 'Kettlebell', 'Bands']
 const CATEGORY_OPTIONS = [
   { value: 'compound', label: 'Compuesto' },
@@ -22,6 +30,8 @@ export default function ExercisePickerModal({ title, priorityMuscle, showCustomi
   const [exercises, setExercises] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const [activeGroup, setActiveGroup] = useState(priorityMuscle || null)
+  const [visibleCount, setVisibleCount] = useState(MAX_VISIBLES)
   const [selectedExercise, setSelectedExercise] = useState(null)
   const [config, setConfig] = useState({ sets: '3', reps_min: '8', reps_max: '12', rest_seconds: '90' })
   const [submitting, setSubmitting] = useState(false)
@@ -119,22 +129,55 @@ export default function ExercisePickerModal({ title, priorityMuscle, showCustomi
     }
   }
 
-  const term = searchTerm.toLowerCase()
-  const filtered = exercises.filter(e =>
-    (e.name || '').toLowerCase().includes(term) ||
-    (e.name_es || '').toLowerCase().includes(term)
+  // ─── Que se muestra ───
+  //
+  // Sin busqueda: solo el grupo muscular activo (~25 ejercicios como mucho).
+  // Con busqueda: se cruza todo el catalogo, pero acotado a MAX_VISIBLES.
+
+  const term = searchTerm.trim().toLowerCase()
+  const buscando = term.length > 0
+
+  // Grupos que existen en el catalogo, con el musculo del dia primero.
+  const gruposDisponibles = useMemo(() => {
+    const vistos = new Set()
+    exercises.forEach(e => vistos.add(e.muscle_group || 'other'))
+    return [...vistos].sort((a, b) => {
+      if (a === priorityMuscle) return -1
+      if (b === priorityMuscle) return 1
+      return (MUSCLE_LABELS[a] || a).localeCompare(MUSCLE_LABELS[b] || b)
+    })
+  }, [exercises, priorityMuscle])
+
+  // El chip activo arranca en el musculo del dia; si no viene, en el primero.
+  const grupoActivo = activeGroup ?? gruposDisponibles[0] ?? null
+
+  const candidatos = useMemo(() => {
+    if (buscando) {
+      return exercises.filter(e =>
+        (e.name || '').toLowerCase().includes(term) ||
+        (e.name_es || '').toLowerCase().includes(term)
+      )
+    }
+    return exercises.filter(e => (e.muscle_group || 'other') === grupoActivo)
+  }, [exercises, buscando, term, grupoActivo])
+
+  const visibles = candidatos.slice(0, visibleCount)
+  const ocultos = candidatos.length - visibles.length
+
+  const mostrarCardio = !buscando && grupoActivo === 'cardio'
+
+  const tarjetaEjercicio = (e) => (
+    <button key={e.id} onClick={() => handleSelect(e)} disabled={submitting}
+      className="w-full text-left bg-gray-50 dark:bg-gray-800 rounded-xl px-3 py-3 min-h-[56px] active:bg-gray-200 dark:active:bg-gray-700 transition-colors mb-1.5">
+      <p className="font-medium text-sm">{e.name_es || e.name}</p>
+      {e.name_es && <p className="text-[11px] text-gray-400 italic">{e.name}</p>}
+      <p className="text-xs text-gray-400">
+        {e.category === 'compound' ? 'Compuesto' : e.category === 'isolation' ? 'Aislamiento' : e.category}
+        {e.equipment ? ` · ${e.equipment}` : ''}
+        {buscando && e.muscle_group ? ` · ${MUSCLE_LABELS[e.muscle_group] || e.muscle_group}` : ''}
+      </p>
+    </button>
   )
-  const grouped = {}
-  filtered.forEach(e => {
-    const g = e.muscle_group || 'other'
-    if (!grouped[g]) grouped[g] = []
-    grouped[g].push(e)
-  })
-  const sortedGroups = Object.keys(grouped).sort((a, b) => {
-    if (a === priorityMuscle) return -1
-    if (b === priorityMuscle) return 1
-    return (MUSCLE_LABELS[a] || a).localeCompare(MUSCLE_LABELS[b] || b)
-  })
 
   // Create exercise view
   if (showCreate) {
@@ -270,78 +313,94 @@ export default function ExercisePickerModal({ title, priorityMuscle, showCustomi
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-[60] flex items-end sm:items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-md max-h-[75dvh] flex flex-col shadow-2xl" style={{ maxHeight: '75dvh' }}>
-        <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center">
+    <div className="fixed inset-0 bg-black/60 z-[60] flex items-end sm:items-center justify-center sm:p-4">
+      <div className="bg-white dark:bg-gray-900 rounded-t-2xl sm:rounded-2xl w-full max-w-md h-[85dvh] sm:h-auto sm:max-h-[80dvh] flex flex-col shadow-2xl">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center flex-shrink-0">
           <h3 className="font-bold">{title}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><X size={20} /></button>
+          <button onClick={onClose} aria-label="Cerrar"
+            className="p-1 -m-1 text-gray-400 active:text-gray-600 dark:active:text-gray-200"><X size={22} /></button>
         </div>
-        <div className="p-4">
+
+        <div className="px-4 pt-4 flex-shrink-0">
           <div className="relative">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input type="text" placeholder="Buscar ejercicio..." value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              className="input pl-9 text-sm" autoFocus />
+              onChange={e => { setSearchTerm(e.target.value); setVisibleCount(MAX_VISIBLES) }}
+              className="input pl-9 pr-9 text-sm" />
+            {buscando && (
+              <button onClick={() => { setSearchTerm(''); setVisibleCount(MAX_VISIBLES) }}
+                aria-label="Limpiar busqueda"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 active:text-gray-600">
+                <X size={16} />
+              </button>
+            )}
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-1">
+
+        {/* Chips de grupo muscular — solo tienen sentido cuando no se esta buscando */}
+        {!loading && !buscando && gruposDisponibles.length > 0 && (
+          <div className="flex gap-1.5 overflow-x-auto px-4 py-3 flex-shrink-0 scrollbar-none">
+            {gruposDisponibles.map(g => (
+              <button key={g} onClick={() => { setActiveGroup(g); setVisibleCount(MAX_VISIBLES) }}
+                className={`flex-shrink-0 px-3 py-2 rounded-full text-xs font-medium transition-colors ${
+                  g === grupoActivo
+                    ? 'bg-brand-500 text-white'
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
+                }`}>
+                {MUSCLE_LABELS[g] || g}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div data-testid="lista-ejercicios" className="flex-1 overflow-y-auto px-4 pb-2">
           {loading ? (
             <div className="flex justify-center py-8">
               <div className="animate-spin w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full" />
             </div>
-          ) : sortedGroups.length > 0 ? (
-            sortedGroups.map(group => (
-              <div key={group}>
-                <p className="text-xs font-semibold text-brand-500 uppercase tracking-wide py-2 sticky top-0 bg-white dark:bg-gray-900 z-10">
-                  {MUSCLE_LABELS[group] || group}
-                </p>
-                {group === 'cardio' ? (
-                  /* Special cardio rendering: show HIIT/LISS/Steady with emojis */
-                  CARDIO_TYPES.map(ct => {
-                    const matchingEx = exercises.find(e => e.name === CARDIO_EXERCISE_NAMES[ct.id])
-                    if (!matchingEx) return null
-                    return (
-                      <button key={ct.id} onClick={() => handleSelect(matchingEx)} disabled={submitting}
-                        className="w-full text-left bg-gray-50 dark:bg-gray-800 rounded-xl p-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors mb-1.5">
-                        <div className="flex items-center gap-3">
-                          <span className="text-2xl">{ct.emoji}</span>
-                          <div>
-                            <p className="font-medium text-sm">{ct.label}</p>
-                            <p className="text-xs text-gray-400">{ct.description}</p>
-                          </div>
-                        </div>
-                      </button>
-                    )
-                  })
-                ) : (
-                  grouped[group].map(e => (
-                    <button key={e.id} onClick={() => handleSelect(e)} disabled={submitting}
-                      className="w-full text-left bg-gray-50 dark:bg-gray-800 rounded-xl p-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors mb-1.5">
-                      <p className="font-medium text-sm">{e.name_es || e.name}</p>
-                      {e.name_es && <p className="text-[11px] text-gray-400 italic">{e.name}</p>}
-                      <p className="text-xs text-gray-400">{e.category} · {e.equipment}</p>
-                    </button>
-                  ))
-                )}
-              </div>
-            ))
+          ) : mostrarCardio ? (
+            CARDIO_TYPES.map(ct => {
+              const matchingEx = exercises.find(e => e.name === CARDIO_EXERCISE_NAMES[ct.id])
+              if (!matchingEx) return null
+              return (
+                <button key={ct.id} onClick={() => handleSelect(matchingEx)} disabled={submitting}
+                  className="w-full text-left bg-gray-50 dark:bg-gray-800 rounded-xl px-3 py-3 min-h-[56px] active:bg-gray-200 dark:active:bg-gray-700 transition-colors mb-1.5">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{ct.emoji}</span>
+                    <div>
+                      <p className="font-medium text-sm">{ct.label}</p>
+                      <p className="text-xs text-gray-400">{ct.description}</p>
+                    </div>
+                  </div>
+                </button>
+              )
+            })
+          ) : visibles.length > 0 ? (
+            <>
+              {visibles.map(tarjetaEjercicio)}
+              {ocultos > 0 && (
+                <button onClick={() => setVisibleCount(c => c + MAX_VISIBLES)}
+                  className="w-full py-3 text-xs font-medium text-gray-400 active:text-brand-500">
+                  Ver {Math.min(ocultos, MAX_VISIBLES)} más ({ocultos} sin mostrar)
+                </button>
+              )}
+            </>
           ) : (
             <div className="text-center py-8">
-              <p className="text-sm text-gray-400 mb-3">No se encontraron ejercicios</p>
-              <button onClick={() => { setNewEx({ ...newEx, name: searchTerm }); setShowCreate(true) }}
-                className="text-sm font-medium text-brand-500 hover:text-brand-400 inline-flex items-center gap-1.5">
-                <Plus size={14} /> Crear "{searchTerm || 'nuevo'}"
-              </button>
+              <p className="text-sm text-gray-400">
+                {buscando ? `Nada para "${searchTerm}"` : 'No hay ejercicios en este grupo'}
+              </p>
             </div>
           )}
-          {/* Always show create button at bottom */}
-          {!loading && sortedGroups.length > 0 && (
-            <button onClick={() => { setNewEx({ ...newEx, name: searchTerm }); setShowCreate(true) }}
-              className="w-full py-3 text-sm font-medium text-brand-500 hover:text-brand-400 flex items-center justify-center gap-1.5 border-t border-gray-100 dark:border-gray-800 mt-2">
-              <Plus size={14} /> Crear ejercicio nuevo
-            </button>
-          )}
         </div>
+
+        {/* Crear ejercicio: accion fija, fuera de la lista para que no se pierda al scrollear */}
+        {!loading && (
+          <button onClick={() => { setNewEx({ ...newEx, name: searchTerm.trim() }); setShowCreate(true) }}
+            className="flex-shrink-0 w-full py-3.5 text-sm font-medium text-brand-500 active:bg-brand-50 dark:active:bg-brand-500/10 flex items-center justify-center gap-1.5 border-t border-gray-100 dark:border-gray-800">
+            <Plus size={16} /> {buscando ? `Crear "${searchTerm.trim()}"` : 'Crear ejercicio nuevo'}
+          </button>
+        )}
       </div>
     </div>
   )
