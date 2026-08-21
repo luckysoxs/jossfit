@@ -4,7 +4,7 @@ import api from '../services/api'
 import { cacheSet, cacheGet } from '../services/offlineCache'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import PageTour from '../components/ui/PageTour'
-import { Plus, Zap, Calendar, ChevronRight, Trash2, Dumbbell, Clock, Pencil } from 'lucide-react'
+import { Plus, Zap, Calendar, ChevronRight, Trash2, Dumbbell, Clock, Pencil, UserCheck } from 'lucide-react'
 
 const OBJECTIVE_LABELS = {
   hypertrophy: 'Hipertrofia',
@@ -113,12 +113,14 @@ export default function Routines() {
                     ) : (
                       <div className="flex items-center gap-2">
                         <h3 className="font-bold text-base truncate">{r.name}</h3>
-                        <button
-                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setEditName(r.name); setEditingId(r.id) }}
-                          className="p-1 text-gray-300 hover:text-brand-500 transition-colors flex-shrink-0"
-                        >
-                          <Pencil size={12} />
-                        </button>
+                        {!r.read_only && (
+                          <button
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setEditName(r.name); setEditingId(r.id) }}
+                            className="p-1 text-gray-300 hover:text-brand-500 transition-colors flex-shrink-0"
+                          >
+                            <Pencil size={12} />
+                          </button>
+                        )}
                       </div>
                     )}
                     <div className="flex items-center gap-2 mt-1.5 flex-wrap">
@@ -138,15 +140,22 @@ export default function Routines() {
                           <Zap size={8} /> IA
                         </span>
                       )}
+                      {r.read_only && (
+                        <span className="bg-brand-50 dark:bg-brand-500/10 text-brand-500 px-1.5 py-0.5 rounded-full text-[10px] font-medium flex items-center gap-0.5">
+                          <UserCheck size={8} /> {r.assigned_by || 'Coach'}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <button
-                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); deleteRoutine(r.id) }}
-                      className="p-2 text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    {!r.read_only && (
+                      <button
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); deleteRoutine(r.id) }}
+                        className="p-2 text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                     <ChevronRight size={16} className="text-gray-400" />
                   </div>
                 </div>

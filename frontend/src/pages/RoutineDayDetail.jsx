@@ -15,7 +15,9 @@ import {
   ArrowLeft, Play, Check, Calculator, RefreshCw, X, Trash2, Plus, Trophy,
   Dumbbell, GripVertical, ChevronUp, ChevronDown, WifiOff, TrendingUp,
   Timer, Pause, HeartPulse, Music, Pencil, Save, Link2, Unlink,
+  UserCheck, MessageSquarePlus,
 } from 'lucide-react'
+import ChangeRequestModal from '../components/routines/ChangeRequestModal'
 
 const isCardioExercise = (exercise) =>
   exercise?.muscle_group === 'cardio' && exercise?.category === 'cardio'
@@ -35,6 +37,9 @@ export default function RoutineDayDetail() {
   const { unit, displayWeight, toKg } = useWeightUnit()
 
   const [routine, setRoutine] = useState(null)
+  // Rutina asignada por un coach: el cliente entrena y pide cambios, no edita.
+  const readOnly = !!routine?.read_only
+  const [changeRequestFor, setChangeRequestFor] = useState(null)
   const [loading, setLoading] = useState(true)
   const [offlineMode, setOfflineMode] = useState(false)
   const [personalBests, setPersonalBests] = useState({})
@@ -506,14 +511,21 @@ export default function RoutineDayDetail() {
           </div>
           <span className="text-xs text-gray-400">{done}/{total}</span>
         </div>
-        <button
-          onClick={regenerateExercises}
-          disabled={regenerating}
-          className="mt-3 w-full flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-medium text-orange-500 bg-orange-50 dark:bg-orange-500/10 hover:bg-orange-100 dark:hover:bg-orange-500/20 transition-colors disabled:opacity-50"
-        >
-          <RefreshCw size={15} className={regenerating ? 'animate-spin' : ''} />
-          {regenerating ? 'Regenerando...' : 'Regenerar ejercicios'}
-        </button>
+        {readOnly ? (
+          <div className="mt-3 bg-brand-50 dark:bg-brand-500/10 text-brand-500 px-3 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5">
+            <UserCheck size={14} />
+            Rutina de tu coach · {routine.assigned_by || 'Coach'}
+          </div>
+        ) : (
+          <button
+            onClick={regenerateExercises}
+            disabled={regenerating}
+            className="mt-3 w-full flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-medium text-orange-500 bg-orange-50 dark:bg-orange-500/10 hover:bg-orange-100 dark:hover:bg-orange-500/20 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw size={15} className={regenerating ? 'animate-spin' : ''} />
+            {regenerating ? 'Regenerando...' : 'Regenerar ejercicios'}
+          </button>
+        )}
       </div>
 
       {/* Link mode bar */}
@@ -536,7 +548,7 @@ export default function RoutineDayDetail() {
             </button>
           </div>
         </div>
-      ) : (
+      ) : !readOnly && (
         <button
           onClick={() => { setLinkMode(true); setLinkSelection(new Set()) }}
           className="card w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-purple-500 bg-purple-50/50 dark:bg-purple-500/5 hover:bg-purple-100 dark:hover:bg-purple-500/10 transition-colors border border-purple-500/20"
@@ -609,7 +621,7 @@ export default function RoutineDayDetail() {
             return (
               <div key={ex.id} className="card bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2.5">
                 <div className="flex items-center gap-2">
-                  <div className="flex flex-col items-center flex-shrink-0">
+                  <div className={`flex flex-col items-center flex-shrink-0 ${readOnly ? 'hidden' : ''}`}>
                     <button onClick={() => moveExUp(globalIdx, day.id, sortedExercises)}
                       disabled={globalIdx === 0 || reordering}
                       className={`p-2 rounded-lg transition-colors ${globalIdx === 0 ? 'text-gray-300 dark:text-gray-700' : 'text-gray-400 hover:text-brand-500 active:bg-brand-50 dark:active:bg-brand-500/10 active:text-brand-600'}`}>
@@ -632,12 +644,21 @@ export default function RoutineDayDetail() {
                       <HeartPulse size={16} /> Empezar Cardio
                     </button>
                     <div className="flex gap-3 mt-2">
-                      <button onClick={() => setSwapExercise(ex)} className="inline-flex items-center gap-1.5 text-xs font-medium text-orange-500 hover:text-orange-400 transition-colors">
-                        <RefreshCw size={14} /> Reemplazar
-                      </button>
-                      <button onClick={() => { if (confirm('Eliminar este ejercicio?')) deleteExercise(ex.id) }} className="inline-flex items-center gap-1.5 text-xs font-medium text-red-500 hover:text-red-400 transition-colors">
-                        <Trash2 size={14} /> Eliminar
-                      </button>
+                      {readOnly ? (
+                        <button onClick={() => setChangeRequestFor({ id: ex.id, name: exDisplayName(ex.exercise) })}
+                          className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-500 hover:text-brand-400 transition-colors">
+                          <MessageSquarePlus size={14} /> Pedir un cambio
+                        </button>
+                      ) : (
+                        <>
+                          <button onClick={() => setSwapExercise(ex)} className="inline-flex items-center gap-1.5 text-xs font-medium text-orange-500 hover:text-orange-400 transition-colors">
+                            <RefreshCw size={14} /> Reemplazar
+                          </button>
+                          <button onClick={() => { if (confirm('Eliminar este ejercicio?')) deleteExercise(ex.id) }} className="inline-flex items-center gap-1.5 text-xs font-medium text-red-500 hover:text-red-400 transition-colors">
+                            <Trash2 size={14} /> Eliminar
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -653,7 +674,7 @@ export default function RoutineDayDetail() {
               }`}
             >
               <div className="flex items-center gap-2">
-                {!isGroup && (
+                {!isGroup && !readOnly && (
                   <div className="flex flex-col items-center flex-shrink-0">
                     <button onClick={() => moveExUp(globalIdx, day.id, sortedExercises)} disabled={globalIdx === 0 || reordering}
                       className={`p-2 rounded-lg transition-colors ${globalIdx === 0 ? 'text-gray-300 dark:text-gray-700' : 'text-gray-400 hover:text-brand-500 active:bg-brand-50 dark:active:bg-brand-500/10 active:text-brand-600'}`}>
@@ -777,20 +798,29 @@ export default function RoutineDayDetail() {
                     <button onClick={() => setOneRMExercise(ex.exercise)} className="inline-flex items-center gap-1.5 mt-1 ml-3 text-xs font-medium text-brand-500 hover:text-brand-400 transition-colors">
                       <Calculator size={14} /> 1RM
                     </button>
-                    <button onClick={() => startEditing(ex)} className="inline-flex items-center gap-1.5 mt-1 ml-3 text-xs font-medium text-brand-500 hover:text-brand-400 transition-colors">
-                      <Pencil size={14} /> Editar
-                    </button>
-                    <button onClick={() => setSwapExercise(ex)} className="inline-flex items-center gap-1.5 mt-1 ml-3 text-xs font-medium text-orange-500 hover:text-orange-400 transition-colors">
-                      <RefreshCw size={14} /> Reemplazar
-                    </button>
-                    {ex.group_id && (
-                      <button onClick={() => handleUnlink(ex)} className="inline-flex items-center gap-1.5 mt-1 ml-3 text-xs font-medium text-purple-500 hover:text-purple-400 transition-colors">
-                        <Unlink size={14} /> Desenlazar
+                    {readOnly ? (
+                      <button onClick={() => setChangeRequestFor({ id: ex.id, name: exDisplayName(ex.exercise) })}
+                        className="inline-flex items-center gap-1.5 mt-1 ml-3 text-xs font-medium text-brand-500 hover:text-brand-400 transition-colors">
+                        <MessageSquarePlus size={14} /> Pedir un cambio
                       </button>
+                    ) : (
+                      <>
+                        <button onClick={() => startEditing(ex)} className="inline-flex items-center gap-1.5 mt-1 ml-3 text-xs font-medium text-brand-500 hover:text-brand-400 transition-colors">
+                          <Pencil size={14} /> Editar
+                        </button>
+                        <button onClick={() => setSwapExercise(ex)} className="inline-flex items-center gap-1.5 mt-1 ml-3 text-xs font-medium text-orange-500 hover:text-orange-400 transition-colors">
+                          <RefreshCw size={14} /> Reemplazar
+                        </button>
+                        {ex.group_id && (
+                          <button onClick={() => handleUnlink(ex)} className="inline-flex items-center gap-1.5 mt-1 ml-3 text-xs font-medium text-purple-500 hover:text-purple-400 transition-colors">
+                            <Unlink size={14} /> Desenlazar
+                          </button>
+                        )}
+                        <button onClick={() => { if (confirm('Eliminar este ejercicio?')) deleteExercise(ex.id) }} className="inline-flex items-center gap-1.5 mt-1 ml-3 text-xs font-medium text-red-500 hover:text-red-400 transition-colors">
+                          <Trash2 size={14} /> Eliminar
+                        </button>
+                      </>
                     )}
-                    <button onClick={() => { if (confirm('Eliminar este ejercicio?')) deleteExercise(ex.id) }} className="inline-flex items-center gap-1.5 mt-1 ml-3 text-xs font-medium text-red-500 hover:text-red-400 transition-colors">
-                      <Trash2 size={14} /> Eliminar
-                    </button>
                   </div>
                 </div>
               </div>
@@ -818,10 +848,21 @@ export default function RoutineDayDetail() {
       })}
 
       {/* Add exercise button */}
-      <button onClick={() => setAddingToDay(day)}
-        className="card w-full flex items-center justify-center gap-2 py-3 text-sm font-medium text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-500/10 transition-colors border-2 border-dashed border-brand-500/30">
-        <Plus size={16} /> Agregar ejercicio
-      </button>
+      {!readOnly && (
+        <button onClick={() => setAddingToDay(day)}
+          className="card w-full flex items-center justify-center gap-2 py-3 text-sm font-medium text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-500/10 transition-colors border-2 border-dashed border-brand-500/30">
+          <Plus size={16} /> Agregar ejercicio
+        </button>
+      )}
+
+      {changeRequestFor && (
+        <ChangeRequestModal
+          routineId={parseInt(id, 10)}
+          exerciseId={changeRequestFor.id}
+          exerciseName={changeRequestFor.name}
+          onClose={() => setChangeRequestFor(null)}
+        />
+      )}
 
       {/* Quick Set Popup */}
       {quickSetExercise && (
