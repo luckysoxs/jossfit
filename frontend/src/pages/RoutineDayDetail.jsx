@@ -955,6 +955,8 @@ export default function RoutineDayDetail() {
         <ExercisePickerModal
           title="Agregar ejercicio"
           showCustomize
+          // El foco del dia viene como "chest,triceps": el primero manda.
+          priorityMuscle={addingToDay.focus?.split(',')[0]?.trim() || undefined}
           onClose={() => setAddingToDay(null)}
           onSelect={async (exercise, config) => {
             try {

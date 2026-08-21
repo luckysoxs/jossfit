@@ -63,6 +63,9 @@ export default defineConfig({
       '/notification-center': 'http://localhost:8000',
       '/cardio': 'http://localhost:8000',
       '/personal-bests': 'http://localhost:8000',
+      '/coach': 'http://localhost:8000',
+      '/share': 'http://localhost:8000',
+      '/suggestions': 'http://localhost:8000',
     },
   },
 })
