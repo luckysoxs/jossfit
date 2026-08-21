@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { getPendingShare } from '../services/pendingShare'
 import { Flame, Eye, EyeOff } from 'lucide-react'
 
 export default function Login() {
@@ -12,6 +13,18 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+
+  // Prioridad: ?redirect= explicito, luego el token pendiente, luego el inicio.
+  // El startsWith('/') evita que un ?redirect=https://otro.com saque al usuario
+  // de la app.
+  const destino = () => {
+    const redirect = searchParams.get('redirect')
+    if (redirect && redirect.startsWith('/')) return redirect
+    const pendiente = getPendingShare()
+    if (pendiente) return `/r/${pendiente}`
+    return '/'
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -19,7 +32,7 @@ export default function Login() {
     setLoading(true)
     try {
       await login(email, password, remember)
-      navigate('/')
+      navigate(destino(), { replace: true })
     } catch (err) {
       setError(err.response?.data?.detail || 'Error al iniciar sesión')
     } finally {

@@ -30,6 +30,8 @@ import NotificationCenter from './pages/NotificationCenter'
 import TermsAndConditions from './pages/TermsAndConditions'
 import WalkieTalkie from './pages/WalkieTalkie'
 import Suggestions from './pages/Suggestions'
+import SharedRoutine from './pages/SharedRoutine'
+import Coach from './pages/Coach'
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
@@ -46,12 +48,21 @@ function AdminRoute({ children }) {
   return <Layout>{children}</Layout>
 }
 
+function CoachRoute({ children }) {
+  const { user, loading } = useAuth()
+  if (loading) return <LoadingSpinner />
+  if (!user) return <Navigate to="/login" replace />
+  if (!user.is_coach && !user.is_admin) return <Navigate to="/" replace />
+  return <Layout>{children}</Layout>
+}
+
 export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/terms" element={<TermsAndConditions />} />
+      <Route path="/r/:token" element={<SharedRoutine />} />
 
       <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/workouts" element={<ProtectedRoute><Workouts /></ProtectedRoute>} />
@@ -76,6 +87,7 @@ export default function App() {
       <Route path="/notes/:noteId" element={<ProtectedRoute><Notes /></ProtectedRoute>} />
       <Route path="/notifications" element={<ProtectedRoute><NotificationCenter /></ProtectedRoute>} />
       <Route path="/suggestions" element={<ProtectedRoute><Suggestions /></ProtectedRoute>} />
+      <Route path="/coach" element={<CoachRoute><Coach /></CoachRoute>} />
       <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
       <Route path="/admin/walkie-talkie" element={<AdminRoute><WalkieTalkie /></AdminRoute>} />
 

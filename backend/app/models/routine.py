@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import String, Integer, ForeignKey, DateTime, JSON, func, Text, VARCHAR
+from sqlalchemy import String, Integer, ForeignKey, DateTime, JSON, func, Text, VARCHAR, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -18,6 +18,9 @@ class Routine(Base):
     generation_type: Mapped[str] = mapped_column(String(20), default="normal")
     ai_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     rest_weekdays: Mapped[list | None] = mapped_column(JSON, nullable=True)  # e.g. [6] = Sunday rest
+    # True = rutina hecha para clientes. No aparece en la lista de entrenamiento
+    # propia del coach; vive en el panel de coach.
+    is_template: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     user = relationship("User", back_populates="routines")

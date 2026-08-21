@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { getPendingShare } from '../services/pendingShare'
 import { Flame, ArrowLeft, ArrowRight, CheckCircle, Eye, EyeOff, X, HeartPulse } from 'lucide-react'
 import { ACCENT_COLORS, applyAccentColor } from '../data/accentColors'
 
@@ -33,6 +34,20 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false)
   const { register } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+
+  // Prioridad: ?redirect= explicito, luego el token pendiente, luego el inicio.
+  // El startsWith('/') evita que un ?redirect=https://otro.com saque al usuario
+  // de la app.
+  const destino = () => {
+    const redirect = searchParams.get('redirect')
+    if (redirect && redirect.startsWith('/')) return redirect
+    const pendiente = getPendingShare()
+    if (pendiente) return `/r/${pendiente}`
+    return '/'
+  }
+
+  const vieneDeUnEnlace = () => !!(searchParams.get('redirect') || getPendingShare())
 
   const set = (field) => (e) => setForm({ ...form, [field]: e.target.value })
 
@@ -387,10 +402,10 @@ export default function Register() {
             </div>
 
             <button
-              onClick={() => navigate('/')}
+              onClick={() => navigate(destino(), { replace: true })}
               className="btn-primary w-full"
             >
-              Ir al Dashboard
+              {vieneDeUnEnlace() ? 'Ver mi rutina' : 'Ir al Dashboard'}
             </button>
           </div>
         </div>

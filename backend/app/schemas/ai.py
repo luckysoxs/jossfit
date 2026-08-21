@@ -14,6 +14,7 @@ class GenerateRoutineRequest(BaseModel):
     split_preference: str | None = None
     custom_days: list[CustomDayConfig] | None = None
     name: str | None = None  # Optional custom name for the routine
+    is_template: bool = False  # True = rutina para clientes, creada por un coach
 
 
 class OneRepMaxResponse(BaseModel):

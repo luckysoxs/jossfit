@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from pydantic import BaseModel
+from sqlalchemy import or_, and_
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
@@ -8,6 +9,13 @@ from app.models.routine import Routine, RoutineDay, RoutineExercise
 from app.models.exercise import Exercise, MuscleGroup, ExerciseCategory
 from app.schemas.routine import RoutineCreate, RoutineExerciseCreate, RoutineExerciseUpdate, RoutineResponse
 from app.auth.security import get_current_user
+from app.models.coach import RoutineChangeRequest
+from app.schemas.coach import ChangeRequestCreate, ChangeRequestResponse
+from app.services.routine_access import (
+    get_readable_routine, get_assigned_routine_ids, get_assignment,
+)
+from app.routers.coach import _change_request_response
+from app.services.coach_notifications import notify_change_request, notify_routine_updated
 from app.ai.routine_generator import (
     MAX_EXERCISES_PER_DAY, SETS_CONFIG, REP_RANGES, ACCESSORY_MUSCLES,
     WEEKLY_SETS_TARGET, _EXERCISE_TO_GROUP, _allocate_exercises,
@@ -78,9 +86,22 @@ def list_routines(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return (
+    """Las rutinas propias mas las que le asigno un coach.
+
+    Las rutinas con is_template=True se excluyen de la lista propia: son las
+    que el coach hizo para clientes y viven en su panel de coach.
+    """
+    assigned_ids = get_assigned_routine_ids(db, user.id)
+
+    condiciones = [
+        and_(Routine.user_id == user.id, Routine.is_template == False)  # noqa: E712
+    ]
+    if assigned_ids:
+        condiciones.append(Routine.id.in_(assigned_ids))
+
+    routines = (
         db.query(Routine)
-        .filter(Routine.user_id == user.id)
+        .filter(or_(*condiciones))
         .options(
             joinedload(Routine.days)
             .joinedload(RoutineDay.exercises)
@@ -89,6 +110,7 @@ def list_routines(
         .order_by(Routine.created_at.desc())
         .all()
     )
+    return [_decorate(db, r, user) for r in routines]
 
 
 # ─── Static PUT routes (before /{routine_id}) ───
@@ -552,6 +574,49 @@ def regenerate_day_exercises(
 
 # ─── Parameterised /{routine_id} routes (MUST be last) ───
 
+@router.post("/{routine_id}/change-request", response_model=ChangeRequestResponse, status_code=201)
+def create_change_request(
+    routine_id: int,
+    data: ChangeRequestCreate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """El cliente le pide un cambio a su coach.
+
+    Solo tiene sentido sobre una rutina asignada: el dueno la edita directo.
+    """
+    assignment = get_assignment(db, user.id, routine_id)
+    if not assignment:
+        raise HTTPException(
+            status_code=403,
+            detail="Solo puedes pedir cambios en una rutina que te asigno tu coach",
+        )
+    contenido = (data.content or "").strip()
+    if not contenido:
+        raise HTTPException(status_code=400, detail="Escribe que necesitas cambiar")
+    if len(contenido) > 1000:
+        raise HTTPException(status_code=400, detail="Maximo 1000 caracteres")
+
+    req = RoutineChangeRequest(
+        assignment_id=assignment.id,
+        client_id=user.id,
+        routine_exercise_id=data.routine_exercise_id,
+        content=contenido,
+    )
+    db.add(req)
+    db.commit()
+    db.refresh(req)
+
+    respuesta = _change_request_response(db, req)
+    try:
+        notify_change_request(
+            db, assignment.coach_id, user.name, respuesta.exercise_name,
+        )
+    except Exception:
+        pass
+    return respuesta
+
+
 @router.put("/{routine_id}/schedule")
 def update_schedule(
     routine_id: int,
@@ -585,6 +650,12 @@ def update_routine(
     if data.name and data.name.strip():
         routine.name = data.name.strip()
     db.commit()
+
+    try:
+        notify_routine_updated(db, routine.id, user.name)
+    except Exception:
+        pass
+
     return _load_full_routine(db, routine.id)
 
 
@@ -594,10 +665,8 @@ def get_routine(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    routine = _load_full_routine(db, routine_id)
-    if not routine or routine.user_id != user.id:
-        raise HTTPException(status_code=404, detail="Routine not found")
-    return routine
+    routine = get_readable_routine(db, user, routine_id)
+    return _decorate(db, routine, user)
 
 
 @router.delete("/{routine_id}", status_code=204)
@@ -614,6 +683,21 @@ def delete_routine(
 
 
 # ─── Helper ───
+
+def _decorate(db: Session, routine: Routine, user: User) -> RoutineResponse:
+    """Convierte a RoutineResponse llenando read_only y assigned_by.
+
+    Los dos describen la relacion usuario-rutina, no son columnas de la tabla.
+    """
+    resp = RoutineResponse.model_validate(routine)
+    if routine.user_id == user.id:
+        return resp
+    coach = db.query(User).filter(User.id == routine.user_id).first()
+    return resp.model_copy(update={
+        "read_only": True,
+        "assigned_by": coach.name if coach else None,
+    })
+
 
 def _load_full_routine(db: Session, routine_id: int) -> Routine | None:
     return (

@@ -37,6 +37,8 @@ from app.routers import (
     notification_center,
     walkie_talkie,
     suggestions,
+    coach,
+    share,
 )
 
 
@@ -138,6 +140,56 @@ def run_migrations():
             updated_at TIMESTAMP DEFAULT NOW(),
             UNIQUE(user_id, routine_id, date)
         )""",
+        # ─── Rutinas de coach compartidas por enlace ───
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_coach BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE routines ADD COLUMN IF NOT EXISTS is_template BOOLEAN DEFAULT FALSE",
+        """CREATE TABLE IF NOT EXISTS routine_share_links (
+            id SERIAL PRIMARY KEY,
+            token VARCHAR(32) UNIQUE NOT NULL,
+            routine_id INTEGER REFERENCES routines(id) ON DELETE CASCADE,
+            coach_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            kind VARCHAR(10) NOT NULL,
+            label VARCHAR(100),
+            max_claims INTEGER,
+            expires_at TIMESTAMP,
+            revoked BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT NOW()
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_rsl_token ON routine_share_links(token)",
+        "CREATE INDEX IF NOT EXISTS idx_rsl_coach ON routine_share_links(coach_id)",
+        "CREATE INDEX IF NOT EXISTS idx_rsl_routine ON routine_share_links(routine_id)",
+        """CREATE TABLE IF NOT EXISTS routine_assignments (
+            id SERIAL PRIMARY KEY,
+            routine_id INTEGER REFERENCES routines(id) ON DELETE CASCADE,
+            client_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            coach_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            link_id INTEGER REFERENCES routine_share_links(id) ON DELETE SET NULL,
+            status VARCHAR(10) DEFAULT 'active',
+            assigned_at TIMESTAMP DEFAULT NOW(),
+            CONSTRAINT uq_routine_assignment UNIQUE (routine_id, client_id)
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_ra_client ON routine_assignments(client_id)",
+        "CREATE INDEX IF NOT EXISTS idx_ra_coach ON routine_assignments(coach_id)",
+        """CREATE TABLE IF NOT EXISTS share_link_visits (
+            id SERIAL PRIMARY KEY,
+            link_id INTEGER REFERENCES routine_share_links(id) ON DELETE CASCADE,
+            user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            claimed BOOLEAN DEFAULT FALSE,
+            visited_at TIMESTAMP DEFAULT NOW()
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_slv_link ON share_link_visits(link_id)",
+        """CREATE TABLE IF NOT EXISTS routine_change_requests (
+            id SERIAL PRIMARY KEY,
+            assignment_id INTEGER REFERENCES routine_assignments(id) ON DELETE CASCADE,
+            client_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            routine_exercise_id INTEGER REFERENCES routine_exercises(id) ON DELETE SET NULL,
+            content TEXT NOT NULL,
+            status VARCHAR(15) DEFAULT 'pendiente',
+            coach_reply TEXT,
+            created_at TIMESTAMP DEFAULT NOW()
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_rcr_assignment ON routine_change_requests(assignment_id)",
+        "CREATE INDEX IF NOT EXISTS idx_rcr_status ON routine_change_requests(status)",
         # Clean up duplicate note notifications — keep only the oldest per (user_id, url)
         """DELETE FROM notifications
            WHERE id NOT IN (
@@ -332,6 +384,8 @@ app.include_router(notes.router)
 app.include_router(notification_center.router)
 app.include_router(walkie_talkie.router)
 app.include_router(suggestions.router)
+app.include_router(coach.router)
+app.include_router(share.router)
 
 
 @app.get("/health")

@@ -8,7 +8,7 @@ import AIRoutineView from '../components/routines/AIRoutineView'
 import { WEEKDAY_NAMES, WEEKDAY_SHORT, getWeekdayMap, getNextTrainingDate } from '../utils/routineConstants'
 import {
   ArrowLeft, X, Zap, Dumbbell, GripVertical, ChevronRight,
-  Calendar, Moon, Pencil, WifiOff,
+  Calendar, Moon, Pencil, WifiOff, UserCheck,
 } from 'lucide-react'
 
 export default function RoutineDetail() {
@@ -16,6 +16,8 @@ export default function RoutineDetail() {
   const navigate = useNavigate()
   const online = useOnlineStatus()
   const [routine, setRoutine] = useState(null)
+  // Rutina asignada por un coach: el cliente la entrena pero no la edita.
+  const readOnly = !!routine?.read_only
   const [loading, setLoading] = useState(true)
   const [offlineMode, setOfflineMode] = useState(false)
   const [showAIView, setShowAIView] = useState(false)
@@ -210,6 +212,8 @@ export default function RoutineDetail() {
                     onKeyDown={e => { if (e.key === 'Escape') { cancellingNameRef.current = true; setEditingName(false) } }}
                   />
                 </form>
+              ) : readOnly ? (
+                <h1 className="text-xl font-bold truncate">{routine.name}</h1>
               ) : (
                 <button
                   onClick={() => { setNameInput(routine.name); setEditingName(true) }}
@@ -233,16 +237,26 @@ export default function RoutineDetail() {
               </div>
             </div>
           </div>
-          <div className="flex gap-2">
-            <button onClick={() => setShowSchedule(true)}
-              className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-gray-400 hover:text-brand-500 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-xl transition-colors">
-              <Calendar size={14} /> Descansos
-            </button>
-            <button onClick={() => navigate('/routines/generate')}
-              className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-brand-500 hover:text-brand-400 bg-brand-50 dark:bg-brand-500/10 px-3 py-2 rounded-xl transition-colors">
-              <Zap size={14} /> Nueva
-            </button>
-          </div>
+
+          {readOnly && (
+            <div className="bg-brand-50 dark:bg-brand-500/10 text-brand-500 px-3 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5">
+              <UserCheck size={14} />
+              Rutina de tu coach · {routine.assigned_by || 'Coach'}
+            </div>
+          )}
+
+          {!readOnly && (
+            <div className="flex gap-2">
+              <button onClick={() => setShowSchedule(true)}
+                className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-gray-400 hover:text-brand-500 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-xl transition-colors">
+                <Calendar size={14} /> Descansos
+              </button>
+              <button onClick={() => navigate('/routines/generate')}
+                className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-brand-500 hover:text-brand-400 bg-brand-50 dark:bg-brand-500/10 px-3 py-2 rounded-xl transition-colors">
+                <Zap size={14} /> Nueva
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -371,15 +385,17 @@ export default function RoutineDetail() {
                 weekCards.push(
                   <div key={dayEntry.id}
                     ref={el => dayCardsRef.current[currentTrainingIdx] = el}
-                    draggable
-                    onDragStart={() => handleDragDayStart(currentTrainingIdx)}
-                    onDragOver={(e) => handleDragDayOver(e, currentTrainingIdx)}
-                    onDragEnd={handleDragDayEnd}
-                    onTouchStart={(e) => handleTouchStart(e, currentTrainingIdx)}
-                    onTouchEnd={handleTouchEnd}
-                    className={`card hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all cursor-grab active:cursor-grabbing ${dayAllDone ? 'border border-green-500/30' : ''} ${isToday ? 'ring-2 ring-brand-500/40' : ''} ${isDragging ? 'opacity-50 scale-95' : ''} ${isDragOver ? 'border-2 border-brand-500 border-dashed' : ''}`}>
+                    draggable={!readOnly}
+                    onDragStart={() => { if (!readOnly) handleDragDayStart(currentTrainingIdx) }}
+                    onDragOver={(e) => { if (!readOnly) handleDragDayOver(e, currentTrainingIdx) }}
+                    onDragEnd={() => { if (!readOnly) handleDragDayEnd() }}
+                    onTouchStart={(e) => { if (!readOnly) handleTouchStart(e, currentTrainingIdx) }}
+                    onTouchEnd={() => { if (!readOnly) handleTouchEnd() }}
+                    className={`card hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all ${readOnly ? '' : 'cursor-grab active:cursor-grabbing'} ${dayAllDone ? 'border border-green-500/30' : ''} ${isToday ? 'ring-2 ring-brand-500/40' : ''} ${isDragging ? 'opacity-50 scale-95' : ''} ${isDragOver ? 'border-2 border-brand-500 border-dashed' : ''}`}>
                     <div className="flex items-center gap-2">
-                      <GripVertical size={16} className="text-gray-300 dark:text-gray-600 flex-shrink-0 touch-none" />
+                      {!readOnly && (
+                        <GripVertical size={16} className="text-gray-300 dark:text-gray-600 flex-shrink-0 touch-none" />
+                      )}
                       <Link to={`/routines/${id}/day/${dayEntry.id}`} className="flex-1 text-left">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">

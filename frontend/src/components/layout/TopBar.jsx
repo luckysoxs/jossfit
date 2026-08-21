@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useTheme } from '../../contexts/ThemeContext'
 import { useAuth } from '../../contexts/AuthContext'
-import { Sun, Moon, Shield, Lightbulb, RotateCw } from 'lucide-react'
+import { Sun, Moon, Shield, Lightbulb, RotateCw, Users } from 'lucide-react'
 
 export default function TopBar() {
   const { theme, toggleTheme } = useTheme()
@@ -36,6 +36,15 @@ export default function TopBar() {
           <span className="text-lg font-bold tracking-tight">JOSSFITness</span>
         </Link>
         <div className="flex items-center gap-3">
+          {(user?.is_coach || user?.is_admin) && (
+            <Link
+              to="/coach"
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-brand-500"
+              aria-label="Panel de coach"
+            >
+              <Users size={20} />
+            </Link>
+          )}
           {user?.is_admin && (
             <Link
               to="/admin"
