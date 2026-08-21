@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../services/api'
 import { ArrowLeft, Plus, X, Search, ChevronUp, ChevronDown, Save, Dumbbell } from 'lucide-react'
 
@@ -19,6 +19,9 @@ const MUSCLE_LABELS = {
 
 export default function CreateRoutine() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  // ?para=cliente: la rutina es para clientes, no para el propio coach.
+  const paraCliente = searchParams.get('para') === 'cliente'
   const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
 
@@ -129,8 +132,10 @@ export default function CreateRoutine() {
           })),
         })),
       }
-      await api.post('/routines', payload)
-      navigate('/routines', { replace: true })
+      // El cuerpo es el mismo (RoutineCreate); solo cambia el destino, que es
+      // quien decide si la rutina nace marcada para clientes.
+      await api.post(paraCliente ? '/coach/routines' : '/routines', payload)
+      navigate(paraCliente ? '/coach' : '/routines', { replace: true })
     } catch (err) {
       const msg = err.response?.data?.detail || 'Error al crear rutina'
       alert(msg)

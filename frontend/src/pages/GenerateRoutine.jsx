@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
 import { Zap, Loader2, ShieldAlert, Plus, X, Pencil, Save, CheckCircle2 } from 'lucide-react'
@@ -15,6 +15,9 @@ const MUSCLE_LABELS = {
 export default function GenerateRoutine() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  // ?para=cliente: la rutina es para clientes, no para el propio coach.
+  const paraCliente = searchParams.get('para') === 'cliente'
   const [loading, setLoading] = useState(false)
   const [routineName, setRoutineName] = useState('')
   const [form, setForm] = useState({
@@ -78,7 +81,7 @@ export default function GenerateRoutine() {
     }
     setLoading(true)
     try {
-      const payload = { ...form, name: routineName.trim() }
+      const payload = { ...form, name: routineName.trim(), is_template: paraCliente }
       if (isCustom) {
         payload.custom_days = customDays
         payload.days_per_week = customDays.length
@@ -109,10 +112,10 @@ export default function GenerateRoutine() {
             <Zap size={18} /> Ver Rutina
           </button>
           <button
-            onClick={() => navigate('/routines', { replace: true })}
+            onClick={() => navigate(paraCliente ? '/coach' : '/routines', { replace: true })}
             className="btn-secondary w-full"
           >
-            Ir a Mis Rutinas
+            {paraCliente ? 'Ir al panel de Coach' : 'Ir a Mis Rutinas'}
           </button>
           <button
             onClick={() => { setSuccess(null); setRoutineName('') }}
