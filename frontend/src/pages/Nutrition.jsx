@@ -108,7 +108,7 @@ export default function Nutrition() {
               <div key={m.id} className="card flex items-center justify-between">
                 <div>
                   <span className="text-xs font-medium text-brand-500 uppercase">{mealLabels[m.meal_type]}</span>
-                  <p className="font-medium text-sm">{m.description || '—'}</p>
+                  <p className="font-medium text-sm">{m.description || '-'}</p>
                   <p className="text-xs text-gray-400">{m.calories || 0} cal · {m.protein_g || 0}p · {m.carbs_g || 0}c · {m.fat_g || 0}g</p>
                 </div>
                 <button onClick={() => deleteMeal(m.id)} className="p-2 text-red-400"><Trash2 size={16} /></button>

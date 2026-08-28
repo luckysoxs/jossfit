@@ -197,6 +197,21 @@ def run_migrations():
                WHERE url LIKE '/notes/%%'
                GROUP BY user_id, url
            ) AND url LIKE '/notes/%%'""",
+        # Los scripts de carga guardaban el dia dentro del nombre ("Jueves - Espalda,
+        # Biceps y Abs") y la interfaz ya antepone el dia por su cuenta, asi que
+        # salia repetido. Se quita el prefijo, guion largo incluido.
+        r"""UPDATE routine_days
+           SET name = regexp_replace(
+               name,
+               '^(Lunes|Martes|Miércoles|Jueves|Viernes|Sábado|Domingo)\s*[—–-]\s*',
+               ''
+           )
+           WHERE name ~ '^(Lunes|Martes|Miércoles|Jueves|Viernes|Sábado|Domingo)\s*[—–-]\s*'""",
+        # Guion largo por guion normal en los nombres que si lo usan de separador.
+        r"""UPDATE routines SET name = regexp_replace(name, '\s*[—–]\s*', ' - ', 'g')
+           WHERE name ~ '[—–]'""",
+        r"""UPDATE routine_days SET name = regexp_replace(name, '\s*[—–]\s*', ' - ', 'g')
+           WHERE name ~ '[—–]'""",
     ]
     # Each migration runs in its own transaction so a failure in one
     # doesn't abort all subsequent migrations (PostgreSQL behaviour).

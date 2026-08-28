@@ -53,7 +53,7 @@ export default function TermsAndConditions() {
         </section>
 
         <section>
-          <h2 className="text-base font-bold text-gray-800 dark:text-white mb-2">4. Modo Adaptativo — Condiciones Médicas</h2>
+          <h2 className="text-base font-bold text-gray-800 dark:text-white mb-2">4. Modo Adaptativo - Condiciones Médicas</h2>
           <p>
             El modo adaptativo ajusta las rutinas según condiciones de salud reportadas. Este modo:
           </p>
@@ -123,7 +123,7 @@ export default function TermsAndConditions() {
 
         <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
           <p className="text-xs text-gray-400 text-center">
-            JOSSFITness — Plataforma de Entrenamiento, Salud y Rendimiento
+            JOSSFITness - Plataforma de Entrenamiento, Salud y Rendimiento
           </p>
         </div>
       </div>

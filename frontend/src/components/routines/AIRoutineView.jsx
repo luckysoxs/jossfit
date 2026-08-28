@@ -37,7 +37,7 @@ export default function AIRoutineView({ aiData }) {
             <AlertTriangle size={20} className="text-amber-500 flex-shrink-0 mt-0.5" />
             <div>
               <h3 className="font-bold text-amber-700 dark:text-amber-400 text-sm">
-                Modo Adaptativo — Riesgo: {perfil.riesgo_global?.toUpperCase()}
+                Modo Adaptativo - Riesgo: {perfil.riesgo_global?.toUpperCase()}
               </h3>
               {disclaimer && (
                 <p className="text-xs text-amber-600 dark:text-amber-300 mt-1">{disclaimer}</p>

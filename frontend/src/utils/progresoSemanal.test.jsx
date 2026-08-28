@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { getWeekStartDate, progressStorageKey } from './routineConstants'
-import { compactNumber, niceNumber, estimate1RM } from './shareCardData'
+import { milesSeparados, niceNumber, estimate1RM } from './shareCardData'
 
 describe('progreso semanal', () => {
   it('lunes a domingo caen en la misma semana', () => {
@@ -32,9 +32,9 @@ describe('progreso semanal', () => {
 })
 
 describe('cifras de la tarjeta', () => {
-  it('compacta el volumen para que quepa', () => {
-    expect(compactNumber(5240)).toBe('5,240')
-    expect(compactNumber(12400)).toBe('12.4k')
+  it('separa los miles del volumen sin abreviar', () => {
+    expect(milesSeparados(5240)).toBe('5,240')
+    expect(milesSeparados(13700)).toBe('13,700')
   })
 
   it('quita el decimal cuando sobra', () => {

@@ -150,8 +150,8 @@ export default function Dashboard() {
           />
         </div>
         <div className="flex justify-between text-xs text-gray-400 mt-2">
-          <span>Sueño: {d.avg_sleep_hours ? `${d.avg_sleep_hours}h` : '—'}</span>
-          <span>Calidad: {d.avg_sleep_quality ? `${d.avg_sleep_quality}/10` : '—'}</span>
+          <span>Sueño: {d.avg_sleep_hours ? `${d.avg_sleep_hours}h` : '-'}</span>
+          <span>Calidad: {d.avg_sleep_quality ? `${d.avg_sleep_quality}/10` : '-'}</span>
         </div>
       </div>
 
@@ -203,7 +203,7 @@ export default function Dashboard() {
                   </div>
                   {cat.top_exercise && (
                     <p className="text-[10px] text-gray-400 mt-0.5">
-                      Mejor: {cat.top_exercise} — {displayWeight(Math.round(cat.top_1rm))} {unit}
+                      Mejor: {cat.top_exercise} - {displayWeight(Math.round(cat.top_1rm))} {unit}
                     </p>
                   )}
                 </div>

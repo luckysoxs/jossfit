@@ -175,7 +175,7 @@ function UserDetailModal({ userId, onClose, onRefresh }) {
                     : 'bg-purple-50 dark:bg-purple-500/10 text-purple-500 hover:bg-purple-100'
                 }`}>
                   <Users size={16} />
-                  {user.is_coach ? 'Quitar rol de Coach' : 'Hacer Coach — crea rutinas y las comparte'}
+                  {user.is_coach ? 'Quitar rol de Coach' : 'Hacer Coach - crea rutinas y las comparte'}
                 </button>
               </div>
 

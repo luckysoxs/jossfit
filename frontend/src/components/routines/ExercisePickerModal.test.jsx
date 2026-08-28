@@ -52,7 +52,7 @@ function contarOpciones() {
   return within(lista).queryAllByRole('button', { name: /ejercicio|cardio/i }).length
 }
 
-describe('ExercisePickerModal — volumen de renderizado', () => {
+describe('ExercisePickerModal - volumen de renderizado', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     api.get.mockResolvedValue({ data: EJERCICIOS })

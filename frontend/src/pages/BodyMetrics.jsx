@@ -100,7 +100,7 @@ export default function BodyMetrics() {
           {metrics.map((m) => (
             <div key={m.id} className="card flex items-center justify-between">
               <div>
-                <p className="font-medium">{m.weight_kg ? `${displayWeight(m.weight_kg)} ${unit}` : '—'}{m.body_fat_pct ? ` · ${m.body_fat_pct}% grasa` : ''}</p>
+                <p className="font-medium">{m.weight_kg ? `${displayWeight(m.weight_kg)} ${unit}` : '-'}{m.body_fat_pct ? ` · ${m.body_fat_pct}% grasa` : ''}</p>
                 <p className="text-xs text-gray-400">{new Date(m.date).toLocaleDateString('es-MX')}</p>
               </div>
               <button onClick={async () => { await api.delete(`/body-metrics/${m.id}`); load() }} className="p-2 text-red-400"><Trash2 size={16} /></button>

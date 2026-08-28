@@ -17,11 +17,12 @@ export function niceNumber(value) {
   return String(Math.round(value * 10) / 10)
 }
 
-/** 5240 -> "5,240" ; 12400 -> "12.4k" para que quepa en la tarjeta. */
-export function compactNumber(value) {
-  const n = Math.round(value)
-  if (n >= 10000) return `${Math.round(n / 100) / 10}k`
-  return n.toLocaleString('es-MX')
+/**
+ * 13700 -> "13,700". Sin abreviar a "13.7k": el numero completo se entiende de
+ * inmediato y la abreviatura obligaba a traducir mentalmente.
+ */
+export function milesSeparados(value) {
+  return Math.round(value).toLocaleString('es-MX')
 }
 
 /** 1RM estimado: promedio de Epley y Brzycki, igual que el backend. */

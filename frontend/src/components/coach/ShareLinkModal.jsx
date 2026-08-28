@@ -120,7 +120,7 @@ export default function ShareLinkModal({ routine, onClose }) {
             <label className="label">Nombre del enlace</label>
             <input className="input" value={label} maxLength={100}
               onChange={(e) => setLabel(e.target.value)}
-              placeholder="Rutina de Juan — solo lo ves tu" />
+              placeholder="Rutina de Juan - solo lo ves tu" />
           </div>
 
           {kind === 'plantilla' && (

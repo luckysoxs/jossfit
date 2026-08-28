@@ -19,7 +19,7 @@ import {
 } from 'lucide-react'
 import ChangeRequestModal from '../components/routines/ChangeRequestModal'
 import ShareCardModal from '../components/share/ShareCardModal'
-import { muscleAccent, focusAccent, compactNumber, niceNumber, estimate1RM, todayLabel } from '../utils/shareCardData'
+import { muscleAccent, focusAccent, milesSeparados, niceNumber, estimate1RM, todayLabel } from '../utils/shareCardData'
 import { HANDLE } from '../utils/shareCard'
 
 const isCardioExercise = (exercise) =>
@@ -222,9 +222,9 @@ export default function RoutineDayDetail() {
     const series = todaySummary?.total_sets ?? 0
     if (series > strengthIds.length) meta.push(`${series} series`)
     if (todaySummary?.total_volume_kg) {
-      // Sin la palabra "levantados" el numero no se entiende: 13.5k kg suelto
+      // Sin la palabra "cargados" el numero no se entiende: un 13,700 kg suelto
       // no dice que es la suma de peso por repeticiones de la sesion.
-      meta.push(`${compactNumber(displayWeight(todaySummary.total_volume_kg))} ${unit} levantados`)
+      meta.push(`${milesSeparados(displayWeight(todaySummary.total_volume_kg))} ${unit} cargados`)
     }
     return {
       kind: 'workout',

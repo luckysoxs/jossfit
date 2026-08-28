@@ -73,7 +73,7 @@ export default function WorkoutDetail() {
                 <span>{s.set_number}</span>
                 <span>{s.reps}</span>
                 <span>{displayWeight(s.weight_kg)} {unit}</span>
-                <span>{s.rpe || '—'}</span>
+                <span>{s.rpe || '-'}</span>
               </div>
             ))}
           </div>
