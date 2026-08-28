@@ -28,6 +28,9 @@ const MUTED = 'rgba(255,255,255,0.52)'
 /** Cuenta de Instagram, impresa en la tarjeta y sugerida al compartir. */
 export const HANDLE = '@jos.sfit'
 
+/** Sitio, en el pie de la tarjeta. */
+const SITE = 'www.jossfit.pro'
+
 const font = (weight, size, tracking = 0) => ({
   css: `${weight} ${size}px ${FONT}`,
   size,
@@ -136,13 +139,15 @@ function drawBackground(ctx, { photo }) {
 }
 
 /**
- * Pie unico: marca, cuenta y fecha en la misma linea. La marca va en el color
+ * Pie unico: sitio, cuenta y fecha en la misma linea. El sitio va en el color
  * del musculo para que resalte; lo demas en gris, que es apoyo.
  */
 function drawFooter(ctx, accent, dateLabel) {
   ctx.textBaseline = 'alphabetic'
   ctx.fillStyle = accent
-  const ancho = trackedText(ctx, 'JOSSFITNESS', MARGIN, SAFE_BOTTOM, font(700, 30, 5))
+  // Tracking corto: una URL con las letras muy separadas se lee peor y deja de
+  // parecer una direccion.
+  const ancho = trackedText(ctx, SITE, MARGIN, SAFE_BOTTOM, font(700, 30, 1))
   ctx.fillStyle = MUTED
   trackedText(ctx, HANDLE, MARGIN + ancho + 26, SAFE_BOTTOM, font(500, 28, 2))
   trackedText(ctx, dateLabel.toUpperCase(), CARD_W - MARGIN, SAFE_BOTTOM, font(500, 26, 3), 'right')
