@@ -215,13 +215,16 @@ export default function RoutineDayDetail() {
   const completed = strengthIds.length > 0 && doneCount === strengthIds.length
 
   const buildWorkoutCard = () => {
-    // Una linea tenue, no una rejilla: solo ejercicios, series y volumen.
-    const meta = [
-      `${strengthIds.length} ejercicios`,
-      `${todaySummary?.total_sets ?? strengthIds.length} series`,
-    ]
+    // Una linea tenue, no una rejilla.
+    const meta = [`${strengthIds.length} ejercicios`]
+    // Cada check registra una serie, asi que normalmente "series" repetiria el
+    // numero de ejercicios. Solo aparece si de verdad aporta algo.
+    const series = todaySummary?.total_sets ?? 0
+    if (series > strengthIds.length) meta.push(`${series} series`)
     if (todaySummary?.total_volume_kg) {
-      meta.push(`${compactNumber(displayWeight(todaySummary.total_volume_kg))} ${unit}`)
+      // Sin la palabra "levantados" el numero no se entiende: 13.5k kg suelto
+      // no dice que es la suma de peso por repeticiones de la sesion.
+      meta.push(`${compactNumber(displayWeight(todaySummary.total_volume_kg))} ${unit} levantados`)
     }
     return {
       kind: 'workout',
