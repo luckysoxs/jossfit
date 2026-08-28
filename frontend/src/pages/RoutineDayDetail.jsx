@@ -20,7 +20,6 @@ import {
 import ChangeRequestModal from '../components/routines/ChangeRequestModal'
 import ShareCardModal from '../components/share/ShareCardModal'
 import { muscleAccent, focusAccent, milesSeparados, niceNumber, estimate1RM, todayLabel } from '../utils/shareCardData'
-import { HANDLE } from '../utils/shareCard'
 
 const isCardioExercise = (exercise) =>
   exercise?.muscle_group === 'cardio' && exercise?.category === 'cardio'
@@ -1077,8 +1076,8 @@ export default function RoutineDayDetail() {
           onClose={() => setShareCard(null)}
           filename={shareCard.kind === 'pr' ? 'jossfitness-pr.png' : 'jossfitness-entreno.png'}
           shareText={shareCard.kind === 'pr'
-            ? `Nuevo PR: ${shareCard.exerciseName} ${shareCard.weight} ${shareCard.unit} x ${shareCard.reps} ${HANDLE}`
-            : `Entreno completado: ${shareCard.title} ${HANDLE}`}
+            ? `Nuevo PR: ${shareCard.exerciseName} ${shareCard.weight} ${shareCard.unit} x ${shareCard.reps}`
+            : `Entreno completado: ${shareCard.title}`}
         />
       )}
 

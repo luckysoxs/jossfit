@@ -25,9 +25,6 @@ const FONT = 'Inter, "Segoe UI", system-ui, -apple-system, sans-serif'
 const INK = '#ffffff'
 const MUTED = 'rgba(255,255,255,0.52)'
 
-/** Cuenta de Instagram, impresa en la tarjeta y sugerida al compartir. */
-export const HANDLE = '@jos.sfit'
-
 /** Sitio, en el pie de la tarjeta. */
 const SITE = 'www.jossfit.pro'
 
@@ -139,17 +136,16 @@ function drawBackground(ctx, { photo }) {
 }
 
 /**
- * Pie unico: sitio, cuenta y fecha en la misma linea. El sitio va en el color
- * del musculo para que resalte; lo demas en gris, que es apoyo.
+ * Pie unico: sitio y fecha en la misma linea. El sitio va en el color del
+ * musculo para que resalte; la fecha en gris, que es apoyo.
  */
 function drawFooter(ctx, accent, dateLabel) {
   ctx.textBaseline = 'alphabetic'
   ctx.fillStyle = accent
   // Tracking corto: una URL con las letras muy separadas se lee peor y deja de
   // parecer una direccion.
-  const ancho = trackedText(ctx, SITE, MARGIN, SAFE_BOTTOM, font(700, 30, 1))
+  trackedText(ctx, SITE, MARGIN, SAFE_BOTTOM, font(700, 30, 1))
   ctx.fillStyle = MUTED
-  trackedText(ctx, HANDLE, MARGIN + ancho + 26, SAFE_BOTTOM, font(500, 28, 2))
   trackedText(ctx, dateLabel.toUpperCase(), CARD_W - MARGIN, SAFE_BOTTOM, font(500, 26, 3), 'right')
 }
 
@@ -276,11 +272,6 @@ export async function shareCardImage(canvas, { filename, title, text }) {
   const blob = await canvasToBlob(canvas)
   if (!blob) throw new Error('No se pudo generar la imagen')
   const file = new File([blob], filename, { type: 'image/png' })
-
-  // Instagram no deja anadir el sticker de mencion desde la web: la hoja de
-  // compartir solo entrega la imagen. Lo mas cerca que se puede llegar es
-  // dejar la cuenta en el portapapeles para pegarla de un toque en el editor.
-  try { await navigator.clipboard?.writeText(HANDLE) } catch { /* sin permiso */ }
 
   if (navigator.canShare?.({ files: [file] })) {
     try {

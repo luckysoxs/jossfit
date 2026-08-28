@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { X, Share2, ImagePlus, Trash2, Loader2, Download } from 'lucide-react'
-import { renderShareCard, loadImageFile, shareCardImage, CARD_W, CARD_H, HANDLE } from '../../utils/shareCard'
+import { renderShareCard, loadImageFile, shareCardImage, CARD_W, CARD_H } from '../../utils/shareCard'
 
 /**
  * Preview + compartir de una tarjeta (PR o entreno completado).
@@ -44,7 +44,7 @@ export default function ShareCardModal({ card, onClose, filename, shareText }) {
         title: shareText,
         text: shareText,
       })
-      if (result === 'downloaded') setNote(`Imagen descargada · ${HANDLE} copiado para pegarlo`)
+      if (result === 'downloaded') setNote('Imagen descargada, súbela a tu historia')
       if (result === 'shared') onClose()
     } catch {
       setNote('No se pudo compartir, intenta de nuevo')
@@ -114,7 +114,7 @@ export default function ShareCardModal({ card, onClose, filename, shareText }) {
 
           <p className="flex items-center justify-center gap-1.5 text-[11px] text-gray-500 text-center">
             <Download size={12} className="flex-shrink-0" />
-            Al compartir se copia {HANDLE} para pegarlo como mención
+            Si tu navegador no comparte, se descarga la imagen
           </p>
         </div>
 
