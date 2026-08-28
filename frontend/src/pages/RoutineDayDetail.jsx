@@ -9,15 +9,18 @@ import LoadingSpinner from '../components/ui/LoadingSpinner'
 import OneRMCalculator from '../components/routines/OneRMCalculator'
 import ExercisePickerModal from '../components/routines/ExercisePickerModal'
 import PageTour from '../components/ui/PageTour'
-import { MUSCLE_LABELS, MUSCLE_COLORS, WEEKDAY_NAMES, getWeekdayMap, exDisplayName, exSubtitle } from '../utils/routineConstants'
+import { MUSCLE_LABELS, MUSCLE_COLORS, WEEKDAY_NAMES, getWeekdayMap, exDisplayName, exSubtitle, progressStorageKey } from '../utils/routineConstants'
 import { CARDIO_TYPES } from '../data/cardioProtocols'
 import {
   ArrowLeft, Play, Check, Calculator, RefreshCw, X, Trash2, Plus, Trophy,
   Dumbbell, GripVertical, ChevronUp, ChevronDown, WifiOff, TrendingUp,
   Timer, Pause, HeartPulse, Music, Pencil, Save, Link2, Unlink,
-  UserCheck, MessageSquarePlus,
+  UserCheck, MessageSquarePlus, Share2, PartyPopper,
 } from 'lucide-react'
 import ChangeRequestModal from '../components/routines/ChangeRequestModal'
+import ShareCardModal from '../components/share/ShareCardModal'
+import { muscleAccent, focusAccent, todayLabel, compactNumber, niceNumber, estimate1RM } from '../utils/shareCardData'
+import { HANDLE } from '../utils/shareCard'
 
 const isCardioExercise = (exercise) =>
   exercise?.muscle_group === 'cardio' && exercise?.category === 'cardio'
@@ -44,26 +47,35 @@ export default function RoutineDayDetail() {
   const [offlineMode, setOfflineMode] = useState(false)
   const [personalBests, setPersonalBests] = useState({})
 
-  const todayDate = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD local time
-  const todayKey = `routine_progress_${id}_${todayDate}`
+  // Clave semanal: los marcados de lunes siguen ahi el jueves y se limpian
+  // solos al empezar la siguiente semana.
+  const weekKey = progressStorageKey(id)
 
   const [checked, setChecked] = useState(() => {
     try {
-      const saved = localStorage.getItem(todayKey)
+      const saved = localStorage.getItem(weekKey)
       if (saved) return JSON.parse(saved)
-      // Migrate from old UTC-based key if exists
-      const utcDate = new Date().toISOString().split('T')[0]
-      const utcKey = `routine_progress_${id}_${utcDate}`
-      const utcSaved = localStorage.getItem(utcKey)
-      if (utcSaved) {
-        const data = JSON.parse(utcSaved)
-        localStorage.setItem(todayKey, utcSaved) // copy to new key
-        return data
+      // Migracion de las claves diarias previas: fusionamos lo que quede de
+      // esta semana para no borrarle nada al usuario en el cambio.
+      const merged = {}
+      const monday = new Date()
+      monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7))
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(monday)
+        d.setDate(monday.getDate() + i)
+        for (const legacy of [d.toLocaleDateString('en-CA'), d.toISOString().split('T')[0]]) {
+          const raw = localStorage.getItem(`routine_progress_${id}_${legacy}`)
+            || sessionStorage.getItem(`routine_progress_${id}_${legacy}`)
+          if (!raw) continue
+          for (const [k, v] of Object.entries(JSON.parse(raw))) {
+            if (v) merged[k] = true
+          }
+        }
       }
-      // Also check sessionStorage as fallback
-      const session = sessionStorage.getItem(todayKey)
-      if (session) return JSON.parse(session)
-      return {}
+      if (Object.keys(merged).length > 0) {
+        localStorage.setItem(weekKey, JSON.stringify(merged))
+      }
+      return merged
     } catch { return {} }
   })
 
@@ -80,10 +92,14 @@ export default function RoutineDayDetail() {
   const [quickSetExercise, setQuickSetExercise] = useState(null)
   const [quickSetForm, setQuickSetForm] = useState({ weight_kg: '', reps: '' })
   const [quickSetSaving, setQuickSetSaving] = useState(false)
-  const [quickSetNewPR, setQuickSetNewPR] = useState(false)
 
   // 1RM calculator
   const [oneRMExercise, setOneRMExercise] = useState(null)
+
+  // Tarjeta compartible (PR o entreno terminado) y cifras del dia para pintarla
+  const [shareCard, setShareCard] = useState(null)
+  const [todaySummary, setTodaySummary] = useState(null)
+  const [prJustSet, setPrJustSet] = useState(null)
 
   // Regenerate exercises state
   const [regenerating, setRegenerating] = useState(false)
@@ -102,14 +118,16 @@ export default function RoutineDayDetail() {
     let cancelled = false
     const loadData = async () => {
       try {
-        const [r, pb, todayEx, serverProgress] = await Promise.all([
+        const [r, pb, todayEx, serverProgress, summary] = await Promise.all([
           api.get(`/routines/${id}`),
           api.get('/workouts/personal-bests').catch(() => ({ data: [] })),
           api.get('/workouts/today-exercises').catch(() => ({ data: [] })),
           api.get(`/workouts/progress/${id}`).catch(() => ({ data: {} })),
+          api.get('/workouts/today-summary').catch(() => ({ data: null })),
         ])
         if (cancelled) return
         setRoutine(r.data)
+        setTodaySummary(summary.data)
         const bests = {}
         pb.data.forEach(b => { bests[b.exercise_id] = b })
         setPersonalBests(bests)
@@ -138,7 +156,7 @@ export default function RoutineDayDetail() {
               }
             }
           }
-          localStorage.setItem(todayKey, JSON.stringify(merged))
+          localStorage.setItem(weekKey, JSON.stringify(merged))
           return merged
         })
       } catch {
@@ -175,14 +193,82 @@ export default function RoutineDayDetail() {
   const syncTimerRef = useRef(null)
   useEffect(() => {
     if (Object.keys(checked).length > 0) {
-      sessionStorage.setItem(todayKey, JSON.stringify(checked))
+      localStorage.setItem(weekKey, JSON.stringify(checked))
+      sessionStorage.setItem(weekKey, JSON.stringify(checked))
       // Debounced server sync (500ms after last change)
       if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
       syncTimerRef.current = setTimeout(() => {
         api.put(`/workouts/progress/${id}`, checked).catch(() => {})
       }, 500)
     }
-  }, [checked, todayKey])
+  }, [checked, weekKey])
+
+  // ─── Datos del dia y tarjetas compartibles ───
+  // Va antes de los early returns porque los efectos de abajo dependen de esto
+  // y los hooks no pueden quedar detras de un `return`.
+  const numDayId = parseInt(dayId)
+  const day = routine?.days?.find(d => d.id === numDayId)
+  const strengthIds = (day?.exercises || [])
+    .filter(e => !isCardioExercise(e.exercise))
+    .map(e => e.id)
+  const doneCount = strengthIds.filter(eId => checked[eId]).length
+  const completed = strengthIds.length > 0 && doneCount === strengthIds.length
+
+  const buildWorkoutCard = () => {
+    const stats = [
+      { label: 'EJERCICIOS', value: String(strengthIds.length) },
+      { label: 'SERIES', value: String(todaySummary?.total_sets ?? strengthIds.length) },
+    ]
+    if (todaySummary?.total_volume_kg) {
+      stats.push({ label: `VOLUMEN ${unit.toUpperCase()}`, value: compactNumber(displayWeight(todaySummary.total_volume_kg)) })
+    }
+    if (todaySummary?.streak_days) {
+      stats.push({ label: 'RACHA', value: `${todaySummary.streak_days} d` })
+    }
+    return {
+      kind: 'workout',
+      accent: focusAccent(day?.focus),
+      muscleGroup: (day?.focus || '').split(',')[0]?.trim(),
+      title: day?.name || 'Entreno',
+      subtitle: (day?.focus || '').split(',')
+        .map(m => MUSCLE_LABELS[m.trim()] || m.trim()).filter(Boolean).join(' · '),
+      stats,
+      dateLabel: todayLabel(),
+    }
+  }
+
+  const buildPRCard = (pr) => ({
+    kind: 'pr',
+    accent: muscleAccent(pr.muscleGroup),
+    muscleGroup: pr.muscleGroup,
+    exerciseName: pr.name,
+    weight: niceNumber(pr.weight),
+    unit,
+    reps: pr.reps,
+    oneRm: niceNumber(estimate1RM(pr.weight, pr.reps) || pr.weight),
+    streak: todaySummary?.streak_days || 0,
+    dateLabel: todayLabel(),
+  })
+
+  // Un PR abre su tarjeta solo. Se dispara desde un efecto y no desde
+  // submitQuickSet para que `todaySummary` ya venga actualizado con la racha.
+  useEffect(() => {
+    if (!prJustSet) return
+    setQuickSetExercise(null)
+    setShareCard(buildPRCard(prJustSet))
+    setPrJustSet(null)
+  }, [prJustSet, todaySummary])
+
+  // Al marcar el ultimo ejercicio del dia, la tarjeta de entreno sale sola.
+  // El ref evita que reaparezca cada render o si el usuario la cierra.
+  const autoSharedRef = useRef(null)
+  useEffect(() => {
+    if (!completed || !day) return
+    const marca = `${day.id}_${new Date().toLocaleDateString('en-CA')}`
+    if (autoSharedRef.current === marca) return
+    autoSharedRef.current = marca
+    setShareCard(buildWorkoutCard())
+  }, [completed, day?.id, todaySummary])
 
   // ─── Handlers ───
   const reloadRoutine = () => api.get(`/routines/${id}`).then(r => {
@@ -239,16 +325,15 @@ export default function RoutineDayDetail() {
     }
   }
 
-  const handleExerciseCheck = (routineExId, exerciseId, exerciseName) => {
+  const handleExerciseCheck = (routineExId, exerciseId, exerciseName, muscleGroup) => {
     if (checked[routineExId]) {
       const next = { ...checked, [routineExId]: false }
       setChecked(next)
-      localStorage.setItem(todayKey, JSON.stringify(next))
+      localStorage.setItem(weekKey, JSON.stringify(next))
     } else {
       const prev = personalBests[exerciseId]
-      setQuickSetExercise({ routineExId, exerciseId, name: exerciseName })
+      setQuickSetExercise({ routineExId, exerciseId, name: exerciseName, muscleGroup })
       setQuickSetForm({ weight_kg: prev ? displayWeight(prev.weight_kg).toString() : '', reps: prev?.reps?.toString() || '' })
-      setQuickSetNewPR(false)
     }
   }
 
@@ -300,14 +385,21 @@ export default function RoutineDayDetail() {
 
       const next = { ...checked, [quickSetExercise.routineExId]: true }
       setChecked(next)
-      localStorage.setItem(todayKey, JSON.stringify(next))
+      localStorage.setItem(weekKey, JSON.stringify(next))
 
+      api.get('/workouts/today-summary')
+        .then(res => setTodaySummary(res.data))
+        .catch(() => {})
+
+      // La tarjeta del record se abre sola (efecto de arriba); ya dice "NUEVO
+      // RECORD", asi que el popup de felicitacion sobraba.
       if (isNewPR) {
-        setQuickSetNewPR(true)
-        setTimeout(() => {
-          setQuickSetExercise(null)
-          setQuickSetNewPR(false)
-        }, 1500)
+        setPrJustSet({
+          name: quickSetExercise.name,
+          muscleGroup: quickSetExercise.muscleGroup,
+          weight: w,
+          reps,
+        })
       } else {
         setQuickSetExercise(null)
       }
@@ -321,7 +413,7 @@ export default function RoutineDayDetail() {
   const skipQuickSet = () => {
     const next = { ...checked, [quickSetExercise.routineExId]: true }
     setChecked(next)
-    localStorage.setItem(todayKey, JSON.stringify(next))
+    localStorage.setItem(weekKey, JSON.stringify(next))
     setQuickSetExercise(null)
   }
 
@@ -419,9 +511,6 @@ export default function RoutineDayDetail() {
   if (loading) return <LoadingSpinner />
   if (!routine) return null
 
-  const numDayId = parseInt(dayId)
-  const day = routine.days?.find(d => d.id === numDayId)
-
   if (!day) {
     // Day not found — go back to routine
     return (
@@ -481,6 +570,7 @@ export default function RoutineDayDetail() {
   const wd = wMap[day.day_number]
   const dayTitle = wd !== undefined ? `${WEEKDAY_NAMES[wd]} - ${day.name}` : `Dia ${day.day_number}: ${day.name}`
 
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -527,6 +617,26 @@ export default function RoutineDayDetail() {
           </button>
         )}
       </div>
+
+      {completed && (
+        <div className="card border border-green-500/40 bg-gradient-to-br from-green-500/10 to-brand-500/10">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-green-500/15 flex items-center justify-center flex-shrink-0">
+              <PartyPopper size={22} className="text-green-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-bold text-sm">Entreno completado</h3>
+              <p className="text-xs text-gray-400">{total} ejercicios · presume el trabajo</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShareCard(buildWorkoutCard())}
+            className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-white bg-brand-500 hover:bg-brand-600 transition-colors"
+          >
+            <Share2 size={16} /> Compartir de nuevo
+          </button>
+        </div>
+      )}
 
       {/* Link mode bar */}
       {linkMode ? (
@@ -698,7 +808,7 @@ export default function RoutineDayDetail() {
                   </button>
                 ) : (
                   <button
-                    onClick={() => handleExerciseCheck(ex.id, ex.exercise_id, exDisplayName(ex.exercise))}
+                    onClick={() => handleExerciseCheck(ex.id, ex.exercise_id, exDisplayName(ex.exercise), ex.exercise?.muscle_group)}
                     className={`w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
                       checked[ex.id] ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 dark:border-gray-600'
                     }`}
@@ -868,61 +978,49 @@ export default function RoutineDayDetail() {
       {quickSetExercise && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-sm shadow-2xl border border-gray-100 dark:border-gray-800 animate-in overflow-hidden">
-            {quickSetNewPR ? (
-              <div className="p-8 text-center space-y-3">
-                <div className="w-16 h-16 bg-yellow-50 dark:bg-yellow-500/10 rounded-full flex items-center justify-center mx-auto">
-                  <Trophy size={32} className="text-yellow-500" />
+              <div className="p-4 border-b border-gray-100 dark:border-gray-800">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-brand-50 dark:bg-brand-500/10 flex items-center justify-center">
+                      <Dumbbell size={20} className="text-brand-500" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-sm">{quickSetExercise.name}</h3>
+                      <p className="text-xs text-gray-400">Serie mas pesada de hoy</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setQuickSetExercise(null)} className="text-gray-400 hover:text-gray-600">
+                    <X size={20} />
+                  </button>
                 </div>
-                <h3 className="text-xl font-bold">Nuevo PR!</h3>
-                <p className="text-brand-500 font-bold text-lg">{quickSetForm.weight_kg} {unit} x {quickSetForm.reps} reps</p>
               </div>
-            ) : (
-              <>
-                <div className="p-4 border-b border-gray-100 dark:border-gray-800">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-brand-50 dark:bg-brand-500/10 flex items-center justify-center">
-                        <Dumbbell size={20} className="text-brand-500" />
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-sm">{quickSetExercise.name}</h3>
-                        <p className="text-xs text-gray-400">Serie mas pesada de hoy</p>
-                      </div>
-                    </div>
-                    <button onClick={() => setQuickSetExercise(null)} className="text-gray-400 hover:text-gray-600">
-                      <X size={20} />
-                    </button>
+              <div className="p-4 space-y-4">
+                {personalBests[quickSetExercise.exerciseId] && (
+                  <div className="flex items-center gap-2 bg-yellow-50 dark:bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 px-3 py-2 rounded-xl text-sm">
+                    <Trophy size={14} />
+                    <span className="font-medium">PR actual: {displayWeight(personalBests[quickSetExercise.exerciseId].weight_kg)} {unit} x {personalBests[quickSetExercise.exerciseId].reps} reps</span>
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="label">Peso ({unit})</label>
+                    <input type="number" className="input text-center text-lg font-bold" value={quickSetForm.weight_kg}
+                      onChange={(e) => setQuickSetForm({ ...quickSetForm, weight_kg: e.target.value })} placeholder="0" inputMode="decimal" autoFocus />
+                  </div>
+                  <div>
+                    <label className="label">Reps</label>
+                    <input type="number" className="input text-center text-lg font-bold" value={quickSetForm.reps}
+                      onChange={(e) => setQuickSetForm({ ...quickSetForm, reps: e.target.value })} placeholder="0" inputMode="numeric" />
                   </div>
                 </div>
-                <div className="p-4 space-y-4">
-                  {personalBests[quickSetExercise.exerciseId] && (
-                    <div className="flex items-center gap-2 bg-yellow-50 dark:bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 px-3 py-2 rounded-xl text-sm">
-                      <Trophy size={14} />
-                      <span className="font-medium">PR actual: {displayWeight(personalBests[quickSetExercise.exerciseId].weight_kg)} {unit} x {personalBests[quickSetExercise.exerciseId].reps} reps</span>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="label">Peso ({unit})</label>
-                      <input type="number" className="input text-center text-lg font-bold" value={quickSetForm.weight_kg}
-                        onChange={(e) => setQuickSetForm({ ...quickSetForm, weight_kg: e.target.value })} placeholder="0" inputMode="decimal" autoFocus />
-                    </div>
-                    <div>
-                      <label className="label">Reps</label>
-                      <input type="number" className="input text-center text-lg font-bold" value={quickSetForm.reps}
-                        onChange={(e) => setQuickSetForm({ ...quickSetForm, reps: e.target.value })} placeholder="0" inputMode="numeric" />
-                    </div>
-                  </div>
-                  <button onClick={submitQuickSet} className="btn-primary w-full flex items-center justify-center gap-2"
-                    disabled={quickSetSaving || !quickSetForm.weight_kg || !quickSetForm.reps}>
-                    {quickSetSaving ? 'Guardando...' : <><Check size={18} /> Guardar y completar</>}
-                  </button>
-                  <button onClick={skipQuickSet} className="w-full text-center text-sm text-gray-400 hover:text-gray-600 py-1">
-                    Saltar sin registrar peso
-                  </button>
-                </div>
-              </>
-            )}
+                <button onClick={submitQuickSet} className="btn-primary w-full flex items-center justify-center gap-2"
+                  disabled={quickSetSaving || !quickSetForm.weight_kg || !quickSetForm.reps}>
+                  {quickSetSaving ? 'Guardando...' : <><Check size={18} /> Guardar y completar</>}
+                </button>
+                <button onClick={skipQuickSet} className="w-full text-center text-sm text-gray-400 hover:text-gray-600 py-1">
+                  Saltar sin registrar peso
+                </button>
+              </div>
           </div>
         </div>
       )}
@@ -977,6 +1075,17 @@ export default function RoutineDayDetail() {
           }}
         />
       )}
+      {shareCard && (
+        <ShareCardModal
+          card={shareCard}
+          onClose={() => setShareCard(null)}
+          filename={shareCard.kind === 'pr' ? 'jossfitness-pr.png' : 'jossfitness-entreno.png'}
+          shareText={shareCard.kind === 'pr'
+            ? `Nuevo PR: ${shareCard.exerciseName} ${shareCard.weight} ${shareCard.unit} x ${shareCard.reps} ${HANDLE}`
+            : `Entreno completado: ${shareCard.title} ${HANDLE}`}
+        />
+      )}
+
       <PageTour pageKey="routine-day" steps={[
         { target: '[data-tour="rest-timer"]', title: 'Cronometro de Descanso', description: 'Inicia un timer entre series. Se pinta de rojo a verde conforme se acerca tu turno. Suena una campana de box al terminar. Funciona aunque cambies de pagina o cierres la app.', position: 'top' },
       ]} />

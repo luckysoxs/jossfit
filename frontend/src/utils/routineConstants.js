@@ -32,6 +32,15 @@ export const MUSCLE_COLORS = {
   full_body: 'bg-brand-100 dark:bg-brand-500/20 text-brand-600 dark:text-brand-400',
 }
 
+// Los mismos tonos que MUSCLE_COLORS, pero en hex: las clases de Tailwind no
+// sirven para pintar un canvas. Es el shade 500 de cada color.
+export const MUSCLE_HEX = {
+  chest: '#3b82f6', back: '#22c55e', shoulders: '#f97316', biceps: '#a855f7',
+  triceps: '#6366f1', quadriceps: '#ef4444', hamstrings: '#f43f5e',
+  glutes: '#ec4899', calves: '#f59e0b', abs: '#14b8a6', traps: '#06b6d4',
+  forearms: '#84cc16', cardio: '#ef4444',
+}
+
 export const WEEKDAY_NAMES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
 export const WEEKDAY_SHORT = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
@@ -67,4 +76,19 @@ export function exSubtitle(ex) {
   if (!ex) return ''
   if (ex.name_es) return ex.name
   return ''
+}
+
+// El progreso de una rutina se agrupa por semana (lunes a domingo), no por dia:
+// lo marcado el lunes sigue visible el jueves y se limpia solo al cambiar de
+// semana. Espejo de week_start_mx() en el backend.
+export function getWeekStartDate(date = new Date()) {
+  const d = new Date(date)
+  d.setHours(0, 0, 0, 0)
+  const mondayOffset = (d.getDay() + 6) % 7
+  d.setDate(d.getDate() - mondayOffset)
+  return d.toLocaleDateString('en-CA') // YYYY-MM-DD local
+}
+
+export function progressStorageKey(routineId, date = new Date()) {
+  return `routine_progress_${routineId}_w${getWeekStartDate(date)}`
 }

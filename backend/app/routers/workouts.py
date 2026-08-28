@@ -14,7 +14,7 @@ from app.schemas.workout import WorkoutCreate, WorkoutResponse
 from app.auth.security import get_current_user
 from app.services.algorithms import calculate_1rm_epley, calculate_1rm_brzycki
 from app.services.routine_access import assert_routine_access
-from app.utils.timezone import today_mx
+from app.utils.timezone import today_mx, week_start_mx
 
 router = APIRouter(prefix="/workouts", tags=["Workouts"])
 
@@ -190,24 +190,109 @@ def get_today_exercises(
     return [eid for (eid,) in exercise_ids]
 
 
+@router.get("/today-summary")
+def get_today_summary(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Cifras del entreno de hoy para la tarjeta compartible.
+
+    Volumen = suma de peso x reps de las series completadas hoy.
+    """
+    today = today_mx()
+    workout = (
+        db.query(Workout)
+        .filter(Workout.user_id == user.id, Workout.date == today)
+        .first()
+    )
+    empty = {
+        "total_sets": 0, "total_volume_kg": 0.0, "exercise_count": 0,
+        "top_lift": None, "streak_days": _training_streak(db, user.id, today),
+    }
+    if not workout:
+        return empty
+
+    sets = (
+        db.query(WorkoutSet)
+        .filter(WorkoutSet.workout_id == workout.id, WorkoutSet.completed == True)
+        .options(joinedload(WorkoutSet.exercise))
+        .all()
+    )
+    if not sets:
+        return empty
+
+    volume = sum((s.weight_kg or 0) * (s.reps or 0) for s in sets)
+    heaviest = max(sets, key=lambda s: s.weight_kg or 0)
+    return {
+        "total_sets": len(sets),
+        "total_volume_kg": round(volume, 1),
+        "exercise_count": len({s.exercise_id for s in sets}),
+        "top_lift": {
+            "name": getattr(heaviest.exercise, "name_es", None) or getattr(heaviest.exercise, "name", None),
+            "weight_kg": heaviest.weight_kg,
+            "reps": heaviest.reps,
+        } if heaviest.weight_kg else None,
+        "streak_days": _training_streak(db, user.id, today),
+    }
+
+
+def _training_streak(db: Session, user_id: int, today: date) -> int:
+    """Dias consecutivos con entreno registrado, contando hacia atras desde hoy.
+
+    Si hoy aun no hay entreno la racha se cuenta desde ayer, para no mostrar 0
+    a alguien que lleva semanas sin fallar y abre la app por la manana.
+    """
+    fechas = {
+        d for (d,) in db.query(Workout.date)
+        .filter(Workout.user_id == user_id, Workout.date <= today)
+        .order_by(Workout.date.desc())
+        .limit(400)
+        .all()
+    }
+    if not fechas:
+        return 0
+    cursor = today if today in fechas else today - timedelta(days=1)
+    streak = 0
+    while cursor in fechas:
+        streak += 1
+        cursor -= timedelta(days=1)
+    return streak
+
+
 @router.get("/progress/{routine_id}")
 def get_routine_progress(
     routine_id: int,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Estado marcado de hoy para una rutina (sincronizado entre dispositivos)."""
+    """Estado marcado de la semana en curso (sincronizado entre dispositivos).
+
+    El progreso se guarda por semana (fila con fecha = lunes), no por dia: lo
+    marcado el lunes sigue visible el jueves y solo se limpia al empezar la
+    siguiente semana.
+    """
     assert_routine_access(db, user.id, routine_id)
-    row = (
+    week_start = week_start_mx()
+    rows = (
         db.query(RoutineProgress)
         .filter(
             RoutineProgress.user_id == user.id,
             RoutineProgress.routine_id == routine_id,
-            RoutineProgress.date == today_mx(),
+            RoutineProgress.date >= week_start,
         )
-        .first()
+        .all()
     )
-    return row.checked_data if row else {}
+    for row in rows:
+        if row.date == week_start:
+            return row.checked_data or {}
+    # Filas diarias previas al cambio a progreso semanal: se fusionan para no
+    # perder lo ya marcado esta semana. El primer PUT las consolida.
+    merged = {}
+    for row in rows:
+        for key, value in (row.checked_data or {}).items():
+            if value:
+                merged[key] = True
+    return merged
 
 
 @router.put("/progress/{routine_id}")
@@ -217,27 +302,33 @@ def save_routine_progress(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Guarda el estado marcado (se sincroniza entre dispositivos)."""
+    """Guarda el estado marcado de la semana (se sincroniza entre dispositivos)."""
     assert_routine_access(db, user.id, routine_id)
-    today = today_mx()
-    row = (
+    week_start = week_start_mx()
+    rows = (
         db.query(RoutineProgress)
         .filter(
             RoutineProgress.user_id == user.id,
             RoutineProgress.routine_id == routine_id,
-            RoutineProgress.date == today,
+            RoutineProgress.date >= week_start,
         )
-        .first()
+        .all()
     )
+    row = next((r for r in rows if r.date == week_start), None)
     if row:
         row.checked_data = checked_data
     else:
         db.add(RoutineProgress(
             user_id=user.id,
             routine_id=routine_id,
-            date=today,
+            date=week_start,
             checked_data=checked_data,
         ))
+    # Consolidamos: las filas diarias sobrantes de esta semana ya se fusionaron
+    # en el GET, dejarlas haria reaparecer lo que el usuario desmarque.
+    for extra in rows:
+        if extra.date != week_start:
+            db.delete(extra)
     db.commit()
     return {"ok": True}
 

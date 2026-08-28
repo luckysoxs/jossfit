@@ -5,7 +5,7 @@ import { cacheSet, cacheGet } from '../services/offlineCache'
 import useOnlineStatus from '../hooks/useOnlineStatus'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import AIRoutineView from '../components/routines/AIRoutineView'
-import { WEEKDAY_NAMES, WEEKDAY_SHORT, getWeekdayMap, getNextTrainingDate } from '../utils/routineConstants'
+import { WEEKDAY_NAMES, WEEKDAY_SHORT, getWeekdayMap, getNextTrainingDate, progressStorageKey } from '../utils/routineConstants'
 import {
   ArrowLeft, X, Zap, Dumbbell, GripVertical, ChevronRight,
   Calendar, Moon, Pencil, WifiOff, UserCheck,
@@ -26,10 +26,12 @@ export default function RoutineDetail() {
   const [nameInput, setNameInput] = useState('')
   const cancellingNameRef = useRef(false)
 
-  const todayDate = new Date().toISOString().split('T')[0]
+  // Progreso semanal: lo marcado el lunes sigue contando el jueves y se limpia
+  // solo al empezar la siguiente semana.
+  const weekKey = progressStorageKey(id)
   const [checked, setChecked] = useState(() => {
     try {
-      const saved = localStorage.getItem(`routine_progress_${id}_${todayDate}`)
+      const saved = localStorage.getItem(weekKey)
       return saved ? JSON.parse(saved) : {}
     } catch { return {} }
   })
@@ -70,6 +72,26 @@ export default function RoutineDetail() {
     loadData()
     return () => { cancelled = true }
   }, [id])
+
+  // El progreso vive en el servidor (se sincroniza entre dispositivos); el
+  // localStorage es solo cache para pintar algo antes de que responda.
+  useEffect(() => {
+    let cancelled = false
+    api.get(`/workouts/progress/${id}`).then(r => {
+      if (cancelled) return
+      const server = r.data || {}
+      setChecked(prev => {
+        const merged = { ...prev }
+        for (const [k, v] of Object.entries(server)) {
+          if (v) merged[k] = true
+          else delete merged[k]
+        }
+        try { localStorage.setItem(weekKey, JSON.stringify(merged)) } catch {}
+        return merged
+      })
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [id, weekKey])
 
   // Re-fetch when coming back online
   useEffect(() => {

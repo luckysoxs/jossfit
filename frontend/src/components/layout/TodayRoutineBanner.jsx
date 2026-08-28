@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { Dumbbell, ChevronRight, Check, Timer } from 'lucide-react'
 import api from '../../services/api'
 import { cacheSet, cacheGet } from '../../services/offlineCache'
-import { getWeekdayMap, MUSCLE_LABELS } from '../../utils/routineConstants'
+import { getWeekdayMap, MUSCLE_LABELS, progressStorageKey } from '../../utils/routineConstants'
 import { useAuth } from '../../contexts/AuthContext'
 import { useRestTimer } from '../../contexts/RestTimerContext'
 
@@ -87,10 +87,8 @@ export default function TodayRoutineBanner() {
 
   const calcProgress = (routineId, exIds) => {
     if (!exIds || exIds.length === 0) { setProgress(0); return }
-    const todayDate = new Date().toLocaleDateString('en-CA')
-    const key = 'routine_progress_' + routineId + '_' + todayDate
     try {
-      const saved = localStorage.getItem(key)
+      const saved = localStorage.getItem(progressStorageKey(routineId))
       if (!saved) { setProgress(0); return }
       const checked = JSON.parse(saved)
       const done = exIds.filter(id => checked[id]).length
