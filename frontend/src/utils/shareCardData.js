@@ -8,6 +8,10 @@ export function brandAccent() {
   return /^#[0-9a-f]{6}$/i.test(raw) ? raw : '#3b82f6'
 }
 
+export function todayLabel(date = new Date()) {
+  return date.toLocaleDateString('es-MX', { day: 'numeric', month: 'long' })
+}
+
 /** Redondea a 1 decimal y quita el ".0" (102.5 -> "102.5", 120.0 -> "120"). */
 export function niceNumber(value) {
   return String(Math.round(value * 10) / 10)

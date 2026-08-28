@@ -16,8 +16,7 @@ export const CARD_H = 1920
 
 const MARGIN = 96
 const CONTENT_W = CARD_W - MARGIN * 2
-// Instagram encima la barra de perfil arriba y la caja de respuesta abajo.
-const SAFE_TOP = 300
+// Instagram encima la caja de respuesta abajo: el contenido se queda por arriba.
 const SAFE_BOTTOM = CARD_H - 320
 
 const FONT = 'Inter, "Segoe UI", system-ui, -apple-system, sans-serif'
@@ -142,19 +141,16 @@ function drawBackground(ctx, { photo, accent }) {
 }
 
 /**
- * Marca arriba, cuenta abajo. Una sola linea cada una: repetir el nombre y el
- * arroba juntos era texto de mas.
+ * Pie unico: marca, cuenta y fecha en la misma linea. La marca va en el color
+ * del musculo para que resalte; lo demas en gris, que es apoyo.
  */
-function drawBrand(ctx, accent) {
+function drawFooter(ctx, accent, dateLabel) {
   ctx.textBaseline = 'alphabetic'
   ctx.fillStyle = accent
-  trackedText(ctx, 'JOSSFITNESS', MARGIN, SAFE_TOP, font(700, 40, 8))
-}
-
-function drawHandle(ctx) {
-  ctx.textBaseline = 'alphabetic'
+  const ancho = trackedText(ctx, 'JOSSFITNESS', MARGIN, SAFE_BOTTOM, font(700, 30, 5))
   ctx.fillStyle = MUTED
-  trackedText(ctx, HANDLE, MARGIN, SAFE_BOTTOM, font(500, 28, 3))
+  trackedText(ctx, HANDLE, MARGIN + ancho + 26, SAFE_BOTTOM, font(500, 28, 2))
+  trackedText(ctx, dateLabel.toUpperCase(), CARD_W - MARGIN, SAFE_BOTTOM, font(500, 26, 3), 'right')
 }
 
 /**
@@ -175,8 +171,7 @@ function drawMeta(ctx, partes, baseline) {
 function drawPRCard(ctx, data) {
   const { accent } = data
   drawBackground(ctx, data)
-  drawBrand(ctx, accent)
-  drawHandle(ctx)
+  drawFooter(ctx, accent, data.dateLabel)
 
   ctx.textBaseline = 'alphabetic'
 
@@ -216,8 +211,7 @@ function drawPRCard(ctx, data) {
 function drawWorkoutCard(ctx, data) {
   const { accent } = data
   drawBackground(ctx, data)
-  drawBrand(ctx, accent)
-  drawHandle(ctx)
+  drawFooter(ctx, accent, data.dateLabel)
 
   ctx.textBaseline = 'alphabetic'
 

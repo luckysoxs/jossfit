@@ -19,7 +19,7 @@ import {
 } from 'lucide-react'
 import ChangeRequestModal from '../components/routines/ChangeRequestModal'
 import ShareCardModal from '../components/share/ShareCardModal'
-import { muscleAccent, focusAccent, compactNumber, niceNumber, estimate1RM } from '../utils/shareCardData'
+import { muscleAccent, focusAccent, compactNumber, niceNumber, estimate1RM, todayLabel } from '../utils/shareCardData'
 import { HANDLE } from '../utils/shareCard'
 
 const isCardioExercise = (exercise) =>
@@ -228,6 +228,7 @@ export default function RoutineDayDetail() {
       accent: focusAccent(day?.focus),
       title: day?.name || 'Entreno',
       meta,
+      dateLabel: todayLabel(),
     }
   }
 
@@ -239,6 +240,7 @@ export default function RoutineDayDetail() {
     unit,
     reps: pr.reps,
     oneRm: niceNumber(estimate1RM(pr.weight, pr.reps) || pr.weight),
+    dateLabel: todayLabel(),
   })
 
   // Un PR abre su tarjeta solo. Se dispara desde un efecto y no desde
