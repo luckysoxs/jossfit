@@ -19,7 +19,7 @@ import {
 } from 'lucide-react'
 import ChangeRequestModal from '../components/routines/ChangeRequestModal'
 import ShareCardModal from '../components/share/ShareCardModal'
-import { muscleAccent, focusAccent, todayLabel, compactNumber, niceNumber, estimate1RM } from '../utils/shareCardData'
+import { muscleAccent, focusAccent, compactNumber, niceNumber, estimate1RM } from '../utils/shareCardData'
 import { HANDLE } from '../utils/shareCard'
 
 const isCardioExercise = (exercise) =>
@@ -215,39 +215,30 @@ export default function RoutineDayDetail() {
   const completed = strengthIds.length > 0 && doneCount === strengthIds.length
 
   const buildWorkoutCard = () => {
-    const stats = [
-      { label: 'EJERCICIOS', value: String(strengthIds.length) },
-      { label: 'SERIES', value: String(todaySummary?.total_sets ?? strengthIds.length) },
+    // Una linea tenue, no una rejilla: solo ejercicios, series y volumen.
+    const meta = [
+      `${strengthIds.length} ejercicios`,
+      `${todaySummary?.total_sets ?? strengthIds.length} series`,
     ]
     if (todaySummary?.total_volume_kg) {
-      stats.push({ label: `VOLUMEN ${unit.toUpperCase()}`, value: compactNumber(displayWeight(todaySummary.total_volume_kg)) })
-    }
-    if (todaySummary?.streak_days) {
-      stats.push({ label: 'RACHA', value: `${todaySummary.streak_days} d` })
+      meta.push(`${compactNumber(displayWeight(todaySummary.total_volume_kg))} ${unit}`)
     }
     return {
       kind: 'workout',
       accent: focusAccent(day?.focus),
-      muscleGroup: (day?.focus || '').split(',')[0]?.trim(),
       title: day?.name || 'Entreno',
-      subtitle: (day?.focus || '').split(',')
-        .map(m => MUSCLE_LABELS[m.trim()] || m.trim()).filter(Boolean).join(' · '),
-      stats,
-      dateLabel: todayLabel(),
+      meta,
     }
   }
 
   const buildPRCard = (pr) => ({
     kind: 'pr',
     accent: muscleAccent(pr.muscleGroup),
-    muscleGroup: pr.muscleGroup,
     exerciseName: pr.name,
     weight: niceNumber(pr.weight),
     unit,
     reps: pr.reps,
     oneRm: niceNumber(estimate1RM(pr.weight, pr.reps) || pr.weight),
-    streak: todaySummary?.streak_days || 0,
-    dateLabel: todayLabel(),
   })
 
   // Un PR abre su tarjeta solo. Se dispara desde un efecto y no desde

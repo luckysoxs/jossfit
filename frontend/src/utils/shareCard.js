@@ -23,7 +23,6 @@ const SAFE_BOTTOM = CARD_H - 320
 const FONT = 'Inter, "Segoe UI", system-ui, -apple-system, sans-serif'
 const INK = '#ffffff'
 const MUTED = 'rgba(255,255,255,0.52)'
-const RULE = 'rgba(255,255,255,0.16)'
 
 /** Cuenta de Instagram, impresa en la tarjeta y sugerida al compartir. */
 export const HANDLE = '@jos.sfit'
@@ -142,53 +141,34 @@ function drawBackground(ctx, { photo, accent }) {
   }
 }
 
-/** Rotulo pequeno en color de acento: es lo que dice de que va la tarjeta. */
-function drawKicker(ctx, text, baseline, accent) {
-  ctx.textBaseline = 'alphabetic'
-  ctx.fillStyle = accent
-  trackedText(ctx, text, MARGIN, baseline, font(800, 32, 9))
-}
-
 /**
- * Marca arriba del todo, no en el pie: es la zona limpia de la tarjeta y lo
- * primero que se ve. Va en el color del musculo para que resalte sobre el
- * blanco del resto.
+ * Marca arriba, cuenta abajo. Una sola linea cada una: repetir el nombre y el
+ * arroba juntos era texto de mas.
  */
 function drawBrand(ctx, accent) {
   ctx.textBaseline = 'alphabetic'
   ctx.fillStyle = accent
-  trackedText(ctx, 'JOSSFITNESS', MARGIN, SAFE_TOP, font(800, 58, 7))
-  ctx.fillStyle = 'rgba(255,255,255,0.75)'
-  trackedText(ctx, HANDLE, MARGIN, SAFE_TOP + 52, font(600, 34, 3))
+  trackedText(ctx, 'JOSSFITNESS', MARGIN, SAFE_TOP, font(700, 40, 8))
 }
 
-function drawFooter(ctx, dateLabel) {
+function drawHandle(ctx) {
   ctx.textBaseline = 'alphabetic'
-  ctx.fillStyle = RULE
-  ctx.fillRect(MARGIN, SAFE_BOTTOM - 96, CONTENT_W, 2)
   ctx.fillStyle = MUTED
-  trackedText(ctx, dateLabel.toUpperCase(), MARGIN, SAFE_BOTTOM - 24, font(600, 26, 3))
+  trackedText(ctx, HANDLE, MARGIN, SAFE_BOTTOM, font(500, 28, 3))
 }
 
 /**
- * Fila de cifras sin cajas ni bordes: valor grande, etiqueta chica debajo.
- * `baseline` es la linea base de los valores.
+ * Los datos secundarios en una sola linea tenue ("6 REPS · 1RM 121 KG") en vez
+ * de una rejilla de cifras con etiquetas: es la mitad de texto y no compite con
+ * el dato grande.
  */
-function drawStatRow(ctx, stats, baseline) {
-  if (!stats.length) return
-  const slot = CONTENT_W / stats.length
+function drawMeta(ctx, partes, baseline) {
+  const texto = partes.filter(Boolean).join('   ·   ').toUpperCase()
+  if (!texto) return
   ctx.textBaseline = 'alphabetic'
-  stats.forEach((s, i) => {
-    const x = MARGIN + slot * i
-    ctx.fillStyle = INK
-    const valueFont = fitFont(ctx, s.value, slot - 24, 800, 60, 30)
-    trackedText(ctx, s.value, x, baseline, valueFont)
-    ctx.fillStyle = MUTED
-    const labelFont = fitFont(ctx, s.label, slot - 24, 600, 24, 15, 3)
-    trackedText(ctx, s.label, x, baseline + 44, labelFont)
-  })
+  ctx.fillStyle = MUTED
+  trackedText(ctx, texto, MARGIN, baseline, fitFont(ctx, texto, CONTENT_W, 500, 30, 20, 4))
 }
-
 
 // ─── tarjetas ───
 
@@ -196,24 +176,18 @@ function drawPRCard(ctx, data) {
   const { accent } = data
   drawBackground(ctx, data)
   drawBrand(ctx, accent)
-  drawFooter(ctx, data.dateLabel)
+  drawHandle(ctx)
 
   ctx.textBaseline = 'alphabetic'
 
   // Se apila de abajo hacia arriba: el bloque queda pegado al pie sin importar
   // cuanto ocupen el nombre del ejercicio o el numero.
-  const statsBaseline = SAFE_BOTTOM - 190
-  const stats = [
-    { label: 'REPS', value: String(data.reps) },
-    { label: `1RM EST. ${data.unit.toUpperCase()}`, value: data.oneRm },
-  ]
-  if (data.streak > 0) stats.push({ label: 'DIAS SEGUIDOS', value: String(data.streak) })
-  drawStatRow(ctx, stats, statsBaseline)
+  const metaBaseline = SAFE_BOTTOM - 118
+  drawMeta(ctx, [`${data.reps} reps`, `1RM ${data.oneRm} ${data.unit}`], metaBaseline)
 
   // El peso es lo unico grande de la tarjeta.
-  const weightFont = fitFont(ctx, data.weight, CONTENT_W - 220, 800, 300, 120)
-  const capHeight = weightFont.size * 0.72
-  const weightBaseline = statsBaseline - 150
+  const weightFont = fitFont(ctx, data.weight, CONTENT_W - 200, 800, 300, 120)
+  const weightBaseline = metaBaseline - 96
   ctx.fillStyle = INK
   ctx.font = weightFont.css
   ctx.textAlign = 'left'
@@ -221,53 +195,49 @@ function drawPRCard(ctx, data) {
   const weightWidth = ctx.measureText(data.weight).width
 
   ctx.fillStyle = accent
-  trackedText(ctx, data.unit.toUpperCase(), MARGIN + weightWidth + 18, weightBaseline, font(800, 72, 2))
+  trackedText(ctx, data.unit, MARGIN + weightWidth + 20, weightBaseline, font(600, 58, 1))
 
-  // Nombre del ejercicio, justo encima del numero.
+  // Nombre del ejercicio en peso ligero: contrasta con el numero y afina el
+  // conjunto sin necesitar mas tamano.
   const name = data.exerciseName.toUpperCase()
-  const nameFont = fitFont(ctx, name, CONTENT_W, 700, 54, 28, 2)
+  const nameFont = fitFont(ctx, name, CONTENT_W, 500, 48, 26, 3)
   const nameLines = wrapLines(ctx, name, CONTENT_W, nameFont.css, 2)
-  const lineH = 66
-  const nameTop = weightBaseline - capHeight - 46
+  const lineH = 60
+  const nameTop = weightBaseline - weightFont.size * 0.72 - 40
   ctx.fillStyle = INK
   nameLines.forEach((line, i) => {
     trackedText(ctx, line, MARGIN, nameTop - (nameLines.length - 1 - i) * lineH, nameFont)
   })
 
-  drawKicker(ctx, 'NUEVO RECORD', nameTop - (nameLines.length - 1) * lineH - 66, accent)
+  ctx.fillStyle = accent
+  trackedText(ctx, 'NUEVO RECORD', MARGIN, nameTop - (nameLines.length - 1) * lineH - 58, font(700, 26, 8))
 }
 
 function drawWorkoutCard(ctx, data) {
   const { accent } = data
   drawBackground(ctx, data)
   drawBrand(ctx, accent)
-  drawFooter(ctx, data.dateLabel)
+  drawHandle(ctx)
 
   ctx.textBaseline = 'alphabetic'
 
-  const statsBaseline = SAFE_BOTTOM - 190
-  drawStatRow(ctx, data.stats.slice(0, 4), statsBaseline)
+  const metaBaseline = SAFE_BOTTOM - 118
+  drawMeta(ctx, data.meta, metaBaseline)
 
-  let cursor = statsBaseline - 160
-
-  if (data.subtitle) {
-    ctx.fillStyle = MUTED
-    const subFont = fitFont(ctx, data.subtitle.toUpperCase(), CONTENT_W, 600, 30, 18, 4)
-    trackedText(ctx, data.subtitle.toUpperCase(), MARGIN, cursor, subFont)
-    cursor -= 74
-  }
-
+  // El titulo ya nombra los musculos del dia, asi que no hay subtitulo.
   const title = data.title.toUpperCase()
   const titleFont = fitFont(ctx, title, CONTENT_W, 800, 96, 44, 1)
-  const titleSize = titleFont.size
   const titleLines = wrapLines(ctx, title, CONTENT_W, titleFont.css, 3)
-  const lineH = titleSize + 14
+  const lineH = titleFont.size + 12
+  const baseline = metaBaseline - 96
   ctx.fillStyle = INK
   titleLines.forEach((line, i) => {
-    trackedText(ctx, line, MARGIN, cursor - (titleLines.length - 1 - i) * lineH, titleFont)
+    trackedText(ctx, line, MARGIN, baseline - (titleLines.length - 1 - i) * lineH, titleFont)
   })
 
-  drawKicker(ctx, 'ENTRENO COMPLETADO', cursor - (titleLines.length - 1) * lineH - titleSize - 34, accent)
+  ctx.fillStyle = accent
+  const top = baseline - (titleLines.length - 1) * lineH - titleFont.size * 0.72
+  trackedText(ctx, 'ENTRENO COMPLETADO', MARGIN, top - 44, font(700, 26, 8))
 }
 
 /**
