@@ -16,9 +16,10 @@ export const CARD_H = 1920
 
 const MARGIN = 96
 const CONTENT_W = CARD_W - MARGIN * 2
-// Instagram encima la caja de respuesta abajo. 250px es el margen que la propia
-// guia de historias recomienda: todo el bloque se apoya en esa linea.
-const SAFE_BOTTOM = CARD_H - 250
+// Instagram encima la caja de respuesta abajo. La guia de historias recomienda
+// 250px; nos quedamos en 200 porque lo ultimo que baja es el pie, que es texto
+// secundario y aguanta acercarse mas al borde. Todo se apoya en esta linea.
+const SAFE_BOTTOM = CARD_H - 200
 
 const FONT = 'Inter, "Segoe UI", system-ui, -apple-system, sans-serif'
 const INK = '#ffffff'
