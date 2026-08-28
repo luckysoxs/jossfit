@@ -106,7 +106,7 @@ function drawCover(ctx, img, x, y, w, h) {
 
 // ─── piezas comunes ───
 
-function drawBackground(ctx, { photo, accent }) {
+function drawBackground(ctx, { photo }) {
   ctx.fillStyle = '#0a0b0e'
   ctx.fillRect(0, 0, CARD_W, CARD_H)
 
@@ -122,13 +122,6 @@ function drawBackground(ctx, { photo, accent }) {
     veil.addColorStop(1, 'rgba(8,9,12,0.92)')
     ctx.fillStyle = veil
     ctx.fillRect(0, 0, CARD_W, CARD_H)
-
-    // Contorno del color del musculo: enmarca la foto y ata la imagen al
-    // ejercicio del record sin meter mas elementos en la tarjeta.
-    const inset = 40
-    ctx.strokeStyle = accent
-    ctx.lineWidth = 8
-    ctx.strokeRect(inset, inset, CARD_W - inset * 2, CARD_H - inset * 2)
   } else {
     // Sin foto: un degradado casi imperceptible, nada mas. La tarjeta se
     // sostiene con la tipografia, no con adornos.
