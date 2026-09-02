@@ -26,7 +26,7 @@ const INK = '#ffffff'
 const MUTED = 'rgba(255,255,255,0.52)'
 
 /** Sitio, en el pie de la tarjeta. */
-const SITE = 'www.jossfit.pro'
+const SITE = 'jossfit.pro'
 
 const font = (weight, size, tracking = 0) => ({
   css: `${weight} ${size}px ${FONT}`,
