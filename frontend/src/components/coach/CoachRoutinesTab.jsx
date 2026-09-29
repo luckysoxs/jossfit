@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Zap, Users, Share2, Calendar, Dumbbell } from 'lucide-react'
+import { Plus, Zap, Users, Share2, Calendar, Dumbbell, Copy, UserPlus } from 'lucide-react'
 
 import api from '../../services/api'
 import LoadingSpinner from '../ui/LoadingSpinner'
 import ShareLinkModal from './ShareLinkModal'
+import DuplicateRoutineModal from '../routines/DuplicateRoutineModal'
 
 export default function CoachRoutinesTab() {
   const [routines, setRoutines] = useState([])
   const [loading, setLoading] = useState(true)
   const [sharing, setSharing] = useState(null)
+  const [duplicando, setDuplicando] = useState(null) // { routine, destino, title }
 
   useEffect(() => {
     api.get('/coach/routines')
@@ -66,12 +68,35 @@ export default function CoachRoutinesTab() {
                 <Share2 size={13} /> Compartir
               </button>
             </div>
+            <div className="flex gap-2 mt-3">
+              <button
+                onClick={() => setDuplicando({ routine: r, destino: 'cliente', title: 'Duplicar para clientes' })}
+                className="btn-secondary flex-1 flex items-center justify-center gap-1.5 text-xs py-2 px-3"
+              >
+                <Copy size={13} /> Duplicar
+              </button>
+              <button
+                onClick={() => setDuplicando({ routine: r, destino: 'mia', title: 'Copiar a mis rutinas' })}
+                className="btn-secondary flex-1 flex items-center justify-center gap-1.5 text-xs py-2 px-3"
+              >
+                <UserPlus size={13} /> A mis rutinas
+              </button>
+            </div>
           </div>
         ))
       )}
 
       {sharing && (
         <ShareLinkModal routine={sharing} onClose={() => setSharing(null)} />
+      )}
+
+      {duplicando && (
+        <DuplicateRoutineModal
+          routine={duplicando.routine}
+          destino={duplicando.destino}
+          title={duplicando.title}
+          onClose={() => setDuplicando(null)}
+        />
       )}
     </div>
   )
