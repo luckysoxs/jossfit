@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -83,3 +84,8 @@ class RoutineResponse(BaseModel):
     days: list[RoutineDayResponse] = []
 
     model_config = {"from_attributes": True}
+
+
+class RoutineDuplicate(BaseModel):
+    destino: Literal["cliente", "mia"]  # rutina para clientes o para entrenarla uno mismo
+    name: str | None = None             # vacio: "<original> (copia)"
