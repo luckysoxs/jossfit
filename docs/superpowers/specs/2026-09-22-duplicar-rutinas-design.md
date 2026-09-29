@@ -26,7 +26,10 @@ independiente, con el destino como parametro.
 
 - Crea una `Routine` nueva con `user_id=owner.id`, `name`, `split_type`,
   `objective`, `days_per_week`, `generation_type`, `ai_data`, `rest_weekdays`
-  de la original e `is_template=as_template`.
+  de la original e `is_template=as_template`. Excepcion: si la copia pasa de
+  personal a rutina de clientes, `ai_data` se descarta y `generation_type` queda
+  en `"normal"`, porque `ai_data` trae el perfil medico del dueno y los clientes
+  asignados lo leerian.
 - Copia cada `RoutineDay` (`day_number`, `name`, `focus`) y cada
   `RoutineExercise` (`exercise_id`, `order`, `sets`, `reps_min`, `reps_max`,
   `rest_seconds`, `notes`, `group_id`).

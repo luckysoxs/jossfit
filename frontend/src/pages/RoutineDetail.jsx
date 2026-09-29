@@ -5,10 +5,12 @@ import { cacheSet, cacheGet } from '../services/offlineCache'
 import useOnlineStatus from '../hooks/useOnlineStatus'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import AIRoutineView from '../components/routines/AIRoutineView'
+import { useAuth } from '../contexts/AuthContext'
+import DuplicateRoutineModal from '../components/routines/DuplicateRoutineModal'
 import { WEEKDAY_NAMES, WEEKDAY_SHORT, getWeekdayMap, getNextTrainingDate, progressStorageKey } from '../utils/routineConstants'
 import {
   ArrowLeft, X, Zap, Dumbbell, GripVertical, ChevronRight,
-  Calendar, Moon, Pencil, WifiOff, UserCheck,
+  Calendar, Moon, Pencil, WifiOff, UserCheck, Share2,
 } from 'lucide-react'
 
 export default function RoutineDetail() {
@@ -18,6 +20,12 @@ export default function RoutineDetail() {
   const [routine, setRoutine] = useState(null)
   // Rutina asignada por un coach: el cliente la entrena pero no la edita.
   const readOnly = !!routine?.read_only
+  const { user } = useAuth()
+  // Solo una rutina personal propia se publica para clientes; las de
+  // clientes ya viven en el panel de coach, donde se duplican.
+  const puedeCompartirClientes = !!(user?.is_coach || user?.is_admin)
+    && !readOnly && routine && !routine.is_template
+  const [showShareClientes, setShowShareClientes] = useState(false)
   const [loading, setLoading] = useState(true)
   const [offlineMode, setOfflineMode] = useState(false)
   const [showAIView, setShowAIView] = useState(false)
@@ -277,10 +285,25 @@ export default function RoutineDetail() {
                 className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-brand-500 hover:text-brand-400 bg-brand-50 dark:bg-brand-500/10 px-3 py-2 rounded-xl transition-colors">
                 <Zap size={14} /> Nueva
               </button>
+              {puedeCompartirClientes && (
+                <button onClick={() => setShowShareClientes(true)}
+                  className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-gray-400 hover:text-brand-500 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-xl transition-colors">
+                  <Share2 size={14} className="shrink-0" /> <span>Compartir<span className="hidden sm:inline"> con clientes</span></span>
+                </button>
+              )}
             </div>
           )}
         </div>
       </div>
+
+      {showShareClientes && (
+        <DuplicateRoutineModal
+          routine={routine}
+          destino="cliente"
+          title="Compartir con clientes"
+          onClose={() => setShowShareClientes(false)}
+        />
+      )}
 
       {/* Schedule Config Modal */}
       {showSchedule && (

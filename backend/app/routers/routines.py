@@ -7,7 +7,9 @@ from app.database import get_db
 from app.models.user import User
 from app.models.routine import Routine, RoutineDay, RoutineExercise
 from app.models.exercise import Exercise, MuscleGroup, ExerciseCategory
-from app.schemas.routine import RoutineCreate, RoutineExerciseCreate, RoutineExerciseUpdate, RoutineResponse
+from app.schemas.routine import (
+    RoutineCreate, RoutineDuplicate, RoutineExerciseCreate, RoutineExerciseUpdate, RoutineResponse,
+)
 from app.auth.security import get_current_user
 from app.models.coach import RoutineChangeRequest
 from app.schemas.coach import ChangeRequestCreate, ChangeRequestResponse
@@ -15,6 +17,7 @@ from app.services.routine_access import (
     get_readable_routine, get_assigned_routine_ids, get_assignment,
 )
 from app.routers.coach import _change_request_response
+from app.services.routine_copy import copy_routine
 from app.services.coach_notifications import notify_change_request, notify_routine_updated
 from app.ai.routine_generator import (
     MAX_EXERCISES_PER_DAY, SETS_CONFIG, REP_RANGES, ACCESSORY_MUSCLES,
@@ -615,6 +618,33 @@ def create_change_request(
     except Exception:
         pass
     return respuesta
+
+
+@router.post("/{routine_id}/duplicate", response_model=RoutineResponse, status_code=201)
+def duplicate_routine(
+    routine_id: int,
+    data: RoutineDuplicate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Copia una rutina propia a una nueva e independiente.
+
+    destino="cliente" la deja en el panel de coach; destino="mia", en las
+    rutinas propias. Solo el dueno puede copiarla: un cliente asignado
+    recibe 404 igual que en el resto de los endpoints de escritura.
+    """
+    source = _load_full_routine(db, routine_id)
+    if not source or source.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Routine not found")
+    para_cliente = data.destino == "cliente"
+    if para_cliente and not (user.is_coach or user.is_admin):
+        raise HTTPException(
+            status_code=403,
+            detail="Necesitas ser coach para crear rutinas de clientes",
+        )
+    copia = copy_routine(db, source, user, data.name, as_template=para_cliente)
+    db.commit()
+    return _load_full_routine(db, copia.id)
 
 
 @router.put("/{routine_id}/schedule")
