@@ -142,7 +142,9 @@ export default function RoutineDetail() {
     setDragOverIdx(null)
   }
 
-  // Touch drag for mobile
+  // Touch drag for mobile. Arranca solo desde el asa (⋮⋮), que lleva
+  // touch-action: none: asi el navegador no se queda con el gesto haciendo
+  // scroll ni seleccionando el texto de la tarjeta.
   const handleTouchStart = (e, idx) => {
     touchStartY.current = e.touches[0].clientY
     touchStartIdx.current = idx
@@ -157,7 +159,9 @@ export default function RoutineDetail() {
       const touchY = e.touches[0].clientY
       const diff = Math.abs(touchY - touchStartY.current)
       if (!dragActiveRef.current) {
-        if (diff > 30) {
+        // Umbral corto: con 30px el navegador ya habia empezado su propio
+        // gesto y preventDefault llegaba tarde.
+        if (diff > 5) {
           dragActiveRef.current = true
           setDragIdx(touchStartIdx.current)
           e.preventDefault()
@@ -434,14 +438,19 @@ export default function RoutineDetail() {
                     onDragStart={() => { if (!readOnly) handleDragDayStart(currentTrainingIdx) }}
                     onDragOver={(e) => { if (!readOnly) handleDragDayOver(e, currentTrainingIdx) }}
                     onDragEnd={() => { if (!readOnly) handleDragDayEnd() }}
-                    onTouchStart={(e) => { if (!readOnly) handleTouchStart(e, currentTrainingIdx) }}
-                    onTouchEnd={() => { if (!readOnly) handleTouchEnd() }}
-                    className={`card hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all ${readOnly ? '' : 'cursor-grab active:cursor-grabbing'} ${dayAllDone ? 'border border-green-500/30' : ''} ${isToday ? 'ring-2 ring-brand-500/40' : ''} ${isDragging ? 'opacity-50 scale-95' : ''} ${isDragOver ? 'border-2 border-brand-500 border-dashed' : ''}`}>
+                    className={`card hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all ${readOnly ? '' : 'cursor-grab active:cursor-grabbing select-none'} ${dayAllDone ? 'border border-green-500/30' : ''} ${isToday ? 'ring-2 ring-brand-500/40' : ''} ${isDragging ? 'opacity-50 scale-95' : ''} ${isDragOver ? 'border-2 border-brand-500 border-dashed' : ''}`}>
                     <div className="flex items-center gap-2">
                       {!readOnly && (
-                        <GripVertical size={16} className="text-gray-300 dark:text-gray-600 flex-shrink-0 touch-none" />
+                        <span
+                          onTouchStart={(e) => handleTouchStart(e, currentTrainingIdx)}
+                          onTouchEnd={() => handleTouchEnd()}
+                          aria-label="Arrastra para reordenar el dia"
+                          className="flex-shrink-0 touch-none select-none p-2 -m-1 cursor-grab active:cursor-grabbing"
+                        >
+                          <GripVertical size={16} className="text-gray-300 dark:text-gray-600 pointer-events-none" />
+                        </span>
                       )}
-                      <Link to={`/routines/${id}/day/${dayEntry.id}`} className="flex-1 text-left">
+                      <Link to={`/routines/${id}/day/${dayEntry.id}`} draggable={false} className="flex-1 text-left">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isToday ? 'bg-brand-500 text-white' : 'bg-brand-50 dark:bg-brand-500/10 text-brand-500'}`}>
