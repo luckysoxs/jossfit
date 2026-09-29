@@ -16,8 +16,12 @@ NAME_MAX = 100  # largo de la columna Routine.name
 
 
 def _copy_name(original: str, name: str | None) -> str:
-    nombre = (name or "").strip() or f"{original} (copia)"
-    return nombre[:NAME_MAX]
+    nombre = (name or "").strip()
+    if nombre:
+        return nombre[:NAME_MAX]
+    # Se recorta la base primero para que el sufijo siempre sobreviva.
+    sufijo = " (copia)"
+    return original[:NAME_MAX - len(sufijo)] + sufijo
 
 
 def copy_routine(
@@ -28,14 +32,17 @@ def copy_routine(
     as_template: bool,
 ) -> Routine:
     """Crea la copia de `source` para `owner`. Hace flush, no commit."""
+    # ai_data trae el perfil medico del dueno, no solo los ejercicios: al
+    # pasar de personal a rutina de clientes se descarta por completo.
+    a_clientes = not source.is_template and as_template
     copia = Routine(
         user_id=owner.id,
         name=_copy_name(source.name, name),
         split_type=source.split_type,
         objective=source.objective,
         days_per_week=source.days_per_week,
-        generation_type=source.generation_type,
-        ai_data=copy.deepcopy(source.ai_data),
+        generation_type="normal" if a_clientes else source.generation_type,
+        ai_data=None if a_clientes else copy.deepcopy(source.ai_data),
         rest_weekdays=copy.deepcopy(source.rest_weekdays),
         is_template=as_template,
     )

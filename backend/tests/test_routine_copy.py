@@ -99,5 +99,53 @@ def test_nombre_por_defecto_y_recorte(client, db_session, seed_exercises):
     assert copy_routine(db_session, source, owner, "  Mia  ", False).name == "Mia"
     assert len(copy_routine(db_session, source, owner, "x" * 150, False).name) == 100
 
-    source.name = "y" * 100
-    assert copy_routine(db_session, source, owner, None, False).name == "y" * 100
+    largo = _rutina_con_superserie(client, u["headers"], seed_exercises, name="y" * 100)
+    source_largo = db_session.get(Routine, largo)
+    nombre = copy_routine(db_session, source_largo, owner, None, False).name
+    assert nombre.endswith(" (copia)")
+    assert len(nombre) == 100
+    assert nombre == "y" * 92 + " (copia)"
+
+
+AI_DATA = {
+    "perfil": {"riesgo_global": "alto", "alertas": ["hipertension"]},
+    "rutina": [{"dia": 1, "ejercicios": ["sentadilla", "press"]}],
+}
+
+
+def test_ai_data_se_descarta_al_publicar_a_clientes(client, db_session, seed_exercises):
+    u = make_user(client, "copia4@test.com")
+    owner = db_session.get(User, u["user"]["id"])
+    rid = _rutina_con_superserie(client, u["headers"], seed_exercises)
+    db_session.query(Routine).filter(Routine.id == rid).update(
+        {"generation_type": "adaptativo", "ai_data": AI_DATA})
+    db_session.commit()
+    source = db_session.get(Routine, rid)
+
+    copia = copy_routine(db_session, source, owner, "Para clientes", as_template=True)
+    db_session.commit()
+
+    assert copia.ai_data is None
+    assert copia.generation_type == "normal"
+    assert source.ai_data == AI_DATA
+    assert source.generation_type == "adaptativo"
+
+
+def test_ai_data_se_conserva_y_es_independiente_en_personal(client, db_session, seed_exercises):
+    u = make_user(client, "copia5@test.com")
+    owner = db_session.get(User, u["user"]["id"])
+    rid = _rutina_con_superserie(client, u["headers"], seed_exercises)
+    db_session.query(Routine).filter(Routine.id == rid).update(
+        {"generation_type": "adaptativo", "ai_data": AI_DATA})
+    db_session.commit()
+    source = db_session.get(Routine, rid)
+
+    copia = copy_routine(db_session, source, owner, None, as_template=False)
+    db_session.commit()
+
+    assert copia.generation_type == "adaptativo"
+    assert copia.ai_data == AI_DATA
+    assert copia.ai_data is not source.ai_data
+
+    copia.ai_data["perfil"]["riesgo_global"] = "bajo"
+    assert source.ai_data["perfil"]["riesgo_global"] == "alto"
