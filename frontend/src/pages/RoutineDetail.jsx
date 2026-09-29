@@ -288,7 +288,7 @@ export default function RoutineDetail() {
               {puedeCompartirClientes && (
                 <button onClick={() => setShowShareClientes(true)}
                   className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-gray-400 hover:text-brand-500 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-xl transition-colors">
-                  <Share2 size={14} /> Compartir con clientes
+                  <Share2 size={14} className="shrink-0" /> <span>Compartir<span className="hidden sm:inline"> con clientes</span></span>
                 </button>
               )}
             </div>

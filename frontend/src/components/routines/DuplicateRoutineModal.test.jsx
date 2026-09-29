@@ -47,6 +47,20 @@ describe('DuplicateRoutineModal', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
+  it('Enter en el nombre duplica igual que el boton', async () => {
+    api.post.mockResolvedValue({ data: { id: 44 } })
+    const { onClose } = montar()
+    const input = screen.getByRole('textbox')
+    await userEvent.clear(input)
+    await userEvent.type(input, 'Para Ana{Enter}')
+
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/routines/44'))
+    expect(api.post).toHaveBeenCalledTimes(1)
+    expect(api.post).toHaveBeenCalledWith('/routines/7/duplicate',
+      { destino: 'cliente', name: 'Para Ana' })
+    expect(onClose).toHaveBeenCalled()
+  })
+
   it('nombre vacio manda null', async () => {
     api.post.mockResolvedValue({ data: { id: 43 } })
     montar({ destino: 'mia' })
