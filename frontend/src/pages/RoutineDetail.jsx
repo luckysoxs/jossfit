@@ -9,7 +9,7 @@ import { useAuth } from '../contexts/AuthContext'
 import DuplicateRoutineModal from '../components/routines/DuplicateRoutineModal'
 import { WEEKDAY_NAMES, WEEKDAY_SHORT, getWeekdayMap, getNextTrainingDate, progressStorageKey } from '../utils/routineConstants'
 import {
-  ArrowLeft, X, Zap, Dumbbell, GripVertical, ChevronRight,
+  ArrowLeft, X, Zap, Dumbbell, GripVertical, ChevronRight, ChevronUp, ChevronDown,
   Calendar, Moon, Pencil, WifiOff, UserCheck, Share2,
 } from 'lucide-react'
 
@@ -44,15 +44,9 @@ export default function RoutineDetail() {
     } catch { return {} }
   })
 
-  // Drag reorder state for day cards
-  const [dragIdx, setDragIdx] = useState(null)
-  const [dragOverIdx, setDragOverIdx] = useState(null)
+  // Reordenar dias: flechas de subir y bajar, igual que los ejercicios de un
+  // dia. El arrastre tactil que vivia aqui nunca funciono en iPhone.
   const [reordering, setReordering] = useState(false)
-  const touchStartY = useRef(null)
-  const touchStartIdx = useRef(null)
-  const dayCardsRef = useRef([])
-  const dayCardsContainerRef = useRef(null)
-  const dragActiveRef = useRef(false)
 
   // ─── Load data ───
   useEffect(() => {
@@ -112,7 +106,7 @@ export default function RoutineDetail() {
     }
   }, [online])
 
-  // ─── Drag-and-drop for day cards ───
+  // ─── Reordenar dias ───
   const restWeekdays = routine?.rest_weekdays || [6]
   const weekdayMap = routine ? getWeekdayMap(routine.days_per_week, restWeekdays) : {}
   const sortedDays = routine ? [...(routine.days || [])].sort((a, b) => {
@@ -122,77 +116,24 @@ export default function RoutineDetail() {
   }) : []
   const sortedTrainingDays = sortedDays
 
-  const handleDragDayStart = (idx) => { setDragIdx(idx) }
-  const handleDragDayOver = (e, idx) => { e.preventDefault(); setDragOverIdx(idx) }
-  const handleDragDayEnd = async () => {
-    if (dragIdx !== null && dragOverIdx !== null && dragIdx !== dragOverIdx && !reordering) {
-      setReordering(true)
+  const moveDay = async (dayIdx, delta) => {
+    const destino = dayIdx + delta
+    if (reordering || destino < 0 || destino >= sortedTrainingDays.length) return
+    setReordering(true)
+    try {
       const items = [...sortedTrainingDays]
-      const [moved] = items.splice(dragIdx, 1)
-      items.splice(dragOverIdx, 0, moved)
-      try {
-        await api.put('/routines/reorder-days', { routine_id: routine.id, day_order: items.map(d => d.id) })
-        const r = await api.get(`/routines/${id}`)
-        setRoutine(r.data)
-        cacheSet(`routine_${id}`, r.data)
-      } catch {}
-      setReordering(false)
+      ;[items[dayIdx], items[destino]] = [items[destino], items[dayIdx]]
+      await api.put('/routines/reorder-days', { routine_id: routine.id, day_order: items.map(d => d.id) })
+      const r = await api.get(`/routines/${id}`)
+      setRoutine(r.data)
+      cacheSet(`routine_${id}`, r.data)
+    } catch (err) {
+      console.error('Error reordering:', err)
+      alert('Error al reordenar el dia')
+    } finally {
+      // Un segundo de espera para que un toque accidental no mueva dos veces.
+      setTimeout(() => setReordering(false), 1000)
     }
-    setDragIdx(null)
-    setDragOverIdx(null)
-  }
-
-  // Touch drag for mobile. Arranca solo desde el asa (⋮⋮), que lleva
-  // touch-action: none: asi el navegador no se queda con el gesto haciendo
-  // scroll ni seleccionando el texto de la tarjeta.
-  const handleTouchStart = (e, idx) => {
-    touchStartY.current = e.touches[0].clientY
-    touchStartIdx.current = idx
-    dragActiveRef.current = false
-  }
-
-  useEffect(() => {
-    const container = dayCardsContainerRef.current
-    if (!container) return
-    const onTouchMove = (e) => {
-      if (touchStartY.current === null) return
-      const touchY = e.touches[0].clientY
-      const diff = Math.abs(touchY - touchStartY.current)
-      if (!dragActiveRef.current) {
-        // Umbral corto: con 30px el navegador ya habia empezado su propio
-        // gesto y preventDefault llegaba tarde.
-        if (diff > 5) {
-          dragActiveRef.current = true
-          setDragIdx(touchStartIdx.current)
-          e.preventDefault()
-        }
-        return
-      }
-      e.preventDefault()
-      for (let i = 0; i < dayCardsRef.current.length; i++) {
-        const card = dayCardsRef.current[i]
-        if (!card) continue
-        const rect = card.getBoundingClientRect()
-        if (touchY >= rect.top && touchY <= rect.bottom) {
-          setDragOverIdx(i)
-          break
-        }
-      }
-    }
-    container.addEventListener('touchmove', onTouchMove, { passive: false })
-    return () => container.removeEventListener('touchmove', onTouchMove)
-  })
-
-  const handleTouchEnd = async () => {
-    if (dragActiveRef.current) {
-      await handleDragDayEnd()
-    } else {
-      setDragIdx(null)
-      setDragOverIdx(null)
-    }
-    touchStartY.current = null
-    touchStartIdx.current = null
-    dragActiveRef.current = false
   }
 
   const saveRestDays = async (newRest) => {
@@ -392,7 +333,6 @@ export default function RoutineDetail() {
 
           {/* Week view: training days + rest days */}
           {(() => {
-            dayCardsRef.current = []
             const weekCards = []
             let trainingIdx = 0
             for (let wd = 0; wd < 7; wd++) {
@@ -428,29 +368,31 @@ export default function RoutineDetail() {
                 const isToday = wd === todayWeekday
                 const nextDate = getNextTrainingDate(wd)
                 const nextDateStr = nextDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
-                const isDragging = dragIdx === currentTrainingIdx
-                const isDragOver = dragOverIdx === currentTrainingIdx
+                const esPrimero = currentTrainingIdx === 0
+                const esUltimo = currentTrainingIdx >= sortedTrainingDays.length - 1
 
                 weekCards.push(
                   <div key={dayEntry.id}
-                    ref={el => dayCardsRef.current[currentTrainingIdx] = el}
-                    draggable={!readOnly}
-                    onDragStart={() => { if (!readOnly) handleDragDayStart(currentTrainingIdx) }}
-                    onDragOver={(e) => { if (!readOnly) handleDragDayOver(e, currentTrainingIdx) }}
-                    onDragEnd={() => { if (!readOnly) handleDragDayEnd() }}
-                    className={`card hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all ${readOnly ? '' : 'cursor-grab active:cursor-grabbing select-none'} ${dayAllDone ? 'border border-green-500/30' : ''} ${isToday ? 'ring-2 ring-brand-500/40' : ''} ${isDragging ? 'opacity-50 scale-95' : ''} ${isDragOver ? 'border-2 border-brand-500 border-dashed' : ''}`}>
+                    className={`card hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all ${dayAllDone ? 'border border-green-500/30' : ''} ${isToday ? 'ring-2 ring-brand-500/40' : ''}`}>
                     <div className="flex items-center gap-2">
                       {!readOnly && (
-                        <span
-                          onTouchStart={(e) => handleTouchStart(e, currentTrainingIdx)}
-                          onTouchEnd={() => handleTouchEnd()}
-                          aria-label="Arrastra para reordenar el dia"
-                          className="flex-shrink-0 touch-none select-none p-2 -m-1 cursor-grab active:cursor-grabbing"
-                        >
-                          <GripVertical size={16} className="text-gray-300 dark:text-gray-600 pointer-events-none" />
-                        </span>
+                        <div className="flex flex-col items-center flex-shrink-0">
+                          <button onClick={() => moveDay(currentTrainingIdx, -1)}
+                            disabled={esPrimero || reordering}
+                            aria-label={`Subir ${dayEntry.name}`}
+                            className={`p-2 rounded-lg transition-colors ${esPrimero ? 'text-gray-300 dark:text-gray-700' : 'text-gray-400 hover:text-brand-500 active:bg-brand-50 dark:active:bg-brand-500/10 active:text-brand-600'}`}>
+                            <ChevronUp size={18} />
+                          </button>
+                          <GripVertical size={12} className="text-gray-300 dark:text-gray-600 -my-1" />
+                          <button onClick={() => moveDay(currentTrainingIdx, 1)}
+                            disabled={esUltimo || reordering}
+                            aria-label={`Bajar ${dayEntry.name}`}
+                            className={`p-2 rounded-lg transition-colors ${esUltimo ? 'text-gray-300 dark:text-gray-700' : 'text-gray-400 hover:text-brand-500 active:bg-brand-50 dark:active:bg-brand-500/10 active:text-brand-600'}`}>
+                            <ChevronDown size={18} />
+                          </button>
+                        </div>
                       )}
-                      <Link to={`/routines/${id}/day/${dayEntry.id}`} draggable={false} className="flex-1 text-left">
+                      <Link to={`/routines/${id}/day/${dayEntry.id}`} className="flex-1 text-left">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isToday ? 'bg-brand-500 text-white' : 'bg-brand-50 dark:bg-brand-500/10 text-brand-500'}`}>
@@ -480,7 +422,7 @@ export default function RoutineDetail() {
                 )
               }
             }
-            return <div ref={dayCardsContainerRef} className="space-y-2">{weekCards}</div>
+            return <div className="space-y-2">{weekCards}</div>
           })()}
         </>
       )}
