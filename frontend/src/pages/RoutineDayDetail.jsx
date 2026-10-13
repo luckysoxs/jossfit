@@ -45,6 +45,11 @@ export default function RoutineDayDetail() {
   const [loading, setLoading] = useState(true)
   const [offlineMode, setOfflineMode] = useState(false)
   const [personalBests, setPersonalBests] = useState({})
+  // Ultima serie registrada de cada ejercicio: lo que se copia al marcar el
+  // dia completo. Distinto de personalBests, que es el record.
+  const [lastSets, setLastSets] = useState({})
+  const [bulkRows, setBulkRows] = useState(null)   // null = modal cerrado
+  const [bulkSaving, setBulkSaving] = useState(false)
   // Nombre del dia editable, mismo gesto que el nombre de la rutina.
   const [editingDayName, setEditingDayName] = useState(false)
   const [dayNameInput, setDayNameInput] = useState('')
@@ -123,12 +128,13 @@ export default function RoutineDayDetail() {
     let cancelled = false
     const loadData = async () => {
       try {
-        const [r, pb, todayEx, serverProgress, summary] = await Promise.all([
+        const [r, pb, todayEx, serverProgress, summary, lastS] = await Promise.all([
           api.get(`/routines/${id}`),
           api.get('/workouts/personal-bests').catch(() => ({ data: [] })),
           api.get('/workouts/today-exercises').catch(() => ({ data: [] })),
           api.get(`/workouts/progress/${id}`).catch(() => ({ data: {} })),
           api.get('/workouts/today-summary').catch(() => ({ data: null })),
+          api.get('/workouts/last-sets').catch(() => ({ data: [] })),
         ])
         if (cancelled) return
         setRoutine(r.data)
@@ -136,6 +142,9 @@ export default function RoutineDayDetail() {
         const bests = {}
         pb.data.forEach(b => { bests[b.exercise_id] = b })
         setPersonalBests(bests)
+        const ultimas = {}
+        ;(lastS.data || []).forEach(s => { ultimas[s.exercise_id] = s })
+        setLastSets(ultimas)
         setOfflineMode(false)
         cacheSet(`routine_${id}`, r.data)
         cacheSet('personal_bests', bests)
@@ -453,6 +462,75 @@ export default function RoutineDayDetail() {
     setQuickSetExercise(null)
   }
 
+  const abrirMarcarTodo = () => {
+    setBulkRows(pendientesDeFuerza.map(e => {
+      const ultima = lastSets[e.exercise_id]
+      return {
+        routineExId: e.id,
+        exerciseId: e.exercise_id,
+        name: exDisplayName(e.exercise),
+        conHistorial: !!ultima,
+        peso: ultima ? displayWeight(ultima.weight_kg).toString() : '0',
+        reps: ultima ? ultima.reps : e.reps_min,
+      }
+    }))
+  }
+
+  const cambiarPesoBulk = (routineExId, valor) => {
+    setBulkRows(filas => filas.map(f => (
+      f.routineExId === routineExId ? { ...f, peso: valor } : f
+    )))
+  }
+
+  const confirmarMarcarTodo = async () => {
+    if (!bulkRows || bulkRows.length === 0 || bulkSaving) return
+    setBulkSaving(true)
+    const payload = {
+      sets: bulkRows.map(f => ({
+        exercise_id: f.exerciseId,
+        weight_kg: toKg(parseFloat(f.peso) || 0),
+        reps: f.reps,
+      })),
+    }
+    const encolar = () => queueAction({
+      method: 'post',
+      url: '/workouts/bulk-sets',
+      data: payload,
+      description: `Dia completo: ${payload.sets.length} series`,
+    })
+    try {
+      if (online) {
+        try {
+          await api.post('/workouts/bulk-sets', payload)
+        } catch {
+          encolar()
+        }
+      } else {
+        encolar()
+      }
+
+      const next = { ...checked }
+      bulkRows.forEach(f => { next[f.routineExId] = true })
+      setChecked(next)
+      localStorage.setItem(weekKey, JSON.stringify(next))
+
+      api.get('/workouts/today-summary')
+        .then(res => setTodaySummary(res.data))
+        .catch(() => {})
+      api.get('/workouts/last-sets')
+        .then(res => {
+          const ultimas = {}
+          ;(res.data || []).forEach(s => { ultimas[s.exercise_id] = s })
+          setLastSets(ultimas)
+        })
+        .catch(() => {})
+
+      setBulkRows(null)
+    } finally {
+      setBulkSaving(false)
+    }
+  }
+
   const getYoutubeUrl = (name) => {
     const query = encodeURIComponent(`${name} ejercicio como hacerlo`)
     return `https://www.youtube.com/results?search_query=${query}`
@@ -594,6 +672,8 @@ export default function RoutineDayDetail() {
   }
 
   const strengthExercises = sortedExercises.filter(e => !isCardioExercise(e.exercise))
+  // El cardio no entra al marcado masivo: peso y reps no le aplican.
+  const pendientesDeFuerza = strengthExercises.filter(e => !checked[e.id])
   const dayExIds = strengthExercises.map(e => e.id)
   const done = dayExIds.filter(eId => checked[eId]).length
   const total = dayExIds.length
@@ -684,14 +764,24 @@ export default function RoutineDayDetail() {
             Rutina de tu coach · {routine.assigned_by || 'Coach'}
           </div>
         ) : (
-          <button
-            onClick={regenerateExercises}
-            disabled={regenerating}
-            className="mt-3 w-full flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-medium text-orange-500 bg-orange-50 dark:bg-orange-500/10 hover:bg-orange-100 dark:hover:bg-orange-500/20 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw size={15} className={regenerating ? 'animate-spin' : ''} />
-            {regenerating ? 'Regenerando...' : 'Regenerar ejercicios'}
-          </button>
+          <>
+            {pendientesDeFuerza.length > 0 && (
+              <button
+                onClick={abrirMarcarTodo}
+                className="mt-3 w-full flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-500/10 hover:bg-green-100 dark:hover:bg-green-500/20 transition-colors"
+              >
+                <Check size={15} /> Marcar todo el dia
+              </button>
+            )}
+            <button
+              onClick={regenerateExercises}
+              disabled={regenerating}
+              className="mt-3 w-full flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-medium text-orange-500 bg-orange-50 dark:bg-orange-500/10 hover:bg-orange-100 dark:hover:bg-orange-500/20 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw size={15} className={regenerating ? 'animate-spin' : ''} />
+              {regenerating ? 'Regenerando...' : 'Regenerar ejercicios'}
+            </button>
+          </>
         )}
       </div>
 
@@ -1052,6 +1142,59 @@ export default function RoutineDayDetail() {
       )}
 
       {/* Quick Set Popup */}
+      {bulkRows && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 px-4 py-6 overflow-y-auto"
+          onClick={() => { if (!bulkSaving) setBulkRows(null) }}>
+          <div className="card w-full max-w-md my-auto" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-bold">Marcar todo el dia</h3>
+            <p className="text-xs text-gray-400 mt-1">
+              Se registra esto con tus numeros de la ultima vez. Revisa antes de guardar.
+            </p>
+
+            <div className="space-y-2 mt-3">
+              {bulkRows.map(f => (
+                <div key={f.routineExId} data-testid={`bulk-row-${f.routineExId}`}
+                  className="flex items-center justify-between gap-2 text-sm">
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">{f.name}</p>
+                    {!f.conHistorial && (
+                      <p className="text-[11px] text-amber-500">sin historial</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {f.conHistorial ? (
+                      <span className="tabular-nums">{f.peso} {unit}</span>
+                    ) : (
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.5"
+                        aria-label={`Peso de ${f.name}`}
+                        className="input w-20 py-1 text-right tabular-nums"
+                        value={f.peso}
+                        onChange={(e) => cambiarPesoBulk(f.routineExId, e.target.value)}
+                      />
+                    )}
+                    <span className="text-gray-400">x {f.reps}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-2 mt-4">
+              <button onClick={() => setBulkRows(null)} disabled={bulkSaving}
+                className="btn-secondary flex-1 text-sm py-2">
+                Cancelar
+              </button>
+              <button onClick={confirmarMarcarTodo} disabled={bulkSaving}
+                className="btn-primary flex-1 text-sm py-2">
+                {bulkSaving ? 'Guardando...' : 'Confirmar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {quickSetExercise && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-sm shadow-2xl border border-gray-100 dark:border-gray-800 animate-in overflow-hidden">
