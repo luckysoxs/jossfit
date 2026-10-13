@@ -10,7 +10,7 @@ from app.models.workout import Workout, WorkoutSet
 from app.models.routine_progress import RoutineProgress
 from app.models.one_rep_max import OneRepMax
 from app.models.exercise import Exercise
-from app.schemas.workout import WorkoutCreate, WorkoutResponse
+from app.schemas.workout import BulkSetsCreate, WorkoutCreate, WorkoutResponse
 from app.auth.security import get_current_user
 from app.services.algorithms import calculate_1rm_epley, calculate_1rm_brzycki
 from app.services.routine_access import assert_routine_access
@@ -165,6 +165,52 @@ def get_personal_bests(
             bests[exercise_id] = {"exercise_id": exercise_id, "weight_kg": weight_kg, "reps": reps}
 
     return list(bests.values())
+
+
+@router.get("/last-sets")
+def get_last_sets(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """La ultima serie completada de cada ejercicio.
+
+    Lo que el usuario cargo la vez pasada, no su record: eso lo da
+    /personal-bests. Se ordena por fecha del entrenamiento y, a igual fecha,
+    por id de la serie, que es el orden en que se registraron.
+
+    Se acota al ultimo ano: esto se pide en cada entrada a un dia, y sin tope
+    traeria miles de series para quedarse con unas cuarenta. Un ejercicio que
+    no haces desde hace mas de un ano cuenta como sin historial, que de todos
+    modos es mejor que copiar un peso de hace tanto.
+    """
+    today = today_mx()
+    desde = today - timedelta(days=365)
+    rows = (
+        db.query(
+            WorkoutSet.exercise_id,
+            WorkoutSet.weight_kg,
+            WorkoutSet.reps,
+        )
+        .join(Workout, Workout.id == WorkoutSet.workout_id)
+        .filter(
+            Workout.user_id == user.id,
+            WorkoutSet.completed == True,  # noqa: E712
+            Workout.date >= desde,
+            Workout.date <= today,
+        )
+        .order_by(Workout.date.desc(), WorkoutSet.id.desc())
+        .all()
+    )
+
+    ultimos = {}
+    for exercise_id, weight_kg, reps in rows:
+        if exercise_id not in ultimos:
+            ultimos[exercise_id] = {
+                "exercise_id": exercise_id,
+                "weight_kg": weight_kg,
+                "reps": reps,
+            }
+    return list(ultimos.values())
 
 
 @router.get("/today-exercises")
@@ -414,6 +460,88 @@ def log_quick_set(
 
     db.commit()
     return {"exercise_id": exercise_id, "weight_kg": weight_kg, "reps": reps, "saved": True}
+
+
+MAX_BULK_SETS = 50
+
+
+@router.post("/bulk-sets", status_code=201)
+def log_bulk_sets(
+    data: BulkSetsCreate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Registra varias series de golpe: marcar el dia completo.
+
+    Misma logica que /quick-set para una sola serie, pero en una transaccion:
+    o queda el dia entero, o no queda nada. La validacion corre antes de
+    insertar para que un dato malo no deje series a medias.
+    """
+    if not data.sets:
+        raise HTTPException(status_code=400, detail="No hay series para guardar")
+    if len(data.sets) > MAX_BULK_SETS:
+        raise HTTPException(
+            status_code=400, detail="Demasiadas series en una sola peticion",
+        )
+    for item in data.sets:
+        # 0 kg es valido: dominadas, fondos y plancha se cargan con el cuerpo.
+        if item.reps < 1 or item.weight_kg < 0:
+            raise HTTPException(status_code=400, detail="Peso o repeticiones invalidos")
+
+    # Un id inexistente reventaria en el commit con un 500 por la llave
+    # foranea; mejor decirlo claro antes de tocar nada.
+    pedidos = {item.exercise_id for item in data.sets}
+    existentes = {
+        eid for (eid,) in db.query(Exercise.id).filter(Exercise.id.in_(pedidos)).all()
+    }
+    if pedidos - existentes:
+        raise HTTPException(status_code=400, detail="Ejercicio invalido")
+
+    today = today_mx()
+    # La fecha futura se recorta a hoy, no se rechaza: el cliente manda su
+    # fecha local y un telefono en otra zona (o con el reloj adelantado) puede
+    # ir un dia adelante de la hora de Mexico. Bloquear el registro seria peor
+    # que atribuirlo a hoy.
+    fecha = min(data.date or today, today)
+
+    workout = db.query(Workout).filter(
+        Workout.user_id == user.id, Workout.date == fecha
+    ).first()
+    if not workout:
+        workout = Workout(user_id=user.id, date=fecha)
+        db.add(workout)
+        db.flush()
+
+    # Por maximo y no por cuenta: POST /workouts deja al cliente elegir el
+    # set_number, asi que contar puede repetir un numero que ya existe.
+    existing = db.query(
+        sqlfunc.coalesce(sqlfunc.max(WorkoutSet.set_number), 0)
+    ).filter(WorkoutSet.workout_id == workout.id).scalar() or 0
+
+    for offset, item in enumerate(data.sets, start=1):
+        db.add(WorkoutSet(
+            workout_id=workout.id,
+            exercise_id=item.exercise_id,
+            set_number=existing + offset,
+            reps=item.reps,
+            weight_kg=item.weight_kg,
+            completed=True,
+        ))
+        if 1 <= item.reps <= 10 and item.weight_kg > 0:
+            epley = calculate_1rm_epley(item.weight_kg, item.reps)
+            brzycki = calculate_1rm_brzycki(item.weight_kg, item.reps)
+            db.add(OneRepMax(
+                user_id=user.id,
+                exercise_id=item.exercise_id,
+                estimated_1rm=round((epley + brzycki) / 2, 1),
+                formula_used="average",
+                date=fecha,
+                source_weight=item.weight_kg,
+                source_reps=item.reps,
+            ))
+
+    db.commit()
+    return {"ok": True, "saved": len(data.sets), "workout_id": workout.id}
 
 
 def _load_workout(db: Session, workout_id: int) -> Workout | None:

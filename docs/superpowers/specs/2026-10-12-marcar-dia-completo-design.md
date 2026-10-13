@@ -44,7 +44,12 @@ class BulkSetItem(BaseModel):
 
 class BulkSetsCreate(BaseModel):
     sets: list[BulkSetItem]
+    date: date | None = None   # el dia en que se marco; si no viene, hoy
 ```
+
+La fecha la manda el cliente a proposito: una accion encolada sin internet se
+reenvia despues, y sin fecha el servidor la atribuiria al dia del reenvio. Una
+fecha futura se rechaza con 400 `"Fecha invalida"`.
 
 - Reglas, las mismas que `POST /workouts/quick-set` ya aplica para una serie:
   busca el entrenamiento de hoy (`today_mx()`) del usuario y lo crea si no
