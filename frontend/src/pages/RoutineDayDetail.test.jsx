@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import RoutineDayDetail from './RoutineDayDetail'
 import api from '../services/api'
+import { queueAction } from '../services/offlineCache'
 
 vi.mock('../services/api', () => ({
   default: { get: vi.fn(), put: vi.fn(), post: vi.fn(), delete: vi.fn() },
@@ -15,7 +16,9 @@ vi.mock('../services/offlineCache', () => ({
   queueAction: vi.fn(),
 }))
 
-vi.mock('../hooks/useOnlineStatus', () => ({ default: () => true }))
+let online = true
+
+vi.mock('../hooks/useOnlineStatus', () => ({ default: () => online }))
 
 vi.mock('../contexts/RestTimerContext', () => ({
   useRestTimer: () => ({
@@ -248,6 +251,7 @@ describe('RoutineDayDetail - marcar todo el dia', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     params = { id: '1', dayId: '10' }
+    online = true
     // El progreso marcado vive en localStorage y persiste entre pruebas del
     // mismo archivo: sin esto, el caso que confirma deja todo marcado y los
     // siguientes arrancan sin pendientes.
@@ -279,12 +283,13 @@ describe('RoutineDayDetail - marcar todo el dia', () => {
     await userEvent.click(screen.getByRole('button', { name: /Confirmar/i }))
 
     await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1))
-    expect(api.post).toHaveBeenCalledWith('/workouts/bulk-sets', {
-      sets: [
-        { exercise_id: 1, weight_kg: 80, reps: 7 },
-        { exercise_id: 2, weight_kg: 0, reps: 10 },
-      ],
-    })
+    const [url, cuerpo] = api.post.mock.calls[0]
+    expect(url).toBe('/workouts/bulk-sets')
+    expect(cuerpo.sets).toEqual([
+      { exercise_id: 1, weight_kg: 80, reps: 7 },
+      { exercise_id: 2, weight_kg: 0, reps: 10 },
+    ])
+    expect(cuerpo.date).toMatch(/^\d{4}-\d{2}-\d{2}$/)
   })
 
   it('el peso que teclees para uno sin historial es el que se manda', async () => {
@@ -296,12 +301,11 @@ describe('RoutineDayDetail - marcar todo el dia', () => {
     await userEvent.type(campo, '25')
     await userEvent.click(screen.getByRole('button', { name: /Confirmar/i }))
 
-    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/workouts/bulk-sets', {
-      sets: [
-        { exercise_id: 1, weight_kg: 80, reps: 7 },
-        { exercise_id: 2, weight_kg: 25, reps: 10 },
-      ],
-    }))
+    await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1))
+    expect(api.post.mock.calls[0][1].sets).toEqual([
+      { exercise_id: 1, weight_kg: 80, reps: 7 },
+      { exercise_id: 2, weight_kg: 25, reps: 10 },
+    ])
   })
 
   it('cancelar no llama al servidor', async () => {
@@ -327,5 +331,64 @@ describe('RoutineDayDetail - marcar todo el dia', () => {
 
     expect(await screen.findByRole('heading', { name: 'Lunes - Pecho' })).toBeInTheDocument()
     await waitFor(() => expect(screen.queryByRole('button', { name: /Marcar todo el dia/i })).toBeNull())
+  })
+  it('sin internet encola la accion con la fecha y marca los ejercicios', async () => {
+    online = false
+    const boton = await montarConEjercicios()
+    await userEvent.click(boton)
+    await userEvent.click(screen.getByRole('button', { name: /Confirmar/i }))
+
+    await waitFor(() => expect(queueAction).toHaveBeenCalledTimes(1))
+    expect(api.post).not.toHaveBeenCalled()
+
+    const encolado = queueAction.mock.calls[0][0]
+    expect(encolado.method).toBe('post')
+    expect(encolado.url).toBe('/workouts/bulk-sets')
+    expect(encolado.data.sets).toHaveLength(2)
+    // La fecha viaja en el cuerpo para que al reenviarse no caiga en otro dia.
+    const hoy = new Date()
+    const esperada = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`
+    expect(encolado.data.date).toBe(esperada)
+
+    // El modal se cierra y los ejercicios quedan marcados.
+    await waitFor(() => expect(screen.queryByTestId('bulk-row-101')).toBeNull())
+    await waitFor(() => expect(screen.queryByRole('button', { name: /Marcar todo el dia/i })).toBeNull())
+  })
+
+  it('si el servidor rechaza, muestra el error y no marca ni encola nada', async () => {
+    const boton = await montarConEjercicios()
+    api.post.mockRejectedValue({
+      response: { status: 400, data: { detail: 'Ejercicio invalido' } },
+    })
+    await userEvent.click(boton)
+    await userEvent.click(screen.getByRole('button', { name: /Confirmar/i }))
+
+    expect(await screen.findByText('Ejercicio invalido')).toBeInTheDocument()
+    expect(queueAction).not.toHaveBeenCalled()
+    // El modal sigue abierto y nada quedo marcado.
+    expect(screen.getByTestId('bulk-row-101')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Confirmar/i })).toBeEnabled()
+  })
+
+  it('si el servidor falla (500) si encola, porque reintentar tiene sentido', async () => {
+    const boton = await montarConEjercicios()
+    api.post.mockRejectedValue({ response: { status: 500, data: {} } })
+    await userEvent.click(boton)
+    await userEvent.click(screen.getByRole('button', { name: /Confirmar/i }))
+
+    await waitFor(() => expect(queueAction).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(screen.queryByTestId('bulk-row-101')).toBeNull())
+  })
+
+  it('un peso invalido no se manda como 0', async () => {
+    const boton = await montarConEjercicios()
+    await userEvent.click(boton)
+
+    const campo = screen.getByLabelText('Peso de Cruce de poleas')
+    await userEvent.clear(campo)
+    await userEvent.click(screen.getByRole('button', { name: /Confirmar/i }))
+
+    expect(await screen.findByText(/Revisa el peso de Cruce de poleas/)).toBeInTheDocument()
+    expect(api.post).not.toHaveBeenCalled()
   })
 })

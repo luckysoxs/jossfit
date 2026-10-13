@@ -177,7 +177,14 @@ def get_last_sets(
     Lo que el usuario cargo la vez pasada, no su record: eso lo da
     /personal-bests. Se ordena por fecha del entrenamiento y, a igual fecha,
     por id de la serie, que es el orden en que se registraron.
+
+    Se acota al ultimo ano: esto se pide en cada entrada a un dia, y sin tope
+    traeria miles de series para quedarse con unas cuarenta. Un ejercicio que
+    no haces desde hace mas de un ano cuenta como sin historial, que de todos
+    modos es mejor que copiar un peso de hace tanto.
     """
+    today = today_mx()
+    desde = today - timedelta(days=365)
     rows = (
         db.query(
             WorkoutSet.exercise_id,
@@ -185,7 +192,12 @@ def get_last_sets(
             WorkoutSet.reps,
         )
         .join(Workout, Workout.id == WorkoutSet.workout_id)
-        .filter(Workout.user_id == user.id, WorkoutSet.completed == True)  # noqa: E712
+        .filter(
+            Workout.user_id == user.id,
+            WorkoutSet.completed == True,  # noqa: E712
+            Workout.date >= desde,
+            Workout.date <= today,
+        )
         .order_by(Workout.date.desc(), WorkoutSet.id.desc())
         .all()
     )
@@ -476,18 +488,33 @@ def log_bulk_sets(
         if item.reps < 1 or item.weight_kg < 0:
             raise HTTPException(status_code=400, detail="Peso o repeticiones invalidos")
 
+    # Un id inexistente reventaria en el commit con un 500 por la llave
+    # foranea; mejor decirlo claro antes de tocar nada.
+    pedidos = {item.exercise_id for item in data.sets}
+    existentes = {
+        eid for (eid,) in db.query(Exercise.id).filter(Exercise.id.in_(pedidos)).all()
+    }
+    if pedidos - existentes:
+        raise HTTPException(status_code=400, detail="Ejercicio invalido")
+
     today = today_mx()
+    fecha = data.date or today
+    if fecha > today:
+        raise HTTPException(status_code=400, detail="Fecha invalida")
+
     workout = db.query(Workout).filter(
-        Workout.user_id == user.id, Workout.date == today
+        Workout.user_id == user.id, Workout.date == fecha
     ).first()
     if not workout:
-        workout = Workout(user_id=user.id, date=today)
+        workout = Workout(user_id=user.id, date=fecha)
         db.add(workout)
         db.flush()
 
-    existing = db.query(sqlfunc.count(WorkoutSet.id)).filter(
-        WorkoutSet.workout_id == workout.id
-    ).scalar() or 0
+    # Por maximo y no por cuenta: POST /workouts deja al cliente elegir el
+    # set_number, asi que contar puede repetir un numero que ya existe.
+    existing = db.query(
+        sqlfunc.coalesce(sqlfunc.max(WorkoutSet.set_number), 0)
+    ).filter(WorkoutSet.workout_id == workout.id).scalar() or 0
 
     for offset, item in enumerate(data.sets, start=1):
         db.add(WorkoutSet(
@@ -506,7 +533,7 @@ def log_bulk_sets(
                 exercise_id=item.exercise_id,
                 estimated_1rm=round((epley + brzycki) / 2, 1),
                 formula_used="average",
-                date=today,
+                date=fecha,
                 source_weight=item.weight_kg,
                 source_reps=item.reps,
             ))

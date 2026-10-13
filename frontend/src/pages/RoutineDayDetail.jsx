@@ -50,6 +50,7 @@ export default function RoutineDayDetail() {
   const [lastSets, setLastSets] = useState({})
   const [bulkRows, setBulkRows] = useState(null)   // null = modal cerrado
   const [bulkSaving, setBulkSaving] = useState(false)
+  const [bulkError, setBulkError] = useState('')
   // Nombre del dia editable, mismo gesto que el nombre de la rutina.
   const [editingDayName, setEditingDayName] = useState(false)
   const [dayNameInput, setDayNameInput] = useState('')
@@ -463,6 +464,7 @@ export default function RoutineDayDetail() {
   }
 
   const abrirMarcarTodo = () => {
+    setBulkError('')
     setBulkRows(pendientesDeFuerza.map(e => {
       const ultima = lastSets[e.exercise_id]
       return {
@@ -484,11 +486,26 @@ export default function RoutineDayDetail() {
 
   const confirmarMarcarTodo = async () => {
     if (!bulkRows || bulkRows.length === 0 || bulkSaving) return
+
+    const invalida = bulkRows.find(f => {
+      const n = parseFloat(f.peso)
+      return !Number.isFinite(n) || n < 0
+    })
+    if (invalida) {
+      setBulkError(`Revisa el peso de ${invalida.name}`)
+      return
+    }
+
     setBulkSaving(true)
+    setBulkError('')
+    // La fecha va en el cuerpo: si esto se encola sin internet y se reenvia
+    // manana, las series deben caer en el dia en que se marcaron.
+    const hoyLocal = new Date()
     const payload = {
+      date: `${hoyLocal.getFullYear()}-${String(hoyLocal.getMonth() + 1).padStart(2, '0')}-${String(hoyLocal.getDate()).padStart(2, '0')}`,
       sets: bulkRows.map(f => ({
         exercise_id: f.exerciseId,
-        weight_kg: toKg(parseFloat(f.peso) || 0),
+        weight_kg: toKg(parseFloat(f.peso)),
         reps: f.reps,
       })),
     }
@@ -501,8 +518,24 @@ export default function RoutineDayDetail() {
     try {
       if (online) {
         try {
-          await api.post('/workouts/bulk-sets', payload)
-        } catch {
+          // Mismo limite que el guardado de una serie: si la conexion se
+          // queda colgada, cae a la cola en vez de dejar el boton girando.
+          const controller = new AbortController()
+          const timeout = setTimeout(() => controller.abort(), 5000)
+          await api.post('/workouts/bulk-sets', payload, { signal: controller.signal })
+          clearTimeout(timeout)
+        } catch (err) {
+          // Solo se encola cuando el servidor no contesto o fallo del lado de
+          // el. Un rechazo (4xx) se encolaria para siempre, porque la cola
+          // solo borra lo que tuvo exito, y el dia se veria marcado sin que
+          // nada se hubiera guardado.
+          const status = err.response?.status
+          if (status && status < 500) {
+            const detail = err.response?.data?.detail
+            setBulkError(typeof detail === 'string' ? detail : 'El servidor rechazo el registro')
+            setBulkSaving(false)
+            return
+          }
           encolar()
         }
       } else {
@@ -1180,6 +1213,8 @@ export default function RoutineDayDetail() {
                 </div>
               ))}
             </div>
+
+            {bulkError && <p className="text-xs text-red-500 mt-2">{bulkError}</p>}
 
             <div className="flex gap-2 mt-4">
               <button onClick={() => setBulkRows(null)} disabled={bulkSaving}
