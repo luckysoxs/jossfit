@@ -10,7 +10,7 @@ from app.models.workout import Workout, WorkoutSet
 from app.models.routine_progress import RoutineProgress
 from app.models.one_rep_max import OneRepMax
 from app.models.exercise import Exercise
-from app.schemas.workout import WorkoutCreate, WorkoutResponse
+from app.schemas.workout import BulkSetsCreate, WorkoutCreate, WorkoutResponse
 from app.auth.security import get_current_user
 from app.services.algorithms import calculate_1rm_epley, calculate_1rm_brzycki
 from app.services.routine_access import assert_routine_access
@@ -448,6 +448,71 @@ def log_quick_set(
 
     db.commit()
     return {"exercise_id": exercise_id, "weight_kg": weight_kg, "reps": reps, "saved": True}
+
+
+MAX_BULK_SETS = 50
+
+
+@router.post("/bulk-sets", status_code=201)
+def log_bulk_sets(
+    data: BulkSetsCreate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Registra varias series de golpe: marcar el dia completo.
+
+    Misma logica que /quick-set para una sola serie, pero en una transaccion:
+    o queda el dia entero, o no queda nada. La validacion corre antes de
+    insertar para que un dato malo no deje series a medias.
+    """
+    if not data.sets:
+        raise HTTPException(status_code=400, detail="No hay series para guardar")
+    if len(data.sets) > MAX_BULK_SETS:
+        raise HTTPException(
+            status_code=400, detail="Demasiadas series en una sola peticion",
+        )
+    for item in data.sets:
+        # 0 kg es valido: dominadas, fondos y plancha se cargan con el cuerpo.
+        if item.reps < 1 or item.weight_kg < 0:
+            raise HTTPException(status_code=400, detail="Peso o repeticiones invalidos")
+
+    today = today_mx()
+    workout = db.query(Workout).filter(
+        Workout.user_id == user.id, Workout.date == today
+    ).first()
+    if not workout:
+        workout = Workout(user_id=user.id, date=today)
+        db.add(workout)
+        db.flush()
+
+    existing = db.query(sqlfunc.count(WorkoutSet.id)).filter(
+        WorkoutSet.workout_id == workout.id
+    ).scalar() or 0
+
+    for offset, item in enumerate(data.sets, start=1):
+        db.add(WorkoutSet(
+            workout_id=workout.id,
+            exercise_id=item.exercise_id,
+            set_number=existing + offset,
+            reps=item.reps,
+            weight_kg=item.weight_kg,
+            completed=True,
+        ))
+        if 1 <= item.reps <= 10 and item.weight_kg > 0:
+            epley = calculate_1rm_epley(item.weight_kg, item.reps)
+            brzycki = calculate_1rm_brzycki(item.weight_kg, item.reps)
+            db.add(OneRepMax(
+                user_id=user.id,
+                exercise_id=item.exercise_id,
+                estimated_1rm=round((epley + brzycki) / 2, 1),
+                formula_used="average",
+                date=today,
+                source_weight=item.weight_kg,
+                source_reps=item.reps,
+            ))
+
+    db.commit()
+    return {"ok": True, "saved": len(data.sets), "workout_id": workout.id}
 
 
 def _load_workout(db: Session, workout_id: int) -> Workout | None:

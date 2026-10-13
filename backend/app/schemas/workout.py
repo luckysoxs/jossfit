@@ -50,3 +50,13 @@ class WorkoutResponse(BaseModel):
     sets: list[WorkoutSetResponse] = []
 
     model_config = {"from_attributes": True}
+
+
+class BulkSetItem(BaseModel):
+    exercise_id: int
+    weight_kg: float
+    reps: int
+
+
+class BulkSetsCreate(BaseModel):
+    sets: list[BulkSetItem]
