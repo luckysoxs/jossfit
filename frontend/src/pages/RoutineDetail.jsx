@@ -195,7 +195,9 @@ export default function RoutineDetail() {
                   className="flex items-center gap-2 text-left group"
                 >
                   <h1 className="text-xl font-bold truncate">{routine.name}</h1>
-                  <Pencil size={14} className="text-gray-400 opacity-0 group-hover:opacity-100 flex-shrink-0 transition-opacity" />
+                  {/* Siempre visible, igual que en el nombre del dia: en el
+                      celular no hay hover. */}
+                  <Pencil size={14} className="text-gray-400 group-hover:text-brand-500 flex-shrink-0 transition-colors" />
                 </button>
               )}
               <div className="flex flex-wrap gap-2 text-sm text-gray-400 mt-1">

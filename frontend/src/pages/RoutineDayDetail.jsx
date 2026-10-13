@@ -659,7 +659,9 @@ export default function RoutineDayDetail() {
               className="flex items-center gap-2 text-left group"
             >
               <h2 className="text-lg font-bold">{dayTitle}</h2>
-              <Pencil size={14} className="text-gray-400 opacity-0 group-hover:opacity-100 flex-shrink-0 transition-opacity" />
+              {/* Siempre visible: en el celular no hay hover y el lapiz era la
+                  unica senal de que el nombre se puede cambiar. */}
+              <Pencil size={14} className="text-gray-400 group-hover:text-brand-500 flex-shrink-0 transition-colors" />
             </button>
           )}
           {offlineMode && (
