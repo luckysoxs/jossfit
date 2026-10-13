@@ -167,6 +167,40 @@ def get_personal_bests(
     return list(bests.values())
 
 
+@router.get("/last-sets")
+def get_last_sets(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """La ultima serie completada de cada ejercicio.
+
+    Lo que el usuario cargo la vez pasada, no su record: eso lo da
+    /personal-bests. Se ordena por fecha del entrenamiento y, a igual fecha,
+    por id de la serie, que es el orden en que se registraron.
+    """
+    rows = (
+        db.query(
+            WorkoutSet.exercise_id,
+            WorkoutSet.weight_kg,
+            WorkoutSet.reps,
+        )
+        .join(Workout, Workout.id == WorkoutSet.workout_id)
+        .filter(Workout.user_id == user.id, WorkoutSet.completed == True)  # noqa: E712
+        .order_by(Workout.date.desc(), WorkoutSet.id.desc())
+        .all()
+    )
+
+    ultimos = {}
+    for exercise_id, weight_kg, reps in rows:
+        if exercise_id not in ultimos:
+            ultimos[exercise_id] = {
+                "exercise_id": exercise_id,
+                "weight_kg": weight_kg,
+                "reps": reps,
+            }
+    return list(ultimos.values())
+
+
 @router.get("/today-exercises")
 def get_today_exercises(
     user: User = Depends(get_current_user),
