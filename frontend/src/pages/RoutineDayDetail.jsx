@@ -45,6 +45,12 @@ export default function RoutineDayDetail() {
   const [loading, setLoading] = useState(true)
   const [offlineMode, setOfflineMode] = useState(false)
   const [personalBests, setPersonalBests] = useState({})
+  // Nombre del dia editable, mismo gesto que el nombre de la rutina.
+  const [editingDayName, setEditingDayName] = useState(false)
+  const [dayNameInput, setDayNameInput] = useState('')
+  const [dayNameError, setDayNameError] = useState('')
+  const [savingDayName, setSavingDayName] = useState(false)
+  const cancelDayNameRef = useRef(false)
 
   // Clave semanal: los marcados de lunes siguen ahi el jueves y se limpian
   // solos al empezar la siguiente semana.
@@ -202,6 +208,15 @@ export default function RoutineDayDetail() {
     }
   }, [checked, weekKey])
 
+  // Al cambiar de dia el editor se cierra: el banner de hoy puede llevarte de
+  // un dia a otro sin desmontar esta pantalla, y un guardado fallido dejaria
+  // el texto del dia anterior sobre el dia nuevo.
+  useEffect(() => {
+    setEditingDayName(false)
+    setDayNameInput('')
+    setDayNameError('')
+  }, [dayId])
+
   // ─── Datos del dia y tarjetas compartibles ───
   // Va antes de los early returns porque los efectos de abajo dependen de esto
   // y los hooks no pueden quedar detras de un `return`.
@@ -270,6 +285,32 @@ export default function RoutineDayDetail() {
     setRoutine(r.data)
     cacheSet(`routine_${id}`, r.data)
   })
+
+  const guardarNombreDia = async (dayDbId) => {
+    // Evita enviar dos veces lo mismo (Enter seguido de blur).
+    if (savingDayName) return
+    const nombre = dayNameInput.trim()
+    // Sin cambios no hay nada que mandar al servidor.
+    if (!nombre || nombre === day?.name) {
+      setEditingDayName(false)
+      setDayNameError('')
+      return
+    }
+    setSavingDayName(true)
+    try {
+      await api.put(`/routines/days/${dayDbId}`, { name: nombre })
+    } catch (err) {
+      const detail = err.response?.data?.detail
+      setDayNameError(typeof detail === 'string' ? detail : 'No pudimos guardar el nombre')
+      return
+    } finally {
+      setSavingDayName(false)
+    }
+    // El nombre ya quedo guardado: si la recarga falla no es un error de guardado.
+    setEditingDayName(false)
+    setDayNameError('')
+    reloadRoutine().catch(() => {})
+  }
 
   const regenerateExercises = async () => {
     if (!confirm('¿Regenerar todos los ejercicios de este día? Se reemplazarán los actuales por nuevos aleatorios.')) return
@@ -582,13 +623,52 @@ export default function RoutineDayDetail() {
 
       <div className="card">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold">{dayTitle}</h2>
+          {editingDayName ? (
+            <form onSubmit={(e) => { e.preventDefault(); guardarNombreDia(day.id) }} className="flex-1">
+              <input
+                autoFocus
+                maxLength={100}
+                aria-label="Nombre del dia"
+                className="input text-lg font-bold py-1 w-full"
+                value={dayNameInput}
+                onChange={(e) => setDayNameInput(e.target.value)}
+                onBlur={() => {
+                  if (cancelDayNameRef.current) {
+                    cancelDayNameRef.current = false
+                    setEditingDayName(false)
+                    setDayNameError('')
+                    return
+                  }
+                  guardarNombreDia(day.id)
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    cancelDayNameRef.current = true
+                    setEditingDayName(false)
+                    setDayNameError('')
+                  }
+                }}
+              />
+            </form>
+          ) : readOnly ? (
+            <h2 className="text-lg font-bold">{dayTitle}</h2>
+          ) : (
+            <button
+              onClick={() => { cancelDayNameRef.current = false; setDayNameInput(day.name); setEditingDayName(true); setDayNameError('') }}
+              aria-label="Editar el nombre del dia"
+              className="flex items-center gap-2 text-left group"
+            >
+              <h2 className="text-lg font-bold">{dayTitle}</h2>
+              <Pencil size={14} className="text-gray-400 opacity-0 group-hover:opacity-100 flex-shrink-0 transition-opacity" />
+            </button>
+          )}
           {offlineMode && (
             <span className="flex items-center gap-1 text-xs text-amber-500 bg-amber-50 dark:bg-amber-500/10 px-2 py-1 rounded-full">
               <WifiOff size={12} /> Offline
             </span>
           )}
         </div>
+        {dayNameError && <p className="text-xs text-red-500 mt-1">{dayNameError}</p>}
         {day.focus && <p className="text-xs text-gray-400 mt-1">{day.focus.split(',').map(m => MUSCLE_LABELS[m.trim()] || m.trim()).join(', ')}</p>}
         <div className="flex items-center gap-2 mt-2">
           <div className="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">

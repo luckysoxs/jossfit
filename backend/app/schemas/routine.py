@@ -89,3 +89,7 @@ class RoutineResponse(BaseModel):
 class RoutineDuplicate(BaseModel):
     destino: Literal["cliente", "mia"]  # rutina para clientes o para entrenarla uno mismo
     name: str | None = None             # vacio: "<original> (copia)"
+
+
+class RoutineDayUpdate(BaseModel):
+    name: str

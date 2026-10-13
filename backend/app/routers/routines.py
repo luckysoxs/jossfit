@@ -1,3 +1,4 @@
+import unicodedata
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from pydantic import BaseModel
 from sqlalchemy import or_, and_
@@ -8,7 +9,8 @@ from app.models.user import User
 from app.models.routine import Routine, RoutineDay, RoutineExercise
 from app.models.exercise import Exercise, MuscleGroup, ExerciseCategory
 from app.schemas.routine import (
-    RoutineCreate, RoutineDuplicate, RoutineExerciseCreate, RoutineExerciseUpdate, RoutineResponse,
+    RoutineCreate, RoutineDayUpdate, RoutineDuplicate, RoutineExerciseCreate,
+    RoutineExerciseUpdate, RoutineResponse,
 )
 from app.auth.security import get_current_user
 from app.models.coach import RoutineChangeRequest
@@ -354,6 +356,66 @@ def delete_exercise(
         raise HTTPException(status_code=404, detail="Exercise not found")
     db.delete(routine_ex)
     db.commit()
+
+
+DAY_NAME_MAX = 100  # largo de la columna RoutineDay.name
+
+_DIAS_SEMANA = ("lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo")
+
+
+def _sin_acentos(texto: str) -> str:
+    return "".join(
+        c for c in unicodedata.normalize("NFD", texto)
+        if unicodedata.category(c) != "Mn"
+    )
+
+
+def _empieza_con_dia_semana(nombre: str) -> bool:
+    """True si el nombre trae el prefijo del dia de la semana: 'Lunes - Pecho'.
+
+    El frontend ya pinta ese prefijo a partir de los dias de descanso, asi que
+    guardarlo en el nombre daria 'Lunes - Lunes - Pecho'.
+    """
+    limpio = _sin_acentos(nombre).strip().lower()
+    for dia in _DIAS_SEMANA:
+        if limpio.startswith(dia) and limpio[len(dia):].lstrip().startswith("-"):
+            return True
+    return False
+
+
+@router.put("/days/{routine_day_id}", status_code=200)
+def rename_day(
+    routine_day_id: int,
+    data: RoutineDayUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Renombra un dia de una rutina propia.
+
+    El filtro por Routine.user_id deja fuera al cliente con la rutina
+    asignada: recibe 404, igual que en el resto de la escritura de rutinas.
+    """
+    day = (
+        db.query(RoutineDay)
+        .join(Routine)
+        .filter(RoutineDay.id == routine_day_id, Routine.user_id == user.id)
+        .first()
+    )
+    if not day:
+        raise HTTPException(status_code=404, detail="Day not found")
+
+    nombre = (data.name or "").strip()
+    if not nombre:
+        raise HTTPException(status_code=400, detail="Escribe un nombre para el dia")
+    if _empieza_con_dia_semana(nombre):
+        raise HTTPException(
+            status_code=400,
+            detail="El dia de la semana se pone solo; escribe solo el nombre",
+        )
+
+    day.name = nombre[:DAY_NAME_MAX]
+    db.commit()
+    return {"ok": True, "name": day.name}
 
 
 @router.post("/days/{routine_day_id}/exercises", status_code=201)
