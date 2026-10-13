@@ -530,7 +530,9 @@ export default function RoutineDayDetail() {
           // solo borra lo que tuvo exito, y el dia se veria marcado sin que
           // nada se hubiera guardado.
           const status = err.response?.status
-          if (status && status < 500) {
+          // 408 y 429 son transitorios: esos si vale reintentarlos.
+          const permanente = status && status < 500 && status !== 408 && status !== 429
+          if (permanente) {
             const detail = err.response?.data?.detail
             setBulkError(typeof detail === 'string' ? detail : 'El servidor rechazo el registro')
             setBulkSaving(false)

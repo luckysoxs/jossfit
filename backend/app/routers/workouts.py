@@ -498,9 +498,11 @@ def log_bulk_sets(
         raise HTTPException(status_code=400, detail="Ejercicio invalido")
 
     today = today_mx()
-    fecha = data.date or today
-    if fecha > today:
-        raise HTTPException(status_code=400, detail="Fecha invalida")
+    # La fecha futura se recorta a hoy, no se rechaza: el cliente manda su
+    # fecha local y un telefono en otra zona (o con el reloj adelantado) puede
+    # ir un dia adelante de la hora de Mexico. Bloquear el registro seria peor
+    # que atribuirlo a hoy.
+    fecha = min(data.date or today, today)
 
     workout = db.query(Workout).filter(
         Workout.user_id == user.id, Workout.date == fecha

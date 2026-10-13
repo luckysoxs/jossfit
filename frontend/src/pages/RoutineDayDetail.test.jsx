@@ -391,4 +391,35 @@ describe('RoutineDayDetail - marcar todo el dia', () => {
     expect(await screen.findByText(/Revisa el peso de Cruce de poleas/)).toBeInTheDocument()
     expect(api.post).not.toHaveBeenCalled()
   })
+  it('al guardar bien, el progreso queda persistido en localStorage', async () => {
+    const boton = await montarConEjercicios()
+    await userEvent.click(boton)
+    await userEvent.click(screen.getByRole('button', { name: /Confirmar/i }))
+
+    await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1))
+    await waitFor(() => {
+      const guardado = Object.entries(localStorage)
+        .filter(([k]) => k.includes('progress') || k.includes('routine'))
+        .map(([, v]) => v)
+        .join('')
+      expect(guardado).toContain('101')
+      expect(guardado).toContain('102')
+    })
+  })
+
+  it('un rechazo del servidor no deja nada marcado', async () => {
+    const boton = await montarConEjercicios()
+    api.post.mockRejectedValue({
+      response: { status: 400, data: { detail: 'Ejercicio invalido' } },
+    })
+    await userEvent.click(boton)
+    await userEvent.click(screen.getByRole('button', { name: /Confirmar/i }))
+
+    expect(await screen.findByText('Ejercicio invalido')).toBeInTheDocument()
+    // Ni en localStorage ni en la pantalla: el boton de marcar sigue ahi.
+    const guardado = Object.values(localStorage).join('')
+    expect(guardado).not.toContain('101')
+    await userEvent.click(screen.getByRole('button', { name: /Cancelar/i }))
+    expect(screen.getByRole('button', { name: /Marcar todo el dia/i })).toBeInTheDocument()
+  })
 })

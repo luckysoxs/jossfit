@@ -177,7 +177,9 @@ def test_respeta_la_fecha_que_manda_el_cliente(client, db_session, seed_exercise
     assert rm.date == ayer
 
 
-def test_fecha_futura_da_400(client, db_session, seed_exercises):
+def test_fecha_futura_se_recorta_a_hoy(client, db_session, seed_exercises):
+    """Un telefono en otra zona puede ir un dia adelante de la hora de Mexico:
+    mejor registrar hoy que negarle el guardado."""
     u = make_user(client, "bulk11@test.com")
     manana = today_mx() + timedelta(days=1)
 
@@ -185,9 +187,15 @@ def test_fecha_futura_da_400(client, db_session, seed_exercises):
         "date": manana.isoformat(),
         "sets": [{"exercise_id": seed_exercises[0], "weight_kg": 70.0, "reps": 8}],
     })
-    assert res.status_code == 400
-    assert res.json()["detail"] == "Fecha invalida"
-    assert _series_de_hoy(db_session, u["user"]["id"]) == []
+    assert res.status_code == 201, res.text
+
+    series = _series_de_hoy(db_session, u["user"]["id"])
+    assert [s.weight_kg for s in series] == [70.0]
+    assert (
+        db_session.query(Workout)
+        .filter(Workout.user_id == u["user"]["id"], Workout.date == manana)
+        .first()
+    ) is None
 
 
 def test_ejercicio_inexistente_da_400_no_500(client, db_session, seed_exercises):
