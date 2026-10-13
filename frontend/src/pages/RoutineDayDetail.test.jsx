@@ -30,8 +30,10 @@ vi.mock('../contexts/WeightUnitContext', () => ({
 
 vi.mock('../components/ui/PageTour', () => ({ default: () => null }))
 
+let params = { id: '1', dayId: '10' }
+
 vi.mock('react-router-dom', () => ({
-  useParams: () => ({ id: '1', dayId: '10' }),
+  useParams: () => params,
   useNavigate: () => vi.fn(),
 }))
 
@@ -50,6 +52,16 @@ function rutina(extra = {}) {
   }
 }
 
+function mockApi(datos) {
+  api.get.mockImplementation((url) => {
+    if (url === '/routines/1') return Promise.resolve({ data: datos })
+    if (url === '/workouts/progress/1') return Promise.resolve({ data: {} })
+    if (url === '/workouts/today-summary') return Promise.resolve({ data: null })
+    return Promise.resolve({ data: [] })
+  })
+  api.put.mockResolvedValue({ data: { ok: true, name: 'Empuje' } })
+}
+
 function montar(datos = rutina()) {
   api.get.mockImplementation((url) => {
     if (url === '/routines/1') return Promise.resolve({ data: datos })
@@ -63,14 +75,78 @@ function montar(datos = rutina()) {
 }
 
 describe('RoutineDayDetail - nombre del dia', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    params = { id: '1', dayId: '10' }
+  })
 
   it('al tocar el titulo abre el campo con el nombre del dia, sin el dia de la semana', async () => {
     const boton = await montar()
+    // El prefijo del dia de la semana vive solo en el titulo, no en el nombre guardado.
+    expect(screen.getByRole('heading', { name: 'Lunes - Pecho' })).toBeInTheDocument()
     await userEvent.click(boton)
 
     const campo = screen.getByRole('textbox', { name: 'Nombre del dia' })
     expect(campo).toHaveValue('Pecho')
+  })
+
+  it('al salir del campo (blur) guarda el nombre nuevo', async () => {
+    const boton = await montar()
+    await userEvent.click(boton)
+
+    const campo = screen.getByRole('textbox', { name: 'Nombre del dia' })
+    await userEvent.clear(campo)
+    await userEvent.type(campo, 'Empuje')
+    await userEvent.tab()
+
+    await waitFor(() => expect(api.put).toHaveBeenCalledWith('/routines/days/10', { name: 'Empuje' }))
+  })
+
+  it('si el nombre no cambia no llama al servidor y cierra el campo', async () => {
+    const boton = await montar()
+    await userEvent.click(boton)
+    await userEvent.tab()
+
+    await waitFor(() => expect(screen.queryByRole('textbox', { name: 'Nombre del dia' })).toBeNull())
+    expect(api.put).not.toHaveBeenCalled()
+  })
+
+  it('si el guardado funciona pero la recarga falla, no muestra error y cierra el campo', async () => {
+    const boton = await montar()
+    await userEvent.click(boton)
+    api.get.mockImplementation(() => Promise.reject(new Error('sin red')))
+
+    const campo = screen.getByRole('textbox', { name: 'Nombre del dia' })
+    await userEvent.clear(campo)
+    await userEvent.type(campo, 'Empuje{Enter}')
+
+    await waitFor(() => expect(screen.queryByRole('textbox', { name: 'Nombre del dia' })).toBeNull())
+    expect(screen.queryByText('No pudimos guardar el nombre')).toBeNull()
+  })
+
+  it('al cambiar de dia el editor se cierra aunque el guardado haya fallado', async () => {
+    const datos = rutina({
+      days: [
+        { id: 10, day_number: 1, name: 'Pecho', focus: 'chest', exercises: [] },
+        { id: 11, day_number: 2, name: 'Espalda', focus: 'back', exercises: [] },
+      ],
+    })
+    mockApi(datos)
+    const { rerender } = render(<RoutineDayDetail />)
+    await userEvent.click(await screen.findByRole('button', { name: /Editar el nombre del dia/i }))
+    api.put.mockRejectedValue({ response: { data: { detail: 'Error del servidor' } } })
+
+    const campo = screen.getByRole('textbox', { name: 'Nombre del dia' })
+    await userEvent.clear(campo)
+    await userEvent.type(campo, 'Otro{Enter}')
+    expect(await screen.findByText('Error del servidor')).toBeInTheDocument()
+
+    params = { id: '1', dayId: '11' }
+    rerender(<RoutineDayDetail />)
+
+    await waitFor(() => expect(screen.queryByRole('textbox', { name: 'Nombre del dia' })).toBeNull())
+    expect(screen.queryByText('Error del servidor')).toBeNull()
+    expect(screen.getByRole('button', { name: /Editar el nombre del dia/i })).toBeInTheDocument()
   })
 
   it('Enter guarda el nombre nuevo y recarga la rutina', async () => {

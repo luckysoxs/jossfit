@@ -49,6 +49,7 @@ export default function RoutineDayDetail() {
   const [editingDayName, setEditingDayName] = useState(false)
   const [dayNameInput, setDayNameInput] = useState('')
   const [dayNameError, setDayNameError] = useState('')
+  const [savingDayName, setSavingDayName] = useState(false)
   const cancelDayNameRef = useRef(false)
 
   // Clave semanal: los marcados de lunes siguen ahi el jueves y se limpian
@@ -207,6 +208,15 @@ export default function RoutineDayDetail() {
     }
   }, [checked, weekKey])
 
+  // Al cambiar de dia el editor se cierra: el banner de hoy puede llevarte de
+  // un dia a otro sin desmontar esta pantalla, y un guardado fallido dejaria
+  // el texto del dia anterior sobre el dia nuevo.
+  useEffect(() => {
+    setEditingDayName(false)
+    setDayNameInput('')
+    setDayNameError('')
+  }, [dayId])
+
   // ─── Datos del dia y tarjetas compartibles ───
   // Va antes de los early returns porque los efectos de abajo dependen de esto
   // y los hooks no pueden quedar detras de un `return`.
@@ -277,21 +287,29 @@ export default function RoutineDayDetail() {
   })
 
   const guardarNombreDia = async (dayDbId) => {
+    // Evita enviar dos veces lo mismo (Enter seguido de blur).
+    if (savingDayName) return
     const nombre = dayNameInput.trim()
-    if (!nombre) {
+    // Sin cambios no hay nada que mandar al servidor.
+    if (!nombre || nombre === day?.name) {
       setEditingDayName(false)
       setDayNameError('')
       return
     }
+    setSavingDayName(true)
     try {
       await api.put(`/routines/days/${dayDbId}`, { name: nombre })
-      await reloadRoutine()
-      setEditingDayName(false)
-      setDayNameError('')
     } catch (err) {
       const detail = err.response?.data?.detail
       setDayNameError(typeof detail === 'string' ? detail : 'No pudimos guardar el nombre')
+      return
+    } finally {
+      setSavingDayName(false)
     }
+    // El nombre ya quedo guardado: si la recarga falla no es un error de guardado.
+    setEditingDayName(false)
+    setDayNameError('')
+    reloadRoutine().catch(() => {})
   }
 
   const regenerateExercises = async () => {
