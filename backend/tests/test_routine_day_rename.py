@@ -30,9 +30,9 @@ def test_renombra_un_dia_propio(client, db_session):
     assert _nombre_del_dia(client, u["headers"], rid) == "Empuje"
 
 
-@pytest.mark.parametrize("nombre", ["", "   "])
-def test_nombre_vacio_da_400(client, db_session, nombre):
-    u = make_user(client, f"dia2{len(nombre)}@test.com")
+@pytest.mark.parametrize("n,nombre", list(enumerate(["", "   "])))
+def test_nombre_vacio_da_400(client, db_session, n, nombre):
+    u = make_user(client, f"dia2{n}@test.com")
     rid, did = _rutina_con_dia(client, u["headers"])
 
     res = client.put(f"/routines/days/{did}", headers=u["headers"], json={"name": nombre})
@@ -58,10 +58,10 @@ def test_prefijo_de_dia_de_la_semana_da_400(client, db_session, n, nombre):
     assert _nombre_del_dia(client, u["headers"], rid) == "Pecho"
 
 
-@pytest.mark.parametrize("nombre", ["Lunes", "Lunes pesado", "Domingo de pierna"])
-def test_dia_de_la_semana_sin_guion_si_se_acepta(client, db_session, nombre):
+@pytest.mark.parametrize("n,nombre", list(enumerate(["Lunes", "Lunes pesado", "Domingo de pierna"])))
+def test_dia_de_la_semana_sin_guion_si_se_acepta(client, db_session, n, nombre):
     """La regla es sobre el prefijo repetido, no sobre la palabra."""
-    u = make_user(client, f"dia4{len(nombre)}@test.com")
+    u = make_user(client, f"dia4{n}@test.com")
     rid, did = _rutina_con_dia(client, u["headers"])
 
     res = client.put(f"/routines/days/{did}", headers=u["headers"], json={"name": nombre})

@@ -91,8 +91,5 @@ class RoutineDuplicate(BaseModel):
     name: str | None = None             # vacio: "<original> (copia)"
 
 
-
-
-
 class RoutineDayUpdate(BaseModel):
     name: str
