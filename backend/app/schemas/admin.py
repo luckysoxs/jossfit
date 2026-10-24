@@ -17,6 +17,7 @@ class AdminUserListItem(BaseModel):
     fitness_goal: str | None = None
     is_admin: bool = False
     is_coach: bool = False
+    coach_blocked: bool = False
     created_at: datetime
     total_workouts: int = 0
     last_workout_date: date | None = None
@@ -62,6 +63,7 @@ class AdminUserUpdate(BaseModel):
     country_code: str | None = None
     is_admin: bool | None = None
     is_coach: bool | None = None
+    coach_blocked: bool | None = None
 
 
 class PaginatedUsers(BaseModel):

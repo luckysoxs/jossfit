@@ -16,7 +16,7 @@ export default function Coach() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl sm:text-2xl font-bold">Coach</h1>
+      <h1 className="text-xl sm:text-2xl font-bold">Modo coach</h1>
 
       <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
         {TABS.map(({ key, label, icon: Icon }) => (

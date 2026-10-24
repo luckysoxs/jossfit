@@ -243,6 +243,7 @@ def list_users(
                 training_level=str(u.training_level.value) if hasattr(u.training_level, 'value') else str(u.training_level),
                 fitness_goal=u.fitness_goal,
                 is_admin=u.is_admin,
+                coach_blocked=u.coach_blocked,
                 created_at=u.created_at,
                 total_workouts=workout_counts.get(u.id, 0),
                 last_workout_date=last_workout_dates.get(u.id),

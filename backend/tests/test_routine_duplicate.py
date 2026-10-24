@@ -106,9 +106,16 @@ def test_cliente_asignado_recibe_404(client, db_session, seed_exercises):
     assert _duplicar(client, cli["headers"], orig["id"], destino="mia").status_code == 404
 
 
-def test_no_coach_no_crea_rutina_de_cliente(client, seed_exercises):
+def test_bloqueado_no_crea_rutina_de_cliente(client, db_session, seed_exercises):
+    """El modo coach es de todos; solo un bloqueo lo cierra, y solo para
+    rutinas de clientes."""
     u = make_user(client, "dup7@test.com")
     orig = _rutina(client, u["headers"], seed_exercises)
+    # Sin bloqueo cualquiera puede.
+    assert _duplicar(client, u["headers"], orig["id"], destino="cliente").status_code == 201
+
+    db_session.query(User).filter(User.id == u["user"]["id"]).update({"coach_blocked": True})
+    db_session.commit()
     assert _duplicar(client, u["headers"], orig["id"], destino="cliente").status_code == 403
     assert _duplicar(client, u["headers"], orig["id"], destino="mia").status_code == 201
 

@@ -36,11 +36,12 @@ export default function TopBar() {
           <span className="text-lg font-bold tracking-tight">JOSSFITness</span>
         </Link>
         <div className="flex items-center gap-3">
-          {(user?.is_coach || user?.is_admin) && (
+          {(!user?.coach_blocked || user?.is_admin) && (
             <Link
               to="/coach"
               className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-brand-500"
-              aria-label="Panel de coach"
+              aria-label="Modo coach"
+              title="Modo coach"
             >
               <Users size={20} />
             </Link>

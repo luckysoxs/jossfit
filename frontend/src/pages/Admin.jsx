@@ -63,10 +63,10 @@ function UserDetailModal({ userId, onClose, onRefresh }) {
     }
   }
 
-  const toggleCoach = async () => {
+  const toggleCoachBlocked = async () => {
     try {
-      await api.put(`/admin/users/${userId}`, { is_coach: !detail.user.is_coach })
-      setDetail({ ...detail, user: { ...detail.user, is_coach: !detail.user.is_coach } })
+      await api.put(`/admin/users/${userId}`, { coach_blocked: !detail.user.coach_blocked })
+      setDetail({ ...detail, user: { ...detail.user, coach_blocked: !detail.user.coach_blocked } })
       onRefresh()
     } catch (err) {
       alert(err.response?.data?.detail || 'Error')
@@ -120,7 +120,7 @@ function UserDetailModal({ userId, onClose, onRefresh }) {
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-bold">{user.name}</h2>
                 {user.is_admin && <span className="text-xs bg-brand-500 text-white px-2 py-0.5 rounded-full">Admin</span>}
-                {user.is_coach && <span className="text-xs bg-purple-500 text-white px-2 py-0.5 rounded-full">Coach</span>}
+                {user.coach_blocked && <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full">Coach bloqueado</span>}
               </div>
               <p className="text-sm text-gray-500">{user.email}</p>
             </div>
@@ -167,15 +167,15 @@ function UserDetailModal({ userId, onClose, onRefresh }) {
                 <InfoItem label="Último Peso" value={stats.latest_weight ? `${stats.latest_weight} kg` : '-'} />
               </div>
 
-              {/* Coach role */}
+              {/* Modo coach: es de todos, esto solo sirve para quitarselo */}
               <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
-                <button onClick={toggleCoach} className={`w-full flex items-center justify-center gap-2 p-3 rounded-xl font-medium text-sm transition-colors ${
-                  user.is_coach
-                    ? 'bg-yellow-50 dark:bg-yellow-500/10 text-yellow-600 hover:bg-yellow-100'
-                    : 'bg-purple-50 dark:bg-purple-500/10 text-purple-500 hover:bg-purple-100'
+                <button onClick={toggleCoachBlocked} className={`w-full flex items-center justify-center gap-2 p-3 rounded-xl font-medium text-sm transition-colors ${
+                  user.coach_blocked
+                    ? 'bg-purple-50 dark:bg-purple-500/10 text-purple-500 hover:bg-purple-100'
+                    : 'bg-yellow-50 dark:bg-yellow-500/10 text-yellow-600 hover:bg-yellow-100'
                 }`}>
                   <Users size={16} />
-                  {user.is_coach ? 'Quitar rol de Coach' : 'Hacer Coach - crea rutinas y las comparte'}
+                  {user.coach_blocked ? 'Desbloquear modo coach' : 'Bloquear modo coach - ya no podra pasar rutinas'}
                 </button>
               </div>
 

@@ -67,11 +67,15 @@ def get_admin_user(
 def get_coach_user(
     user: User = Depends(get_current_user),
 ) -> User:
-    """Permite el paso a coaches y a admins. Un admin es coach implicito."""
-    if not (user.is_coach or user.is_admin):
+    """El modo coach es de todos: solo se rechaza a quien lo tiene bloqueado.
+
+    Un admin pasa siempre, aunque traiga la bandera puesta, para que no pueda
+    dejarse fuera del panel por error.
+    """
+    if user.coach_blocked and not user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Necesitas ser coach para entrar aqui",
+            detail="Un administrador desactivo tu modo coach",
         )
     return user
 

@@ -699,10 +699,10 @@ def duplicate_routine(
     if not source or source.user_id != user.id:
         raise HTTPException(status_code=404, detail="Routine not found")
     para_cliente = data.destino == "cliente"
-    if para_cliente and not (user.is_coach or user.is_admin):
+    if para_cliente and user.coach_blocked and not user.is_admin:
         raise HTTPException(
             status_code=403,
-            detail="Necesitas ser coach para crear rutinas de clientes",
+            detail="Un administrador desactivo tu modo coach",
         )
     copia = copy_routine(db, source, user, data.name, as_template=para_cliente)
     db.commit()

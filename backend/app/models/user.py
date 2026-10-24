@@ -37,6 +37,10 @@ class User(Base):
     country_code: Mapped[str] = mapped_column(String(5), default="+52")
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     is_coach: Mapped[bool] = mapped_column(Boolean, default=False)
+    # is_coach quedo sin uso: el modo coach es de todos. Lo que decide el
+    # acceso es coach_blocked, que un administrador prende para quitarselo a
+    # alguien en concreto.
+    coach_blocked: Mapped[bool] = mapped_column(Boolean, default=False)
     theme_preference: Mapped[str] = mapped_column(String(10), default="dark")
     accent_color: Mapped[str] = mapped_column(String(20), default="blue")
     has_condition: Mapped[bool] = mapped_column(Boolean, default=False)

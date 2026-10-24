@@ -23,7 +23,8 @@ export default function RoutineDetail() {
   const { user } = useAuth()
   // Solo una rutina personal propia se publica para clientes; las de
   // clientes ya viven en el panel de coach, donde se duplican.
-  const puedeCompartirClientes = !!(user?.is_coach || user?.is_admin)
+  // El modo coach es de todos: solo se le esconde a quien lo tiene bloqueado.
+  const puedeCompartirClientes = !!(!user?.coach_blocked || user?.is_admin)
     && !readOnly && routine && !routine.is_template
   const [showShareClientes, setShowShareClientes] = useState(false)
   const [loading, setLoading] = useState(true)
