@@ -59,6 +59,7 @@ class UserResponse(BaseModel):
     country_code: str = "+52"
     is_admin: bool = False
     is_coach: bool = False
+    coach_blocked: bool = False
     theme_preference: str
     accent_color: str = "blue"
     has_condition: bool = False

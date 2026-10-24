@@ -142,6 +142,7 @@ def run_migrations():
         )""",
         # ─── Rutinas de coach compartidas por enlace ───
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_coach BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS coach_blocked BOOLEAN DEFAULT FALSE",
         "ALTER TABLE routines ADD COLUMN IF NOT EXISTS is_template BOOLEAN DEFAULT FALSE",
         """CREATE TABLE IF NOT EXISTS routine_share_links (
             id SERIAL PRIMARY KEY,

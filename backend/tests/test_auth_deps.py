@@ -2,8 +2,10 @@ from tests.conftest import make_user
 from app.models.user import User
 
 
-def test_no_coach_recibe_403(client):
+def test_bloqueado_recibe_403(client, db_session):
     u = make_user(client, "nocoach@test.com")
+    db_session.query(User).filter(User.id == u["user"]["id"]).update({"coach_blocked": True})
+    db_session.commit()
     res = client.get("/coach/routines", headers=u["headers"])
     assert res.status_code == 403
     assert "coach" in res.json()["detail"].lower()
