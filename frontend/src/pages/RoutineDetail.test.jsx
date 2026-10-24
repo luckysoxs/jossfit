@@ -20,8 +20,10 @@ vi.mock('../services/offlineCache', () => ({
 
 vi.mock('../hooks/useOnlineStatus', () => ({ default: () => true }))
 
+let usuario = { id: 1, is_coach: false, is_admin: false, coach_blocked: false }
+
 vi.mock('../contexts/AuthContext', () => ({
-  useAuth: () => ({ user: { id: 1, is_coach: false, is_admin: false } }),
+  useAuth: () => ({ user: usuario }),
 }))
 
 vi.mock('react-router-dom', () => ({
@@ -102,5 +104,31 @@ describe('RoutineDetail - reordenar dias', () => {
       const pedidos = api.get.mock.calls.filter(([url]) => url === '/routines/1')
       expect(pedidos.length).toBeGreaterThanOrEqual(2)
     })
+  })
+})
+
+describe('RoutineDetail - compartir con clientes', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    usuario = { id: 1, is_coach: false, is_admin: false, coach_blocked: false }
+  })
+
+  it('un usuario normal puede compartir con clientes', async () => {
+    await montar()
+    expect(await screen.findByRole('button', { name: /Compartir con clientes/i })).toBeInTheDocument()
+  })
+
+  it('un usuario bloqueado no ve el boton', async () => {
+    usuario = { id: 1, is_coach: false, is_admin: false, coach_blocked: true }
+    await montar()
+
+    expect(await screen.findByText(/Pecho/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Compartir con clientes/i })).toBeNull()
+  })
+
+  it('un admin bloqueado si lo ve', async () => {
+    usuario = { id: 1, is_coach: false, is_admin: true, coach_blocked: true }
+    await montar()
+    expect(await screen.findByRole('button', { name: /Compartir con clientes/i })).toBeInTheDocument()
   })
 })

@@ -52,7 +52,7 @@ function CoachRoute({ children }) {
   const { user, loading } = useAuth()
   if (loading) return <LoadingSpinner />
   if (!user) return <Navigate to="/login" replace />
-  if (!user.is_coach && !user.is_admin) return <Navigate to="/" replace />
+  if (user.coach_blocked && !user.is_admin) return <Navigate to="/" replace />
   return <Layout>{children}</Layout>
 }
 
