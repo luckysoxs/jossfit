@@ -28,10 +28,17 @@ export function AuthProvider({ children }) {
         storage.setItem('user', JSON.stringify(data))
         setUser(data)
         applyAccentColor(data.accent_color || 'blue')
-      }).catch(() => {
-        storage.removeItem('token')
-        storage.removeItem('user')
-        setUser(null)
+      }).catch((err) => {
+        // Solo una sesion rechazada cierra la sesion. Un fallo de red o un
+        // error del servidor dejan al usuario adentro con lo que ya tenia
+        // guardado: la app se abre en el gym, donde la senal se cae, y
+        // borrar el token ahi lo sacaba sin motivo y le vaciaba la lista de
+        // rutinas, como si se hubieran borrado.
+        if (err?.response?.status === 401) {
+          storage.removeItem('token')
+          storage.removeItem('user')
+          setUser(null)
+        }
       }).finally(() => setLoading(false))
     } else {
       applyAccentColor(localStorage.getItem('accent_color') || 'blue')
