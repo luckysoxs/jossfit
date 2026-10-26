@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../services/api'
 import { cacheSet, cacheGet } from '../services/offlineCache'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import PageTour from '../components/ui/PageTour'
-import { Plus, Zap, Calendar, ChevronRight, Trash2, Dumbbell, Clock, Pencil, UserCheck } from 'lucide-react'
+import { Plus, Zap, Calendar, ChevronRight, Trash2, Dumbbell, Clock, Pencil, UserCheck, CloudOff, RefreshCw } from 'lucide-react'
 
 const OBJECTIVE_LABELS = {
   hypertrophy: 'Hipertrofia',
@@ -17,22 +17,38 @@ const OBJECTIVE_LABELS = {
 export default function Routines() {
   const [routines, setRoutines] = useState([])
   const [loading, setLoading] = useState(true)
+  const [fallo, setFallo] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [editName, setEditName] = useState('')
   const cancellingRef = { current: false }
 
-  useEffect(() => {
-    api.get('/routines')
+  const cargar = useCallback(() => {
+    setLoading(true)
+    return api.get('/routines')
       .then((r) => {
         setRoutines(r.data)
+        setFallo(false)
         cacheSet('routines_list', r.data)
       })
       .catch(() => {
+        // Con cache servimos eso y no decimos nada: el usuario ve sus
+        // rutinas. Sin cache no sabemos si no tiene rutinas o si no pudimos
+        // preguntarlo, y mostrar "no tienes rutinas creadas" es mentir y
+        // hace pensar que se borraron.
         const cached = cacheGet('routines_list')
-        if (cached) setRoutines(cached)
+        if (cached) {
+          setRoutines(cached)
+          setFallo(false)
+        } else {
+          setFallo(true)
+        }
       })
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    cargar()
+  }, [cargar])
 
   const deleteRoutine = async (id) => {
     if (!confirm('Eliminar esta rutina?')) return
@@ -71,12 +87,21 @@ export default function Routines() {
         </div>
       </div>
 
-      {routines.length > 0 && (
+      {!fallo && routines.length > 0 && (
         <p className="text-xs text-gray-400">{routines.length} rutina{routines.length !== 1 ? 's' : ''} guardada{routines.length !== 1 ? 's' : ''}</p>
       )}
 
       <div data-tour="routine-list">
-      {routines.length === 0 ? (
+      {fallo ? (
+        <div className="card text-center py-12">
+          <CloudOff size={48} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+          <p className="text-gray-500 font-medium">No se pudieron cargar tus rutinas</p>
+          <p className="text-gray-400 text-sm mt-1">Revisa tu conexion. Tus rutinas siguen guardadas.</p>
+          <button onClick={cargar} className="btn-primary inline-flex items-center gap-1.5 text-sm py-2 px-4 mt-4">
+            <RefreshCw size={14} /> Reintentar
+          </button>
+        </div>
+      ) : routines.length === 0 ? (
         <div className="card text-center py-12">
           <Dumbbell size={48} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
           <p className="text-gray-500 font-medium">No tienes rutinas creadas</p>
