@@ -355,15 +355,28 @@ def _client_row(db: Session, assignment: RoutineAssignment) -> CoachClientRespon
     hoy = today_mx()
     lunes = hoy - timedelta(days=hoy.weekday())
 
+    # Solo los entrenos de ESTA rutina: el panel es para ver si siguen la
+    # rutina que el coach dio, no toda la actividad de la persona. Un entreno
+    # sin dia de rutina (los que se registraron antes de que se guardara ese
+    # dato) no cuenta para nadie.
+    dias_de_la_rutina = (
+        db.query(RoutineDay.id)
+        .filter(RoutineDay.routine_id == assignment.routine_id)
+        .scalar_subquery()
+    )
     ultimo = (
         db.query(sqlfunc.max(Workout.date))
-        .filter(Workout.user_id == assignment.client_id)
+        .filter(
+            Workout.user_id == assignment.client_id,
+            Workout.routine_day_id.in_(dias_de_la_rutina),
+        )
         .scalar()
     )
     esta_semana = (
         db.query(sqlfunc.count(Workout.id))
         .filter(
             Workout.user_id == assignment.client_id,
+            Workout.routine_day_id.in_(dias_de_la_rutina),
             Workout.date >= lunes,
             Workout.date <= hoy,
         )
@@ -382,7 +395,6 @@ def _client_row(db: Session, assignment: RoutineAssignment) -> CoachClientRespon
         assignment_id=assignment.id,
         user_id=assignment.client_id,
         name=cliente.name if cliente else "?",
-        email=cliente.email if cliente else "?",
         routine_id=assignment.routine_id,
         routine_name=routine.name if routine else "?",
         last_workout_date=ultimo.isoformat() if ultimo else None,

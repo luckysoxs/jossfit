@@ -64,6 +64,10 @@ class BulkSetItem(BaseModel):
 
 class BulkSetsCreate(BaseModel):
     sets: list[BulkSetItem]
+    # De que dia de rutina salio el entreno. Sin esto no hay forma de saber a
+    # que rutina pertenece, y la adherencia que ve un coach no se puede acotar
+    # a la rutina que el dio.
+    routine_day_id: int | None = None
     # Fecha del entrenamiento. La manda el cliente para que una accion
     # encolada sin internet caiga en el dia en que se marco, no en el dia en
     # que se reenvia. Si no viene, es hoy.

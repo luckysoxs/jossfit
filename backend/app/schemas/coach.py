@@ -45,7 +45,6 @@ class CoachClientResponse(BaseModel):
     assignment_id: int
     user_id: int
     name: str
-    email: str
     routine_id: int
     routine_name: str
     last_workout_date: str | None       # ISO o None si nunca entreno

@@ -10,10 +10,11 @@ from app.models.workout import Workout, WorkoutSet
 from app.models.routine_progress import RoutineProgress
 from app.models.one_rep_max import OneRepMax
 from app.models.exercise import Exercise
+from app.models.routine import RoutineDay
 from app.schemas.workout import BulkSetsCreate, WorkoutCreate, WorkoutResponse
 from app.auth.security import get_current_user
 from app.services.algorithms import calculate_1rm_epley, calculate_1rm_brzycki
-from app.services.routine_access import assert_routine_access
+from app.services.routine_access import assert_routine_access, has_routine_access
 from app.utils.timezone import today_mx, week_start_mx
 
 router = APIRouter(prefix="/workouts", tags=["Workouts"])
@@ -406,16 +407,32 @@ def delete_workout(
     db.commit()
 
 
+def _dia_de_rutina_valido(db: Session, user: User, routine_day_id: int | None) -> int | None:
+    """Comprueba que el dia sea de una rutina del usuario (propia o asignada).
+
+    Sin esto cualquiera podria colgar sus entrenos de la rutina de otro y
+    aparecer en el panel de un coach que nunca le dio nada.
+    """
+    if routine_day_id is None:
+        return None
+    day = db.query(RoutineDay).filter(RoutineDay.id == routine_day_id).first()
+    if not day or not has_routine_access(db, user.id, day.routine_id):
+        raise HTTPException(status_code=403, detail="Ese dia no es de una rutina tuya")
+    return day.id
+
+
 @router.post("/quick-set")
 def log_quick_set(
     exercise_id: int = Query(...),
     weight_kg: float = Query(...),
     reps: int = Query(...),
+    routine_day_id: int | None = Query(None),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Log a single top set from the routine view. Creates/reuses today's workout."""
     today = today_mx()
+    dia = _dia_de_rutina_valido(db, user, routine_day_id)
 
     # Find or create today's workout
     workout = db.query(Workout).filter(
@@ -423,9 +440,13 @@ def log_quick_set(
     ).first()
 
     if not workout:
-        workout = Workout(user_id=user.id, date=today)
+        workout = Workout(user_id=user.id, date=today, routine_day_id=dia)
         db.add(workout)
         db.flush()
+    elif dia is not None and workout.routine_day_id is None:
+        # El entreno de hoy nacio sin dia (una serie suelta): el primer
+        # registro que si trae dia se lo queda.
+        workout.routine_day_id = dia
 
     # Count existing sets for set_number
     existing = db.query(sqlfunc.count(WorkoutSet.id)).filter(
@@ -497,6 +518,8 @@ def log_bulk_sets(
     if pedidos - existentes:
         raise HTTPException(status_code=400, detail="Ejercicio invalido")
 
+    dia = _dia_de_rutina_valido(db, user, data.routine_day_id)
+
     today = today_mx()
     # La fecha futura se recorta a hoy, no se rechaza: el cliente manda su
     # fecha local y un telefono en otra zona (o con el reloj adelantado) puede
@@ -508,9 +531,11 @@ def log_bulk_sets(
         Workout.user_id == user.id, Workout.date == fecha
     ).first()
     if not workout:
-        workout = Workout(user_id=user.id, date=fecha)
+        workout = Workout(user_id=user.id, date=fecha, routine_day_id=dia)
         db.add(workout)
         db.flush()
+    elif dia is not None and workout.routine_day_id is None:
+        workout.routine_day_id = dia
 
     # Por maximo y no por cuenta: POST /workouts deja al cliente elegir el
     # set_number, asi que contar puede repetir un numero que ya existe.
