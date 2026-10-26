@@ -181,3 +181,58 @@ def test_revocar_acceso_libera_el_cupo(client, db_session):
     db_session.commit()
 
     assert client.get(f"/share/{token}").json()["status"] == "valido"
+
+
+# ─── El bloqueo del modo coach apaga los enlaces ya repartidos ───
+
+def test_enlace_de_coach_bloqueado_no_se_puede_reclamar(client, db_session):
+    """El bloqueo es el unico freno contra el abuso: si los enlaces que ya
+    repartio siguen vivos, no frena nada."""
+    coach, rid, token = _coach_con_enlace(client, db_session, "sb1@test.com")
+    db_session.query(User).filter(User.id == coach["user"]["id"]).update({"coach_blocked": True})
+    db_session.commit()
+
+    cli = make_user(client, "sb1c@test.com")
+    res = client.post(f"/share/{token}/claim", headers=cli["headers"])
+    assert res.status_code == 400
+    assert res.json()["detail"] == "Este enlace ya no esta disponible"
+
+    assert db_session.query(RoutineAssignment).filter(
+        RoutineAssignment.routine_id == rid,
+        RoutineAssignment.client_id == cli["user"]["id"],
+    ).first() is None
+
+
+def test_vista_previa_de_coach_bloqueado_avisa(client, db_session):
+    coach, _, token = _coach_con_enlace(client, db_session, "sb2@test.com")
+    db_session.query(User).filter(User.id == coach["user"]["id"]).update({"coach_blocked": True})
+    db_session.commit()
+
+    res = client.get(f"/share/{token}")
+    assert res.status_code == 200
+    assert res.json()["status"] == "bloqueado"
+
+
+def test_quien_ya_reclamo_conserva_su_rutina_si_bloquean_al_coach(client, db_session):
+    """El bloqueo frena enlaces nuevos, no le quita la rutina a quien ya la tiene."""
+    coach, rid, token = _coach_con_enlace(client, db_session, "sb3@test.com")
+    cli = make_user(client, "sb3c@test.com")
+    assert client.post(f"/share/{token}/claim", headers=cli["headers"]).status_code == 200
+
+    db_session.query(User).filter(User.id == coach["user"]["id"]).update({"coach_blocked": True})
+    db_session.commit()
+
+    res = client.post(f"/share/{token}/claim", headers=cli["headers"])
+    assert res.status_code == 200
+    assert client.get(f"/routines/{rid}", headers=cli["headers"]).status_code == 200
+
+
+def test_enlace_de_admin_bloqueado_sigue_vivo(client, db_session):
+    coach, _, token = _coach_con_enlace(client, db_session, "sb4@test.com")
+    db_session.query(User).filter(User.id == coach["user"]["id"]).update(
+        {"coach_blocked": True, "is_admin": True}
+    )
+    db_session.commit()
+
+    cli = make_user(client, "sb4c@test.com")
+    assert client.post(f"/share/{token}/claim", headers=cli["headers"]).status_code == 200

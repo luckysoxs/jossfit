@@ -102,6 +102,33 @@ decidir acceso.** Borrar una columna no se puede deshacer y no estorba.
   prueba cambia de sentido con el nuevo criterio.
 - No aparece para un usuario con `coach_blocked: true`.
 
+## Lo que la revision de la rama obligo a agregar
+
+Abrir el modo coach a todos dejo ver dos huecos que el diseno original no
+contemplo. Los dos se arreglaron despues de desplegar:
+
+1. **El bloqueo no apagaba los enlaces ya repartidos.** `_link_status`
+   (`routers/share.py`) solo miraba revocado, expirado y lleno, nunca al dueno
+   del enlace. Un bloqueado conservaba su canal de distribucion y heredaba a
+   todos los que lo reclamaran el dia que lo desbloquearan. Ahora `_link_status`
+   devuelve `"bloqueado"` cuando el dueno lo esta y no es admin, lo que cierra
+   la vista previa y el reclamo de una sola vez. Quien ya reclamo conserva su
+   rutina: ese caso se resuelve antes, en la rama de asignacion existente.
+2. **La fila de cliente filtraba el correo y la actividad completa.**
+   `CoachClientResponse` traia `email`, que la interfaz nunca mostro, y
+   `_client_row` contaba TODOS los entrenos de la persona, no los de la rutina
+   compartida. Con el modo coach abierto, un enlace de plantilla publico se
+   volvia una cosechadora de correos con senal de actividad por persona. El
+   correo se quito y la adherencia se acoto a los entrenos ligados a los dias
+   de esa rutina.
+
+   Para que (2) fuera posible hubo que empezar a guardar de que dia de rutina
+   sale cada entreno: `POST /workouts/quick-set` y `POST /workouts/bulk-sets`
+   aceptan `routine_day_id`, validan que el dia sea de una rutina del usuario
+   (403 si no) y lo guardan en el `Workout`. Los entrenos registrados antes de
+   esto no tienen ese dato, asi que no cuentan para nadie: los conteos del
+   panel arrancan bajos y se llenan con el uso.
+
 ## Fuera de alcance
 
 - Quitar la columna `is_coach` de la base.

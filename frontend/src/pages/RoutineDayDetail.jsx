@@ -391,7 +391,9 @@ export default function RoutineDayDetail() {
     try {
       const weight = toKg(w)
       const reps = r
-      const url = `/workouts/quick-set?exercise_id=${quickSetExercise.exerciseId}&weight_kg=${weight}&reps=${reps}`
+      // El dia de rutina viaja con el registro: es lo que permite saber de
+      // que rutina salio el entreno, y acotar la adherencia que ve un coach.
+      const url = `/workouts/quick-set?exercise_id=${quickSetExercise.exerciseId}&weight_kg=${weight}&reps=${reps}&routine_day_id=${day.id}`
 
       let saved = false
       if (online) {
@@ -502,6 +504,7 @@ export default function RoutineDayDetail() {
     // manana, las series deben caer en el dia en que se marcaron.
     const hoyLocal = new Date()
     const payload = {
+      routine_day_id: day.id,
       date: `${hoyLocal.getFullYear()}-${String(hoyLocal.getMonth() + 1).padStart(2, '0')}-${String(hoyLocal.getDate()).padStart(2, '0')}`,
       sets: bulkRows.map(f => ({
         exercise_id: f.exerciseId,

@@ -290,6 +290,9 @@ describe('RoutineDayDetail - marcar todo el dia', () => {
       { exercise_id: 2, weight_kg: 0, reps: 10 },
     ])
     expect(cuerpo.date).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    // Sin esto el entreno no queda ligado a la rutina y la adherencia que ve
+    // un coach no se puede acotar a lo que el dio.
+    expect(cuerpo.routine_day_id).toBe(10)
   })
 
   it('el peso que teclees para uno sin historial es el que se manda', async () => {

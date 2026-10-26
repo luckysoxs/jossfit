@@ -35,6 +35,12 @@ def _link_status(db: Session, link: RoutineShareLink) -> str:
     """Estado del enlace, en el orden en que el usuario deberia enterarse."""
     if link.revoked:
         return "revocado"
+    # Si a su dueno le bloquearon el modo coach, sus enlaces se apagan: de otro
+    # modo el bloqueo no frenaria nada de lo que ya repartio, y heredaria a
+    # todos los que lo reclamaron el dia que lo desbloqueen.
+    dueno = db.query(User).filter(User.id == link.coach_id).first()
+    if dueno and dueno.coach_blocked and not dueno.is_admin:
+        return "bloqueado"
     if link.expires_at and link.expires_at < now_mx().replace(tzinfo=None):
         return "expirado"
     if link.max_claims is not None and _active_claims(db, link.id) >= link.max_claims:
@@ -44,6 +50,7 @@ def _link_status(db: Session, link: RoutineShareLink) -> str:
 
 ERRORES = {
     "revocado": "Este enlace ya no esta disponible",
+    "bloqueado": "Este enlace ya no esta disponible",
     "expirado": "Este enlace expiro",
     "lleno": "Este enlace ya no tiene cupo disponible",
     "no_existe": "Este enlace no existe",

@@ -249,3 +249,73 @@ def test_cada_usuario_escribe_en_su_propio_entreno(client, db_session, seed_exer
     series_dos = _series_de_hoy(db_session, dos["user"]["id"])
     assert [s.weight_kg for s in series_uno] == [80.0]
     assert [s.weight_kg for s in series_dos] == [40.0]
+
+
+# ─── El entreno guarda de que dia de rutina salio ───
+
+def _rutina_con_dia(client, headers):
+    res = client.post("/routines", headers=headers, json={
+        "name": "Mia", "split_type": "full_body",
+        "objective": "hypertrophy", "days_per_week": 1,
+        "days": [{"day_number": 1, "name": "Pecho", "focus": "chest", "exercises": []}],
+    })
+    assert res.status_code == 201, res.text
+    return res.json()["days"][0]["id"]
+
+
+def test_bulk_sets_guarda_el_dia_de_rutina(client, db_session, seed_exercises):
+    """Sin esto no hay forma de saber de que rutina salio un entreno, y la
+    adherencia que ve un coach no se puede acotar a la rutina que el dio."""
+    u = make_user(client, "bulk15@test.com")
+    day_id = _rutina_con_dia(client, u["headers"])
+
+    res = client.post("/workouts/bulk-sets", headers=u["headers"], json={
+        "routine_day_id": day_id,
+        "sets": [{"exercise_id": seed_exercises[0], "weight_kg": 80.0, "reps": 8}],
+    })
+    assert res.status_code == 201, res.text
+
+    w = db_session.query(Workout).filter(Workout.id == res.json()["workout_id"]).first()
+    assert w.routine_day_id == day_id
+
+
+def test_bulk_sets_sin_dia_de_rutina_sigue_funcionando(client, db_session, seed_exercises):
+    u = make_user(client, "bulk16@test.com")
+
+    res = _bulk(client, u["headers"], [
+        {"exercise_id": seed_exercises[0], "weight_kg": 80.0, "reps": 8},
+    ])
+    assert res.status_code == 201, res.text
+    w = db_session.query(Workout).filter(Workout.id == res.json()["workout_id"]).first()
+    assert w.routine_day_id is None
+
+
+def test_bulk_sets_rechaza_un_dia_ajeno(client, db_session, seed_exercises):
+    """Nadie debe poder colgar sus entrenos de la rutina de otro."""
+    dueno = make_user(client, "bulk17a@test.com")
+    day_id = _rutina_con_dia(client, dueno["headers"])
+    otro = make_user(client, "bulk17b@test.com")
+
+    res = client.post("/workouts/bulk-sets", headers=otro["headers"], json={
+        "routine_day_id": day_id,
+        "sets": [{"exercise_id": seed_exercises[0], "weight_kg": 80.0, "reps": 8}],
+    })
+    assert res.status_code == 403
+    assert _series_de_hoy(db_session, otro["user"]["id"]) == []
+
+
+def test_quick_set_guarda_el_dia_de_rutina(client, db_session, seed_exercises):
+    u = make_user(client, "bulk18@test.com")
+    day_id = _rutina_con_dia(client, u["headers"])
+
+    res = client.post(
+        f"/workouts/quick-set?exercise_id={seed_exercises[0]}&weight_kg=80&reps=8"
+        f"&routine_day_id={day_id}",
+        headers=u["headers"],
+    )
+    assert res.status_code == 200, res.text
+
+    series = _series_de_hoy(db_session, u["user"]["id"])
+    assert len(series) == 1
+    w = db_session.query(Workout).filter(Workout.id == series[0].workout_id).first()
+    assert w.routine_day_id == day_id
