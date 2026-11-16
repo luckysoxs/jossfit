@@ -214,6 +214,89 @@ def get_last_sets(
     return list(ultimos.values())
 
 
+# Un ejercicio entrenado dos veces por semana durante diez anos no llega a
+# mil dias. El tope existe para que "todo el historial" no pueda devolver una
+# respuesta enorme, no porque alguien vaya a rozarlo.
+MAX_PUNTOS_HISTORIAL = 500
+
+
+@router.get("/exercise-history/{exercise_id}")
+def get_exercise_history(
+    exercise_id: int,
+    days: int | None = Query(None, ge=1, le=3650),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Un punto por dia entrenado de un ejercicio, para la grafica de progreso.
+
+    Devuelve las tres metricas juntas -peso mas alto, volumen y 1RM estimado-
+    porque el usuario cambia entre ellas con un boton, y volver al servidor en
+    cada cambio seria pedir de nuevo datos que ya trajimos.
+
+    `days` acota hacia atras; sin el va todo el historial. No cuentan las
+    series sin completar ni los entrenos con fecha futura, que entran por la
+    cola sin conexion y dibujarian un punto adelantado en la grafica.
+    """
+    exercise = db.query(Exercise).filter(Exercise.id == exercise_id).first()
+    if not exercise:
+        raise HTTPException(status_code=404, detail="Ejercicio no encontrado")
+
+    today = today_mx()
+    filtros = [
+        Workout.user_id == user.id,
+        WorkoutSet.exercise_id == exercise_id,
+        WorkoutSet.completed == True,  # noqa: E712
+        Workout.date <= today,
+    ]
+    if days is not None:
+        filtros.append(Workout.date >= today - timedelta(days=days))
+
+    filas = (
+        db.query(WorkoutSet.weight_kg, WorkoutSet.reps, Workout.date)
+        .join(Workout, Workout.id == WorkoutSet.workout_id)
+        .filter(*filtros)
+        .order_by(Workout.date.asc(), WorkoutSet.id.asc())
+        .all()
+    )
+
+    por_dia: dict = {}
+    for peso, reps, dia in filas:
+        punto = por_dia.setdefault(dia, {"date": dia.isoformat(), "sets": []})
+        punto["sets"].append({"reps": reps, "weight_kg": peso})
+
+    puntos = []
+    for dia in sorted(por_dia):
+        punto = por_dia[dia]
+        series = punto["sets"]
+        punto["max_weight"] = max(s["weight_kg"] for s in series)
+        punto["volume"] = round(sum(s["weight_kg"] * s["reps"] for s in series), 1)
+        punto["total_reps"] = sum(s["reps"] for s in series)
+        punto["est_1rm"] = _mejor_1rm(series)
+        puntos.append(punto)
+
+    return {
+        "exercise_id": exercise.id,
+        "exercise_name": exercise.name,
+        "points": puntos[-MAX_PUNTOS_HISTORIAL:],
+    }
+
+
+def _mejor_1rm(series: list[dict]) -> float | None:
+    """El 1RM estimado mas alto del dia, o None si ninguna serie sirve.
+
+    Se descartan las series de mas de diez repeticiones: las formulas se
+    deforman con reps altas y darian un maximo inventado. Una serie de 90x8
+    estima mas que una de 100x1, y eso esta bien: demuestra mas fuerza.
+    """
+    estimaciones = [
+        round((calculate_1rm_epley(s["weight_kg"], s["reps"])
+               + calculate_1rm_brzycki(s["weight_kg"], s["reps"])) / 2, 1)
+        for s in series
+        if 1 <= s["reps"] <= 10 and s["weight_kg"] > 0
+    ]
+    return max(estimaciones) if estimaciones else None
+
+
 @router.get("/today-exercises")
 def get_today_exercises(
     user: User = Depends(get_current_user),
