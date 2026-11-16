@@ -7,6 +7,7 @@ import { useRestTimer } from '../contexts/RestTimerContext'
 import { useWeightUnit } from '../contexts/WeightUnitContext'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import OneRMCalculator from '../components/routines/OneRMCalculator'
+import ExerciseProgressModal from '../components/charts/ExerciseProgressModal'
 import ExercisePickerModal from '../components/routines/ExercisePickerModal'
 import PageTour from '../components/ui/PageTour'
 import { MUSCLE_LABELS, MUSCLE_COLORS, WEEKDAY_NAMES, getWeekdayMap, exDisplayName, exSubtitle, progressStorageKey } from '../utils/routineConstants'
@@ -106,6 +107,7 @@ export default function RoutineDayDetail() {
 
   // 1RM calculator
   const [oneRMExercise, setOneRMExercise] = useState(null)
+  const [progressExercise, setProgressExercise] = useState(null)
 
   // Tarjeta compartible (PR o entreno terminado) y cifras del dia para pintarla
   const [shareCard, setShareCard] = useState(null)
@@ -1041,8 +1043,16 @@ export default function RoutineDayDetail() {
                       </div>
                     </div>
                     <div className="text-right text-sm ml-3">
-                      <p className="font-medium">{ex.sets} x {ex.reps_min}-{ex.reps_max}</p>
+                      {/* "4 x 15-15" se lee raro; cuando no hay rango va un solo numero. */}
+                      <p className="font-medium">
+                        {ex.sets} x {ex.reps_min === ex.reps_max ? ex.reps_min : `${ex.reps_min}-${ex.reps_max}`}
+                      </p>
                       <p className="text-xs text-gray-400">Descanso: {ex.rest_seconds}s</p>
+                      {/* Aqui viven los matices que no caben en dos enteros:
+                          "10 por pierna", "30-45 segundos por lado", "15 min". */}
+                      {ex.notes && (
+                        <p data-testid={`nota-${ex.id}`} className="text-xs text-gray-400 italic mt-0.5">{ex.notes}</p>
+                      )}
                     </div>
                   </div>
 
@@ -1113,6 +1123,11 @@ export default function RoutineDayDetail() {
                     <button onClick={() => setOneRMExercise(ex.exercise)} className="inline-flex items-center gap-1.5 mt-1 ml-3 text-xs font-medium text-brand-500 hover:text-brand-400 transition-colors">
                       <Calculator size={14} /> 1RM
                     </button>
+                    {ex.exercise?.id && (
+                      <button onClick={() => setProgressExercise(ex.exercise)} className="inline-flex items-center gap-1.5 mt-1 ml-3 text-xs font-medium text-green-500 hover:text-green-400 transition-colors">
+                        <TrendingUp size={14} /> PROGRESO
+                      </button>
+                    )}
                     {readOnly ? (
                       <button onClick={() => setChangeRequestFor({ id: ex.id, name: exDisplayName(ex.exercise) })}
                         className="inline-flex items-center gap-1.5 mt-1 ml-3 text-xs font-medium text-brand-500 hover:text-brand-400 transition-colors">
@@ -1288,6 +1303,10 @@ export default function RoutineDayDetail() {
       {/* 1RM Calculator */}
       {oneRMExercise && (
         <OneRMCalculator exercise={oneRMExercise} onClose={() => setOneRMExercise(null)} />
+      )}
+
+      {progressExercise && (
+        <ExerciseProgressModal exercise={progressExercise} onClose={() => setProgressExercise(null)} />
       )}
 
       {/* Swap exercise modal */}

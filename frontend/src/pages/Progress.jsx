@@ -7,6 +7,7 @@ import { TrendingUp, AlertTriangle, Shield, Activity, Flame, Dumbbell, Calendar,
 import { MUSCLE_LABELS } from '../utils/routineConstants'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
 import { useWeightUnit } from '../contexts/WeightUnitContext'
+import ExerciseProgressChart from '../components/charts/ExerciseProgressChart'
 
 export default function Progress() {
   const { unit, displayWeight } = useWeightUnit()
@@ -194,12 +195,24 @@ export default function Progress() {
         <h3 className="font-semibold mb-3 flex items-center gap-2">
           <TrendingUp size={18} className="text-brand-500" /> Analizar Ejercicio
         </h3>
+        {/* Antes solo se podian elegir los compuestos, asi que un curl o una
+            extension de triceps no tenian donde verse. La grafica sirve igual
+            para cualquier ejercicio que cargue peso. */}
         <select className="input" value={selectedEx || ''} onChange={(e) => loadExerciseData(e.target.value)}>
           <option value="">Seleccionar ejercicio...</option>
-          {exercises.filter(e => e.category === 'compound').map((ex) => (
+          {exercises.map((ex) => (
             <option key={ex.id} value={ex.id}>{ex.name}</option>
           ))}
         </select>
+
+        {selectedEx && (
+          <div className="mt-4">
+            <ExerciseProgressChart
+              exerciseId={selectedEx}
+              exerciseName={exercises.find((e) => String(e.id) === String(selectedEx))?.name || 'este ejercicio'}
+            />
+          </div>
+        )}
 
         {orm && orm.average_1rm > 0 && (
           <div className="mt-4 grid grid-cols-3 gap-3">

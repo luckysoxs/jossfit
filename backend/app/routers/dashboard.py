@@ -146,7 +146,18 @@ def get_summary(
         recovery_base += 10
     recovery_score = min(recovery_base, 100)
 
-    active_routine = db.query(Routine).filter(Routine.user_id == user.id).first()
+    # La que el usuario marco. Si no marco ninguna -el caso de todas las
+    # cuentas de antes de que existiera la bandera-, la mas reciente: antes
+    # esto era un .first() sin ordenar, o sea la mas vieja, que casi nunca es
+    # la que se esta entrenando. Las plantillas de cliente no entran.
+    propias = db.query(Routine).filter(
+        Routine.user_id == user.id,
+        Routine.is_template == False,  # noqa: E712
+    )
+    active_routine = (
+        propias.filter(Routine.is_active == True).first()  # noqa: E712
+        or propias.order_by(Routine.created_at.desc(), Routine.id.desc()).first()
+    )
 
     return DashboardSummary(
         total_workouts=total_workouts,

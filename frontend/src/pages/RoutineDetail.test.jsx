@@ -132,3 +132,41 @@ describe('RoutineDetail - compartir con clientes', () => {
     expect(await screen.findByRole('button', { name: /Compartir con clientes/i })).toBeInTheDocument()
   })
 })
+
+describe('RoutineDetail - rutina activa', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    usuario = { id: 1, is_coach: false, is_admin: false, coach_blocked: false }
+  })
+
+  function montarCon(extra) {
+    api.get.mockImplementation((url) => {
+      if (url === '/routines/1') return Promise.resolve({ data: { ...RUTINA, ...extra } })
+      return Promise.resolve({ data: {} })
+    })
+    api.put.mockResolvedValue({ data: { ...RUTINA, ...extra, is_active: true } })
+    render(<RoutineDetail />)
+    return screen.findByText(/Pecho/)
+  }
+
+  it('ofrece marcarla como activa cuando no lo esta', async () => {
+    await montarCon({ is_active: false })
+    expect(screen.getByRole('button', { name: /Marcar como activa/i })).toBeInTheDocument()
+    expect(screen.queryByText('Rutina activa')).not.toBeInTheDocument()
+  })
+
+  it('al marcarla avisa al servidor y la muestra como activa', async () => {
+    await montarCon({ is_active: false })
+
+    await userEvent.click(screen.getByRole('button', { name: /Marcar como activa/i }))
+
+    await waitFor(() => expect(api.put).toHaveBeenCalledWith('/routines/1/activate'))
+    expect(await screen.findByText('Rutina activa')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Marcar como activa/i })).not.toBeInTheDocument()
+  })
+
+  it('una rutina de coach no se puede marcar desde aqui', async () => {
+    await montarCon({ read_only: true, assigned_by: 'Jos' })
+    expect(screen.queryByRole('button', { name: /Marcar como activa/i })).not.toBeInTheDocument()
+  })
+})

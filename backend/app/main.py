@@ -144,6 +144,7 @@ def run_migrations():
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_coach BOOLEAN DEFAULT FALSE",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS coach_blocked BOOLEAN DEFAULT FALSE",
         "ALTER TABLE routines ADD COLUMN IF NOT EXISTS is_template BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE routines ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT FALSE",
         """CREATE TABLE IF NOT EXISTS routine_share_links (
             id SERIAL PRIMARY KEY,
             token VARCHAR(32) UNIQUE NOT NULL,

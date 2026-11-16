@@ -33,6 +33,12 @@ vi.mock('../contexts/WeightUnitContext', () => ({
 
 vi.mock('../components/ui/PageTour', () => ({ default: () => null }))
 
+// La grafica tiene sus propias pruebas; aqui solo interesa que el boton la
+// abra con el ejercicio correcto.
+vi.mock('../components/charts/ExerciseProgressModal', () => ({
+  default: ({ exercise }) => <div>grafica de {exercise.name}</div>,
+}))
+
 let params = { id: '1', dayId: '10' }
 
 vi.mock('react-router-dom', () => ({
@@ -424,5 +430,66 @@ describe('RoutineDayDetail - marcar todo el dia', () => {
     expect(guardado).not.toContain('101')
     await userEvent.click(screen.getByRole('button', { name: /Cancelar/i }))
     expect(screen.getByRole('button', { name: /Marcar todo el dia/i })).toBeInTheDocument()
+  })
+})
+
+describe('RoutineDayDetail - grafica de progreso', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    params = { id: '1', dayId: '10' }
+    online = true
+    localStorage.clear()
+  })
+
+  it('cada ejercicio tiene su boton de progreso', async () => {
+    await montarConEjercicios()
+    expect(screen.getAllByRole('button', { name: /PROGRESO/i })).toHaveLength(2)
+  })
+
+  it('abre la grafica del ejercicio que tocaste', async () => {
+    await montarConEjercicios()
+    await userEvent.click(screen.getAllByRole('button', { name: /PROGRESO/i })[1])
+
+    expect(await screen.findByText('grafica de Cable Fly')).toBeInTheDocument()
+    expect(screen.queryByText('grafica de Bench Press')).not.toBeInTheDocument()
+  })
+})
+
+describe('RoutineDayDetail - reps y notas legibles', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    params = { id: '1', dayId: '10' }
+    online = true
+    localStorage.clear()
+  })
+
+  function conEjercicio(extra) {
+    return rutinaConEjercicios({
+      days: [{
+        id: 10, day_number: 1, name: 'Pecho', focus: 'chest',
+        exercises: [{ ...EX_CON_HISTORIAL, ...extra }],
+      }],
+    })
+  }
+
+  it('un rango se pinta como rango', async () => {
+    await montarConEjercicios(conEjercicio({ reps_min: 6, reps_max: 10 }))
+    expect(screen.getByText('4 x 6-10')).toBeInTheDocument()
+  })
+
+  it('cuando el minimo y el maximo son iguales se pinta un solo numero', async () => {
+    await montarConEjercicios(conEjercicio({ reps_min: 15, reps_max: 15 }))
+    expect(screen.getByText('4 x 15')).toBeInTheDocument()
+    expect(screen.queryByText('4 x 15-15')).not.toBeInTheDocument()
+  })
+
+  it('la nota del ejercicio se ve, que es donde viven los matices', async () => {
+    await montarConEjercicios(conEjercicio({ notes: '10 por pierna' }))
+    expect(screen.getByText('10 por pierna')).toBeInTheDocument()
+  })
+
+  it('sin nota no aparece nada extra', async () => {
+    await montarConEjercicios(conEjercicio({ notes: null }))
+    expect(screen.queryByTestId('nota-101')).not.toBeInTheDocument()
   })
 })

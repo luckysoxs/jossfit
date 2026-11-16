@@ -120,6 +120,40 @@ def list_routines(
 
 # ─── Static PUT routes (before /{routine_id}) ───
 
+@router.put("/{routine_id}/activate", response_model=RoutineResponse)
+def activate_routine(
+    routine_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Marca esta rutina como la que el usuario esta entrenando.
+
+    Solo puede haber una activa, asi que apaga las demas en la misma pasada.
+    Una plantilla de cliente no cuenta: vive en el panel de coach y no se
+    entrena.
+    """
+    routine = (
+        db.query(Routine)
+        .filter(Routine.id == routine_id, Routine.user_id == user.id)
+        .first()
+    )
+    if not routine:
+        raise HTTPException(status_code=404, detail="Routine not found")
+    if routine.is_template:
+        raise HTTPException(
+            status_code=400,
+            detail="Una rutina de cliente no puede ser tu rutina activa",
+        )
+
+    db.query(Routine).filter(
+        Routine.user_id == user.id, Routine.id != routine.id
+    ).update({"is_active": False})
+    routine.is_active = True
+    db.commit()
+    db.refresh(routine)
+    return _decorate(db, routine, user)
+
+
 @router.put("/reorder-days", status_code=200)
 def reorder_days(
     routine_id: int = Body(...),
