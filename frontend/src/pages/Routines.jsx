@@ -149,6 +149,11 @@ export default function Routines() {
                       </div>
                     )}
                     <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                      {r.is_active && (
+                        <span className="bg-green-50 dark:bg-green-500/10 text-green-600 dark:text-green-400 px-2 py-0.5 rounded-full text-[11px] font-medium">
+                          Activa
+                        </span>
+                      )}
                       <span className="bg-brand-50 dark:bg-brand-500/10 text-brand-500 px-2 py-0.5 rounded-full text-[11px] font-medium">
                         {r.split_type}
                       </span>

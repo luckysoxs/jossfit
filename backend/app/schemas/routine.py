@@ -77,6 +77,7 @@ class RoutineResponse(BaseModel):
     ai_data: dict | None = None
     rest_weekdays: list[int] | None = None
     is_template: bool = False
+    is_active: bool = False
     # Se llenan al vuelo cuando la rutina viene de un coach; no son columnas.
     read_only: bool = False
     assigned_by: str | None = None

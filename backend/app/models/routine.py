@@ -21,6 +21,9 @@ class Routine(Base):
     # True = rutina hecha para clientes. No aparece en la lista de entrenamiento
     # propia del coach; vive en el panel de coach.
     is_template: Mapped[bool] = mapped_column(Boolean, default=False)
+    # La que el usuario esta entrenando ahora. Solo una por usuario; el
+    # dashboard la usa en vez de adivinar con la mas vieja.
+    is_active: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     user = relationship("User", back_populates="routines")

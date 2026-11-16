@@ -1043,8 +1043,16 @@ export default function RoutineDayDetail() {
                       </div>
                     </div>
                     <div className="text-right text-sm ml-3">
-                      <p className="font-medium">{ex.sets} x {ex.reps_min}-{ex.reps_max}</p>
+                      {/* "4 x 15-15" se lee raro; cuando no hay rango va un solo numero. */}
+                      <p className="font-medium">
+                        {ex.sets} x {ex.reps_min === ex.reps_max ? ex.reps_min : `${ex.reps_min}-${ex.reps_max}`}
+                      </p>
                       <p className="text-xs text-gray-400">Descanso: {ex.rest_seconds}s</p>
+                      {/* Aqui viven los matices que no caben en dos enteros:
+                          "10 por pierna", "30-45 segundos por lado", "15 min". */}
+                      {ex.notes && (
+                        <p data-testid={`nota-${ex.id}`} className="text-xs text-gray-400 italic mt-0.5">{ex.notes}</p>
+                      )}
                     </div>
                   </div>
 

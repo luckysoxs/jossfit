@@ -190,6 +190,7 @@ EXERCISES = [
     ("Hanging Leg Raise", "Elevación de Piernas Colgado", MuscleGroup.ABS, None, ExerciseCategory.ISOLATION, "Bodyweight"),
     ("Ab Wheel Rollout", "Rueda Abdominal", MuscleGroup.ABS, None, ExerciseCategory.ISOLATION, "Ab Wheel"),
     ("Plank", "Plancha", MuscleGroup.ABS, None, ExerciseCategory.ISOLATION, "Bodyweight"),
+    ("Side Plank", "Plancha Lateral", MuscleGroup.ABS, "obliques", ExerciseCategory.ISOLATION, "Bodyweight"),
     ("Russian Twist", "Giro Ruso", MuscleGroup.ABS, None, ExerciseCategory.ISOLATION, "Bodyweight"),
     ("Decline Crunch", "Crunch Declinado", MuscleGroup.ABS, None, ExerciseCategory.ISOLATION, "Bench"),
     ("Bicycle Crunch", "Crunch Bicicleta", MuscleGroup.ABS, None, ExerciseCategory.ISOLATION, "Bodyweight"),

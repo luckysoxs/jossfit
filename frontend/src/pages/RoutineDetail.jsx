@@ -10,7 +10,7 @@ import DuplicateRoutineModal from '../components/routines/DuplicateRoutineModal'
 import { WEEKDAY_NAMES, WEEKDAY_SHORT, getWeekdayMap, getNextTrainingDate, progressStorageKey } from '../utils/routineConstants'
 import {
   ArrowLeft, X, Zap, Dumbbell, GripVertical, ChevronRight, ChevronUp, ChevronDown,
-  Calendar, Moon, Pencil, WifiOff, UserCheck, Share2,
+  Calendar, Moon, Pencil, WifiOff, UserCheck, Share2, Check,
 } from 'lucide-react'
 
 export default function RoutineDetail() {
@@ -117,6 +117,17 @@ export default function RoutineDetail() {
   }) : []
   const sortedTrainingDays = sortedDays
 
+  const activarRutina = async () => {
+    try {
+      const r = await api.put(`/routines/${id}/activate`)
+      setRoutine(r.data)
+      cacheSet(`routine_${id}`, r.data)
+    } catch (err) {
+      console.error('Error activando rutina:', err)
+      alert('No se pudo marcar como activa')
+    }
+  }
+
   const moveDay = async (dayIdx, delta) => {
     const destino = dayIdx + delta
     if (reordering || destino < 0 || destino >= sortedTrainingDays.length) return
@@ -207,6 +218,9 @@ export default function RoutineDetail() {
                 {routine.generation_type === 'adaptativo' && (
                   <span className="bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full text-xs">Adaptativo</span>
                 )}
+                {routine.is_active && (
+                  <span className="bg-green-50 dark:bg-green-500/10 text-green-600 dark:text-green-400 px-2 py-0.5 rounded-full text-xs font-medium">Rutina activa</span>
+                )}
                 {offlineMode && (
                   <span className="flex items-center gap-1 text-xs text-amber-500 bg-amber-50 dark:bg-amber-500/10 px-2 py-0.5 rounded-full">
                     <WifiOff size={10} /> Offline
@@ -233,6 +247,12 @@ export default function RoutineDetail() {
                 className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-brand-500 hover:text-brand-400 bg-brand-50 dark:bg-brand-500/10 px-3 py-2 rounded-xl transition-colors">
                 <Zap size={14} /> Nueva
               </button>
+              {!routine.is_template && !routine.is_active && (
+                <button onClick={activarRutina}
+                  className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-green-600 dark:text-green-400 hover:text-green-500 bg-green-50 dark:bg-green-500/10 px-3 py-2 rounded-xl transition-colors">
+                  <Check size={14} className="shrink-0" /> <span>Marcar como activa</span>
+                </button>
+              )}
               {puedeCompartirClientes && (
                 <button onClick={() => setShowShareClientes(true)}
                   className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-gray-400 hover:text-brand-500 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-xl transition-colors">
