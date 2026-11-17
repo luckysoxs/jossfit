@@ -37,7 +37,16 @@ export default function TodayRoutineBanner() {
         return
       }
 
-      const routine = routines[routines.length - 1]
+      // La lista llega de la mas nueva a la mas vieja, asi que tomar la
+      // ultima agarraba la rutina MAS VIEJA y el banner mandaba al dia
+      // equivocado. Lo que manda es la bandera de rutina activa; si ninguna
+      // la trae (cuentas de antes), la propia mas reciente, y ya al final
+      // una asignada por el coach.
+      const porFecha = (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
+      const propias = routines.filter(r => !r.read_only).sort(porFecha)
+      const routine =
+        routines.find(r => r.is_active) || propias[0] || routines.slice().sort(porFecha)[0]
+      if (!routine) { setTodayInfo(null); return }
       const restWeekdays = routine.rest_weekdays || [6]
       const weekdayMap = getWeekdayMap(routine.days_per_week, restWeekdays)
       const todayWeekday = (new Date().getDay() + 6) % 7
