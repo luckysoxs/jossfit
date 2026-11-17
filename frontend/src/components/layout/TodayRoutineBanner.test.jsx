@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import TodayRoutineBanner from './TodayRoutineBanner'
 import api from '../../services/api'
+import { progressStorageKey } from '../../utils/routineConstants'
 
 // El banner tomaba routines[length - 1] y la lista llega ordenada de la mas
 // nueva a la mas vieja: mandaba al dia de la rutina MAS VIEJA. Tiene que
@@ -15,11 +16,14 @@ vi.mock('../../services/offlineCache', () => ({
   cacheGet: vi.fn(() => null),
 }))
 
-const { navegar } = vi.hoisted(() => ({ navegar: vi.fn() }))
-vi.mock('react-router-dom', () => {
-  const ubicacion = { pathname: '/dashboard' }
-  return { useNavigate: () => navegar, useLocation: () => ubicacion }
-})
+const { navegar, ubicacion } = vi.hoisted(() => ({
+  navegar: vi.fn(),
+  ubicacion: { pathname: '/dashboard' },
+}))
+vi.mock('react-router-dom', () => ({
+  useNavigate: () => navegar,
+  useLocation: () => ubicacion,
+}))
 
 // Estos objetos tienen que ser SIEMPRE el mismo: el efecto que carga la
 // rutina depende de `user`, y devolver uno nuevo en cada render lo vuelve un
@@ -71,6 +75,7 @@ describe('Banner de hoy te toca', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     localStorage.clear()
+    ubicacion.pathname = '/dashboard'
   })
 
   it('muestra el dia de la rutina activa, no el de la mas vieja', async () => {
@@ -120,6 +125,55 @@ describe('Banner de hoy te toca', () => {
     render(<TodayRoutineBanner />)
 
     expect(await screen.findByText(`Coach dia ${HOY}`)).toBeInTheDocument()
+  })
+
+  // Jos borro tres ejercicios del dia y los siete que quedaban estaban
+  // marcados: el dia iba al 100%, pero el banner seguia con la lista vieja de
+  // diez y decia 70%. Tiene que volver a preguntar al salir de la rutina.
+  const conEjercicios = (cuantos) => ({
+    ...NUEVA,
+    days: [{
+      id: 500,
+      day_number: HOY,
+      name: 'Dia de hoy',
+      exercises: Array.from({ length: cuantos }, (_, i) => ({ id: 600 + i })),
+    }],
+    days_per_week: 7,
+    rest_weekdays: [],
+  })
+
+  it('vuelve a pedir la rutina al salir de una pantalla de rutina', async () => {
+    api.get.mockResolvedValue({ data: [NUEVA] })
+    ubicacion.pathname = '/routines/66'
+
+    const { rerender } = render(<TodayRoutineBanner />)
+    await screen.findByText(`Nueva dia ${HOY}`)
+    expect(api.get).toHaveBeenCalledTimes(1)
+
+    ubicacion.pathname = '/dashboard'
+    rerender(<TodayRoutineBanner />)
+
+    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2))
+  })
+
+  it('el avance usa los ejercicios que quedan, no los borrados', async () => {
+    // Siete marcados. Con diez ejercicios eso es 70%; con los siete que
+    // quedan despues de borrar, es el dia completo.
+    const marcados = {}
+    for (let i = 0; i < 7; i++) marcados[600 + i] = true
+    localStorage.setItem(progressStorageKey(66), JSON.stringify(marcados))
+
+    api.get.mockResolvedValue({ data: [conEjercicios(10)] })
+    ubicacion.pathname = '/routines/66'
+    const { rerender } = render(<TodayRoutineBanner />)
+    expect(await screen.findByText('70%')).toBeInTheDocument()
+
+    api.get.mockResolvedValue({ data: [conEjercicios(7)] })
+    ubicacion.pathname = '/dashboard'
+    rerender(<TodayRoutineBanner />)
+
+    expect(await screen.findByText('100%')).toBeInTheDocument()
+    expect(screen.queryByText('70%')).not.toBeInTheDocument()
   })
 
   it('no se muestra si no hay rutinas', async () => {

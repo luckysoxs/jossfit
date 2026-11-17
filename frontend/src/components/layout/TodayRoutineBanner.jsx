@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Dumbbell, ChevronRight, Check, Timer } from 'lucide-react'
 import api from '../../services/api'
@@ -18,6 +18,20 @@ export default function TodayRoutineBanner() {
   const location = useLocation()
   const [todayInfo, setTodayInfo] = useState(null)
   const [progress, setProgress] = useState(0) // 0-100
+  const [recarga, setRecarga] = useState(0)
+
+  // Al salir de una pantalla de rutina volvemos a pedir la lista. El banner
+  // la pedia una sola vez al entrar a la app, asi que si borrabas o agregabas
+  // ejercicios seguia contando el dia viejo: con 7 de 10 marcados y los 3
+  // borrados, decia 70% cuando el dia ya estaba completo.
+  const rutaPrevia = useRef(location.pathname)
+  useEffect(() => {
+    const antes = rutaPrevia.current
+    rutaPrevia.current = location.pathname
+    if (antes !== location.pathname && antes.startsWith('/routines/')) {
+      setRecarga(n => n + 1)
+    }
+  }, [location.pathname])
 
   useEffect(() => {
     if (!user) return
@@ -76,7 +90,7 @@ export default function TodayRoutineBanner() {
     }
 
     load()
-  }, [user])
+  }, [user, recarga])
 
   // Re-check progress when navigating back (e.g. after checking exercises)
   useEffect(() => {
