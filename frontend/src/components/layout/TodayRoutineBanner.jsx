@@ -20,17 +20,16 @@ export default function TodayRoutineBanner() {
   const [progress, setProgress] = useState(0) // 0-100
   const [recarga, setRecarga] = useState(0)
 
-  // Al salir de una pantalla de rutina volvemos a pedir la lista. El banner
-  // la pedia una sola vez al entrar a la app, asi que si borrabas o agregabas
-  // ejercicios seguia contando el dia viejo: con 7 de 10 marcados y los 3
-  // borrados, decia 70% cuando el dia ya estaba completo.
+  // En cada navegacion volvemos a pedir la lista. El banner la pedia una
+  // sola vez al entrar a la app, asi que si borrabas o agregabas ejercicios
+  // seguia contando el dia viejo: con 7 marcados y 2 borrados decia 78%
+  // cuando el dia ya estaba completo. Esperar a salir de la rutina no
+  // alcanzaba, porque el banner se ve justo mientras estas en ella.
   const rutaPrevia = useRef(location.pathname)
   useEffect(() => {
-    const antes = rutaPrevia.current
+    if (rutaPrevia.current === location.pathname) return
     rutaPrevia.current = location.pathname
-    if (antes !== location.pathname && antes.startsWith('/routines/')) {
-      setRecarga(n => n + 1)
-    }
+    setRecarga(n => n + 1)
   }, [location.pathname])
 
   useEffect(() => {

@@ -142,7 +142,7 @@ describe('Banner de hoy te toca', () => {
     rest_weekdays: [],
   })
 
-  it('vuelve a pedir la rutina al salir de una pantalla de rutina', async () => {
+  it('vuelve a pedir la rutina en cada navegacion', async () => {
     api.get.mockResolvedValue({ data: [NUEVA] })
     ubicacion.pathname = '/routines/66'
 
@@ -152,28 +152,31 @@ describe('Banner de hoy te toca', () => {
 
     ubicacion.pathname = '/dashboard'
     rerender(<TodayRoutineBanner />)
-
     await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2))
+
+    // Y tambien al ENTRAR a una rutina: el banner se ve mientras estas ahi.
+    ubicacion.pathname = '/routines/66'
+    rerender(<TodayRoutineBanner />)
+    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(3))
   })
 
   it('el avance usa los ejercicios que quedan, no los borrados', async () => {
-    // Siete marcados. Con diez ejercicios eso es 70%; con los siete que
+    // Siete marcados. Con nueve ejercicios eso es 78%; con los siete que
     // quedan despues de borrar, es el dia completo.
     const marcados = {}
     for (let i = 0; i < 7; i++) marcados[600 + i] = true
     localStorage.setItem(progressStorageKey(66), JSON.stringify(marcados))
 
-    api.get.mockResolvedValue({ data: [conEjercicios(10)] })
-    ubicacion.pathname = '/routines/66'
+    api.get.mockResolvedValue({ data: [conEjercicios(9)] })
     const { rerender } = render(<TodayRoutineBanner />)
-    expect(await screen.findByText('70%')).toBeInTheDocument()
+    expect(await screen.findByText('78%')).toBeInTheDocument()
 
     api.get.mockResolvedValue({ data: [conEjercicios(7)] })
-    ubicacion.pathname = '/dashboard'
+    ubicacion.pathname = '/routines/66'
     rerender(<TodayRoutineBanner />)
 
     expect(await screen.findByText('100%')).toBeInTheDocument()
-    expect(screen.queryByText('70%')).not.toBeInTheDocument()
+    expect(screen.queryByText('78%')).not.toBeInTheDocument()
   })
 
   it('no se muestra si no hay rutinas', async () => {

@@ -343,7 +343,10 @@ export default function RoutineDetail() {
           {/* Overall progress */}
           {allIds.length > 0 && (
             <div className="card flex items-center justify-between">
-              <span className="text-sm font-medium">Progreso de hoy</span>
+              {/* Cuenta los ejercicios de TODOS los dias y el marcado se
+                  guarda por semana: decia "hoy" y mostraba 7/59, como si el
+                  dia de hoy tuviera 59 ejercicios. */}
+              <span className="text-sm font-medium">Progreso de la semana</span>
               <div className="flex items-center gap-2">
                 <div className="w-32 h-2.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                   <div className="h-full bg-green-500 rounded-full transition-all duration-300"
